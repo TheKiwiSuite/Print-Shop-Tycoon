@@ -1,0 +1,27 @@
+WINDOWS NATIVE PLAYTEST — v0.2.11, October 12, 2026
+
+Standalone Godot 4.5.1 Windows game. Cinema Panic is a research reference;
+Print Shop Tycoon does not launch or depend on that game.
+
+272 checks passed: 109 gameplay, 70 empty-shop/DTF rotation, 13 approved-art,
+47 customer/payment, and 33 walking-customer/placement checks.
+The existing supplied-art test and scene-based walking test report an ObjectDB
+exit warning; the walking test has no remaining resource-use error.
+
+Actual native UI playthrough, separate QA profile:
+- Two visible customers entered and waited for their inquiries.
+- Clicking a customer opened the matching print job.
+- Equipment panel > Move Equipment relocated the installed sticker station.
+- An ordinary drag relocated it a second time with the grab position preserved.
+- Dragging toward/beyond the wall was rejected; the installed sprite stayed visible.
+- Build instructions, movement controls and footer remained readable.
+- Customer acceptance, artwork approval, queueing and owner assistance completed
+  the sticker order through the relocated station: cash $700 to $850, one sale.
+- The served customer exited. The other unaccepted inquiry expired and exited.
+- Automated tests additionally verify pickup waits for customer arrival,
+  pickup-bench relocation reroutes the return visit, and save/reload retains
+  customer position and route without replaying payment.
+
+Open the fixed desktop shortcut. Continue loads the existing shop.
+Customers move when the shop clock runs. Pause, Build and the customer book
+freeze their movement. New shops begin empty and paused for player setup.

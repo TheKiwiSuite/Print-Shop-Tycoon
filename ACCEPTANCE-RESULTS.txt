@@ -1,0 +1,112 @@
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+PASS: Initial accessible layout dtf / Valid: aligned film feed, service clearance, and walkable aisles.
+PASS: Initial accessible layout shaker / Valid: aligned film feed, service clearance, and walkable aisles.
+PASS: Initial accessible layout storage / Valid: aligned film feed, service clearance, and walkable aisles.
+PASS: Initial accessible layout sticker / Valid: aligned film feed, service clearance, and walkable aisles.
+PASS: Initial accessible layout heat / Valid: aligned film feed, service clearance, and walkable aisles.
+PASS: Initial accessible layout art / Valid: aligned film feed, service clearance, and walkable aisles.
+PASS: Initial accessible layout finish / Valid: aligned film feed, service clearance, and walkable aisles.
+PASS: Initial accessible layout pack / Valid: aligned film feed, service clearance, and walkable aisles.
+PASS: Reject sideways DTF shaker
+PASS: Reject disconnected DTF shaker
+PASS: Reject mismatched DTF widths
+PASS: Reject blocked front take-up
+PASS: Keep new equipment off a fixed shelf
+PASS: Keep the owner out of a fixed planter
+PASS: Rearrange a station with clear access
+PASS: Restore heat press layout
+PASS: Click-to-walk path available
+PASS: Owner route never crosses machine footprints
+PASS: Owner reaches clicked floor tile
+PASS: Direct movement changes owner position
+PASS: Solid equipment rejects owner placement
+PASS: Swept walking collision blocks a step through equipment
+PASS: Clear aisle permits a grounded walking step beside equipment
+PASS: Accept order 0
+PASS: Preflight order 0
+PASS: Gang pack order 0
+PASS: Physical dimensions / no overlap 0
+PASS: Queue order 0
+PASS: Transfer-only route never uses heat press
+PASS: DTF consumes real film stock
+PASS: Delivery pays once
+PASS: Accept order 1
+PASS: Preflight order 1
+PASS: Queue order 1
+PASS: QC fault has specific settings cause
+PASS: Fix cause and reprint
+PASS: Reprint consumes new stock
+PASS: Reprint adds time and waste cost
+PASS: Accept order 2
+PASS: Preflight order 2
+PASS: Gang pack order 2
+PASS: Physical dimensions / no overlap 2
+PASS: Queue order 2
+PASS: Apparel waits for exact garment sizes
+PASS: Apparel requires timed pressing
+PASS: Size / color blanks consumed
+PASS: Buy DTF throughput upgrade
+PASS: Hire DTF operator
+PASS: Hire print / cut operator
+PASS: Assign specialist to station
+PASS: Earned quality / delivery goals unlock garage
+PASS: Move into industrial shop
+PASS: Garage accessible station dtf
+PASS: Garage accessible station shaker
+PASS: Garage accessible station storage
+PASS: Garage accessible station dtf2
+PASS: Garage accessible station shaker2
+PASS: Garage accessible station sticker
+PASS: Garage accessible station heat
+PASS: Garage accessible station art
+PASS: Garage accessible station finish
+PASS: Garage accessible station pack
+PASS: Garage accessible station banner
+PASS: Garage accessible station cnc
+PASS: Garage accessible station dock
+PASS: Separate second DTF lane state
+PASS: Accept order 3
+PASS: Preflight order 3
+PASS: Queue order 3
+PASS: Accept order 4
+PASS: Preflight order 4
+PASS: Queue order 4
+PASS: Banner and CNC fully shipped
+PASS: CNC consumes rigid panels
+PASS: Low supplies prevent production
+PASS: Buy delayed delivery
+PASS: Arrival unblocks production
+PASS: Atomic native local save
+PASS: Load local save
+PASS: Cash survives reload
+PASS: Inventory survives reload
+PASS: Staff survives reload
+PASS: Layout survives reload
+PASS: Order states survive reload
+PASS: Reloaded shop advances its day
+PASS: Reloaded shop generates next-day offers
+PASS: Reloaded shop charges daily costs once
+PASS: Reloaded shop opens next day for play
+PASS: Day report idempotent 0
+PASS: Daily costs charged once 0
+PASS: New orders bounded 0
+PASS: Day report idempotent 1
+PASS: Daily costs charged once 1
+PASS: New orders bounded 1
+PASS: Day report idempotent 2
+PASS: Daily costs charged once 2
+PASS: New orders bounded 2
+PASS: Day report idempotent 3
+PASS: Daily costs charged once 3
+PASS: New orders bounded 3
+PASS: Several shop days remain playable
+PASS: Hire a prepress artist
+PASS: Accepted artwork enters prepress queue
+PASS: Artist walks to desk and repairs artwork
+PASS: Prepress desk released after job
+PASS: Save with work in flight
+PASS: Reload working operator and route
+PASS: In-flight production resumes to output
+PASS: Resuming production never double-consumes materials
+NATIVE ACCEPTANCE: 109 checks, 0 failures

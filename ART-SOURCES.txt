@@ -1,0 +1,29 @@
+Approved equipment guide: the user's Level 2 Expanded Industrial Print Shop
+illustration and close DTF-line references. The guide is retained in the Krita
+project as a reference layer. The in-game scene is constructed independently.
+
+DTF printer/shaker (v0.2.5): the five exact user-supplied PNG files from
+October 12, 2026. Native assets dtf-line-approved/right/left/back/front.png
+are byte-for-byte copies of the supplied images. No equipment was redrawn.
+The connected main image replaces the rejected separate Blender renders.
+Other supplied views are available in the station's Equipment Views panel.
+The game mirrors the main image horizontally to align its film direction
+with the existing isometric floor lane. Gallery images are shown unchanged.
+Older editable Blender source remains development material and is unused.
+
+Owner walking sheet: original generated chibi sheet created earlier in this
+task before the user requested a halt to image generation. Four facing rows,
+idle and walking frames. Used as animated owner/staff placeholder artwork.
+
+Other machines, benches, props and toolbar character icon: illustration atlas
+carried forward from the previous Print Shop Tycoon prototype. Its rejected
+printer/shaker cells are not drawn by this native game. An unused equipment
+generation that completed during cancellation was excluded from this project.
+No further image-generation requests were made after the user's stop request.
+
+Environment, product marks and interface: authored game drawing code.
+Sound effects and ambient loop: original synthesized audio in game code.
+Logo typeface: Barlow Condensed Black; bundled SIL Open Font License in
+source/assets/FONT-LICENSE.txt. Body text: engine fallback font.
+
+Art is not claimed to be a final exact reproduction of the reference style.

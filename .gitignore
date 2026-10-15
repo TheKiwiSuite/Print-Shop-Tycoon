@@ -1,0 +1,12 @@
+# Godot-generated cache and imports
+source/.godot/
+
+# Installed Windows build and transient Blender save
+windows/
+*.blend1
+
+# Local editor and operating-system files
+.DS_Store
+Thumbs.db
+*.tmp
+*.log
