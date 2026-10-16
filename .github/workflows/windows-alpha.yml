@@ -41,7 +41,7 @@ jobs:
           "$engine" --headless --path source --editor --import
           mkdir -p "$(realpath -m source/../../../work)"
           for test in acceptance customer_loop sales_growth session_reliability; do
-            timeout 120 xvfb-run -a "$engine" --path source --rendering-method gl_compatibility --script "res://test/$test.gd" 2>&1 | tee "$RUNNER_TEMP/$test.log"
+            timeout 120 xvfb-run -a "$engine" --path source --rendering-method gl_compatibility --audio-driver Dummy --script "res://test/$test.gd" 2>&1 | tee "$RUNNER_TEMP/$test.log"
             if grep -E 'SCRIPT ERROR:|ERROR:|FAIL:' "$RUNNER_TEMP/$test.log"; then exit 1; fi
           done
       - name: Export and package Windows x86_64
