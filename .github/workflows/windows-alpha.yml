@@ -1,0 +1,63 @@
+name: Package Windows alpha
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/windows-alpha.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install matching official Godot engine and templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot"
+          cd "$RUNNER_TEMP/godot"
+          base=https://github.com/godotengine/godot/releases/download/4.5.1-stable
+          curl --fail --location --retry 3 "$base/SHA512-SUMS.txt" -o SHA512-SUMS.txt
+          for file in Godot_v4.5.1-stable_linux.x86_64.zip Godot_v4.5.1-stable_export_templates.tpz; do
+            curl --fail --location --retry 3 "$base/$file" -o "$file"
+            grep " $file$" SHA512-SUMS.txt | sha512sum --check --strict
+          done
+          unzip -q Godot_v4.5.1-stable_linux.x86_64.zip
+          chmod +x Godot_v4.5.1-stable_linux.x86_64
+          unzip -q Godot_v4.5.1-stable_export_templates.tpz
+          mkdir -p "$HOME/.local/share/godot/export_templates/4.5.1.stable"
+          mv templates/* "$HOME/.local/share/godot/export_templates/4.5.1.stable/"
+      - name: Import and verify native simulation
+        shell: bash
+        run: |
+          set -euo pipefail
+          engine="$RUNNER_TEMP/godot/Godot_v4.5.1-stable_linux.x86_64"
+          "$engine" --headless --path source --editor --import
+          for test in acceptance customer_loop sales_growth session_reliability; do
+            timeout 120 "$engine" --headless --path source --script "res://test/$test.gd" 2>&1 | tee "$RUNNER_TEMP/$test.log"
+            if grep -E 'SCRIPT ERROR:|ERROR:|FAIL:' "$RUNNER_TEMP/$test.log"; then exit 1; fi
+          done
+      - name: Export and package Windows x86_64
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release/PrintShopTycoon/windows
+          "$RUNNER_TEMP/godot/Godot_v4.5.1-stable_linux.x86_64" --headless --path source --export-release 'Windows Desktop' "$GITHUB_WORKSPACE/release/PrintShopTycoon/windows/Print Shop Tycoon.exe"
+          cp README.txt GAME-AUDIT.md ART-SOURCES.txt release/PrintShopTycoon/
+          printf 'Source commit: %s\nEngine: Godot 4.5.1\nWindows x86_64 alpha 0.2.13\nUnsigned community test build. Known issues: GAME-AUDIT.md\n' "$GITHUB_SHA" > release/PrintShopTycoon/BUILD.txt
+          cd release
+          zip -qr PrintShopTycoon-Windows-v0.2.13.zip PrintShopTycoon
+          sha256sum PrintShopTycoon-Windows-v0.2.13.zip > PrintShopTycoon-Windows-v0.2.13.zip.sha256
+      - name: Publish Windows alpha download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create v0.2.13-web-alpha release/PrintShopTycoon-Windows-v0.2.13.zip release/PrintShopTycoon-Windows-v0.2.13.zip.sha256 --target "$GITHUB_SHA" --title 'Print Shop Tycoon 0.2.13 · Windows alpha' --prerelease --notes 'Windows x86_64 alpha built from the recorded source commit with Godot 4.5.1. Extract the ZIP and open windows/Print Shop Tycoon.exe. Known issues are included in GAME-AUDIT.md. This build is unsigned. Simulation checks run before export; this workflow does not certify a native Windows playthrough.'
