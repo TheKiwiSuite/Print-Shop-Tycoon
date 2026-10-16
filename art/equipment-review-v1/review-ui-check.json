@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "checks": [
+    "9 equipment choices",
+    "144 rendered image links load",
+    "next and previous angles",
+    "wrap 337.5 to 0 degrees",
+    "play and pause",
+    "model and manifest links exist",
+    "nine contact sheets captured",
+    "700px layout no horizontal overflow"
+  ],
+  "pageErrors": []
+}

@@ -285,14 +285,71 @@ func customer_ready_for_handoff(o:Dictionary) -> bool:
 func _reroute_customers() -> void:
  for actor in visible_customers(): actor["purpose"]="";actor["path"]=[];actor["phase"]="entering";actor["walking"]=false
 
+
+static func facing_of(m:Dictionary) -> int:
+ return posmod(int(m.get("facing",int(m["rotation"])*4)),16)
+
+func equipment_center(id:String,ms:Dictionary) -> Vector2:
+ if ms[id]["kind"]=="shaker": id="dtf2" if id=="shaker2" else "dtf"
+ var m=ms[id]
+ var low=v(m["pos"])-Vector2(0.5,0.5)
+ var high=low+v(m["size"])
+ if m["kind"]=="dtf":
+  var sh=ms["shaker2" if id=="dtf2" else "shaker"]
+  var sl=v(sh["pos"])-Vector2(0.5,0.5)
+  low=low.min(sl);high=high.max(sl+v(sh["size"]))
+ return (low+high)*0.5+v(m.get("floor_offset",[0,0]))
+
+func uses_rotated_footprint(id:String,ms:Dictionary) -> bool:
+ if ms[id]["kind"]=="shaker":id="dtf2" if id=="shaker2" else "dtf"
+ return facing_of(ms[id])%4!=0 or not v(ms[id].get("floor_offset",[0,0])).is_zero_approx()
+
+func equipment_polygon(id:String,ms:Dictionary) -> PackedVector2Array:
+ if ms[id]["kind"]=="shaker": id="dtf2" if id=="shaker2" else "dtf"
+ var m=ms[id]
+ var size=v(m["size"])
+ if m["kind"]=="dtf": size=Vector2(3,4) if int(m["rotation"])%2==0 else Vector2(4,3)
+ var center=equipment_center(id,ms)
+ var polygon=PackedVector2Array()
+ for corner in [Vector2(-1,-1),Vector2(1,-1),Vector2(1,1),Vector2(-1,1)]:
+  polygon.append(center+(corner*size*0.5).rotated(float(facing_of(m)%4)*PI/8.0))
+ return polygon
+
+func polygon_cells(polygon:PackedVector2Array) -> Array:
+ var low=polygon[0];var high=polygon[0]
+ for point in polygon: low=low.min(point);high=high.max(point)
+ var cells=[]
+ for x in range(floori(low.x),ceili(high.x)+1):
+  for y in range(floori(low.y),ceili(high.y)+1):
+   var tile=PackedVector2Array([Vector2(x-.499,y-.499),Vector2(x+.499,y-.499),Vector2(x+.499,y+.499),Vector2(x-.499,y+.499)])
+   if not Geometry2D.intersect_polygons(polygon,tile).is_empty():cells.append(Vector2i(x,y))
+ return cells
+
 func service(id:String, machines:Dictionary={}) -> Vector2i:
  var ms = state["machines"] if machines.is_empty() else machines
  var m = ms[id]
- return cell(m["pos"])+cell(m["service"])
+ var goal=cell(m["pos"])+cell(m["service"])
+ if not uses_rotated_footprint(id,ms): return goal
+ var center=equipment_center(id,ms)
+ var parent="dtf2" if id=="shaker2" else ("dtf" if id=="shaker" else id)
+ var base=center-v(ms[parent].get("floor_offset",[0,0]))
+ var ideal=center+(Vector2(goal)-base).rotated(float(facing_of(m)%4)*PI/8.0)
+ var own=footprint("dtf2" if id=="shaker2" else ("dtf" if id=="shaker" else id),ms)
+ var best=Vector2i(roundi(ideal.x),roundi(ideal.y))
+ var score=INF
+ for x in range(best.x-3,best.x+4):
+  for y in range(best.y-3,best.y+4):
+   var point=Vector2i(x,y)
+   if inside(point) and not own.has(point) and Vector2(point).distance_squared_to(ideal)<score:
+    score=Vector2(point).distance_squared_to(ideal);best=point
+ return best
 
 func footprint(id:String, machines:Dictionary={}) -> Array:
  var ms = state["machines"] if machines.is_empty() else machines
  var m = ms[id]
+ if uses_rotated_footprint(id,ms):
+  if m["kind"]=="shaker": return []
+  return polygon_cells(equipment_polygon(id,ms))
  var a = []
  for x in int(m["size"][0]):
   for y in int(m["size"][1]): a.append(cell(m["pos"])+Vector2i(x,y))
@@ -304,7 +361,7 @@ func blocked(machines:Dictionary={}) -> Dictionary:
  for id in ms:
   for p in footprint(id,ms): b[p] = true
  for id in ["dtf","dtf2"]:
-  if ms.has(id):
+  if ms.has(id) and not uses_rotated_footprint(id,ms):
    for x in 3: b[dtf_cell(id,Vector2i(x,1),ms)] = true
  for prop in room_props(): b[prop["pos"]]=true
  return b
@@ -389,7 +446,7 @@ func configure_dtf(ms:Dictionary,id:String,pos:Vector2i,r:int) -> void:
  var front_service=dtf_cell(id,Vector2i(-1,2),ms)-at
  m["service"]=[rear_service.x,rear_service.y];s["service"]=[front_service.x,front_service.y]
 
-func install_feedback(id:String,pos:Vector2i,rotation:int=0) -> Dictionary:
+func install_feedback(id:String,pos:Vector2i,rotation:int=0,facing:int=-1,center:Vector2=Vector2(INF,INF)) -> Dictionary:
  if not C.EQUIPMENT_PRICES.has(id): return {"valid":false,"reason":"Unknown equipment."}
  if state["machines"].has(id): return {"valid":false,"reason":"This station is already installed."}
  if state["cash"]<C.EQUIPMENT_PRICES[id]: return {"valid":false,"reason":"Not enough cash for this station."}
@@ -400,12 +457,12 @@ func install_feedback(id:String,pos:Vector2i,rotation:int=0) -> Dictionary:
  candidate[id]=source[id].duplicate(true)
  if id=="dtf": candidate["shaker"]=source["shaker"].duplicate(true)
  state["machines"]=candidate
- var result=placement_feedback(id,pos,rotation)
+ var result=placement_feedback(id,pos,rotation,facing,center)
  state["machines"]=previous
  return result
 
-func install_equipment(id:String,pos:Vector2i,rotation:int=0) -> bool:
- var result=install_feedback(id,pos,rotation)
+func install_equipment(id:String,pos:Vector2i,rotation:int=0,facing:int=-1,center:Vector2=Vector2(INF,INF)) -> bool:
+ var result=install_feedback(id,pos,rotation,facing,center)
  notice(result["reason"])
  if not result["valid"]: return false
  state["machines"]=result["machines"]
@@ -415,14 +472,17 @@ func install_equipment(id:String,pos:Vector2i,rotation:int=0) -> bool:
  save_game()
  return true
 
-func placement_feedback(id:String, pos:Vector2i, rotation:int=0) -> Dictionary:
+func placement_feedback(id:String, pos:Vector2i, rotation:int=0,facing:int=-1,center:Vector2=Vector2(INF,INF)) -> Dictionary:
  if not state["machines"].has(id): return {"valid":false,"reason":"Unknown equipment."}
  var ms = state["machines"].duplicate(true)
+ if facing<0: facing=posmod(rotation,4)*4
+ facing=posmod(facing,16)
+ rotation=floori(float(facing)/4.0)
  var m = ms[id]
  if int(m["active"])>=0: return {"valid":false,"reason":"Finish the current job before moving equipment."}
  m["pos"]=[pos.x,pos.y]
  if rotation != int(m["rotation"]) and m["kind"]!="dtf":
-  if m["kind"] in ["shaker","cnc","banner","dock"]: return {"valid":false,"reason":"Rotate the complete DTF line by selecting its printer."}
+  if m["kind"]=="shaker": return {"valid":false,"reason":"Rotate the complete DTF line by selecting its printer."}
   if rotation%2!=int(m["rotation"])%2:
    var width=m["size"][0]
    m["size"][0]=m["size"][1]
@@ -433,14 +493,26 @@ func placement_feedback(id:String, pos:Vector2i, rotation:int=0) -> Dictionary:
   var shake="shaker2" if id=="dtf2" else "shaker"
   if int(ms[shake]["active"])>=0: return {"valid":false,"reason":"The connected curing unit is working."}
   configure_dtf(ms,id,pos,rotation)
+  ms[shake]["facing"]=facing
+ m["facing"]=facing
+ if center.is_finite():
+  # Keep the physical floor pivot exact even when odd/even dimensions swap.
+  # Integer grid corners alone cannot represent a half-tile center at every angle.
+  m.erase("floor_offset")
+  var delta=center-equipment_center(id,ms)
+  pos+=Vector2i(roundi(delta.x),roundi(delta.y))
+  if m["kind"]=="dtf":configure_dtf(ms,id,pos,rotation)
+  else:m["pos"]=[pos.x,pos.y]
+  var offset=center-equipment_center(id,ms)
+  m["floor_offset"]=[offset.x,offset.y]
  var occupied = {}
  for key in ms:
   for p in footprint(key,ms):
-   if not inside(p): return {"valid":false,"reason":"Equipment must fit inside this shop."}
-   if occupied.has(p): return {"valid":false,"reason":"Equipment overlaps %s." % ms[occupied[p]]["title"]}
+   if not inside(p): return {"valid":false,"reason":"Equipment must fit inside this shop.","machines":ms}
+   if occupied.has(p): return {"valid":false,"reason":"Equipment overlaps %s." % ms[occupied[p]]["title"],"machines":ms}
    occupied[p]=key
  for prop in room_props():
-  if occupied.has(prop["pos"]): return {"valid":false,"reason":"Equipment overlaps a fixed shelf or plant."}
+  if occupied.has(prop["pos"]): return {"valid":false,"reason":"Equipment overlaps a fixed shelf or plant.","machines":ms}
  for printer in ["dtf","dtf2"]:
   if not ms.has(printer): continue
   var shake="shaker2" if printer=="dtf2" else "shaker"
@@ -450,25 +522,27 @@ func placement_feedback(id:String, pos:Vector2i, rotation:int=0) -> Dictionary:
   configure_dtf(expected,printer,p,int(ms[printer]["rotation"]))
   if s!=cell(expected[shake]["pos"]) or ms[shake]["size"]!=expected[shake]["size"] or int(ms[shake]["rotation"])!=int(ms[printer]["rotation"]): return {"valid":false,"reason":"Disconnected film feed: rotate and move the complete printer / shaker line."}
   if int(ms[printer]["width"])!=int(ms[shake]["width"]): return {"valid":false,"reason":"Printer and shaker media widths do not match."}
+  if uses_rotated_footprint(printer,ms): continue
   var reserved=[]
   for local in [Vector2i(1,-1),Vector2i(-1,0),Vector2i(-1,2),Vector2i(1,4)]: reserved.append(dtf_cell(printer,local,ms))
   for x in 3: reserved.append(dtf_cell(printer,Vector2i(x,1),ms))
   for p2 in reserved:
-   if not inside(p2) or occupied.has(p2): return {"valid":false,"reason":"Blocked DTF film span, rear loading, side service, or front take-up access."}
+   if not inside(p2) or occupied.has(p2): return {"valid":false,"reason":"Blocked DTF film span, rear loading, side service, or front take-up access.","machines":ms}
  for key in ms:
   var goal=service(key,ms)
-  if goal!=entrance() and path(entrance(),goal,ms).is_empty(): return {"valid":false,"reason":"No walkable aisle from the entrance to %s." % ms[key]["title"]}
+  if goal!=entrance() and path(entrance(),goal,ms).is_empty(): return {"valid":false,"reason":"No walkable aisle from the entrance to %s." % ms[key]["title"],"machines":ms}
  for w in state["workers"]:
-  if blocked(ms).has(Vector2i(roundi(w["pos"][0]),roundi(w["pos"][1]))): return {"valid":false,"reason":"Move the worker out of this footprint first."}
+  if blocked(ms).has(Vector2i(roundi(w["pos"][0]),roundi(w["pos"][1]))): return {"valid":false,"reason":"Move the worker out of this footprint first.","machines":ms}
  for actor in visible_customers():
-  if blocked(ms).has(Vector2i(roundi(actor["pos"][0]),roundi(actor["pos"][1]))): return {"valid":false,"reason":"A customer is standing here. Choose a clear floor space."}
+   if blocked(ms).has(Vector2i(roundi(actor["pos"][0]),roundi(actor["pos"][1]))): return {"valid":false,"reason":"A customer is standing here. Choose a clear floor space.","machines":ms}
  return {"valid":true,"reason":"Valid: equipment fits with clear service access and walkable aisles.","machines":ms}
 
-func move_equipment(id:String, p:Vector2i, rotation:int=0) -> bool:
- var f=placement_feedback(id,p,rotation)
+func move_equipment(id:String, p:Vector2i, rotation:int=0,facing:int=-1,center:Vector2=Vector2(INF,INF)) -> bool:
+ var f=placement_feedback(id,p,rotation,facing,center)
  notice(f["reason"])
  if not f["valid"]: return false
  state["machines"]=f["machines"]
+ state["machines"][id].erase("rotation_pivot")
  _reroute_customers()
  for w in state["workers"]:
   if not w["task"].is_empty():
@@ -479,6 +553,11 @@ func move_equipment(id:String, p:Vector2i, rotation:int=0) -> bool:
    w["path"]=path(Vector2i(roundi(w["pos"][0]),roundi(w["pos"][1])),goal)
  save_game()
  return true
+
+func rotate_equipment(id:String) -> bool:
+ var m=state["machines"][id]
+ var facing=(facing_of(m)+1)%16
+ return move_equipment(id,cell(m["pos"]),facing/4,facing,equipment_center(id,state["machines"]))
 
 func accept(i:int, rush:bool=false) -> bool:
  if not state["paused"]: _update_visits()
@@ -608,7 +687,7 @@ func _dispatch(i:int, w:Dictionary, m:String) -> bool:
   if machine["width"]!=state["machines"][shake]["width"] or machine["width"]!=o["film_width"]:
    notice("DTF film, printer, and shaker widths must match.")
    return false
-  if not placement_feedback(m,cell(machine["pos"]),int(machine["rotation"]))["valid"]: return false
+  if not placement_feedback(m,cell(machine["pos"]),int(machine["rotation"]),facing_of(machine))["valid"]: return false
  if o["stage"]=="waiting_stock":
   if not materials_available(o["recipe"]): return false
   o["stage"]="queued"

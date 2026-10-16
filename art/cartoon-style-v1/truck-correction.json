@@ -1,0 +1,7 @@
+{
+  "mode": "Built-in image generation, targeted edit",
+  "source": "exec-deb56964-9cd8-45ff-bc11-e05b301bdd85.png",
+  "prompt": "Make one precise correction to image 1, the illustrated 4x4 sixteen-direction truck sprite sheet. Preserve its cartoon drawing style, 16 positions, cell layout, camera angles, scale, colors, outlines, wheels, cargo and transparent background. Image 2 is the original geometry guide. In the REAR views the cargo box is TALLER than the cab: the cab roof, orange marker lights and mirrors must be occluded exactly as in image 2. In particular row 3 column 1 (180 degrees straight rear) must show ONLY the rectangular white cargo box and open loaded rear bay above bumper/wheels: remove the invented cab/three orange lights/mirrors peeking up above the far edge of the cargo roof. Correct the same impossible above-roof orange cab lights in the nearby rear views row2 columns3,4 and row3 columns2,3,4 using the source geometry. Keep cab lights in the front/side views where physically visible. No other redesign. All 16 separate distinct angles must remain in their original 4x4 cells, each fully contained with clear margins, actual transparent background. Do not add labels or grid.",
+  "fix": "Removed impossible above-roof cab marker lights from rear views",
+  "output": "sheets/dock.png"
+}

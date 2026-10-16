@@ -26,6 +26,10 @@ var shaker_texture:Texture2D
 var dtf_line_texture:Texture2D
 var dtf_views=[]
 var dtf_view_index=0
+var illustrated={}
+var illustrated_info={}
+var placement_facing=0
+var drag_facing=0
 var pending_equipment=""
 var placement_rotation=0
 var equipment_page=0
@@ -57,6 +61,7 @@ var drag_order = -1
 var drag_point = Vector2i.ZERO
 var drag_rotation = 0
 var drag_offset = Vector2.ZERO
+var preview_center_offset = Vector2.ZERO
 var moving_equipment = ""
 var drag_valid = {}
 var gang_drag = -1
@@ -97,6 +102,7 @@ func _ready() -> void:
  machine_images[13]=dtf_views[2].get_image()
  machine_images[14]=dtf_views[4].get_image()
  machine_images[15]=dtf_views[1].get_image()
+ _load_illustrated()
  audio=AudioStreamPlayer.new()
  music=AudioStreamPlayer.new()
  add_child(audio)
@@ -211,12 +217,12 @@ func _input(event:InputEvent) -> void:
    KEY_R:
     if modal=="gang": _rotate_gang()
     elif modal!="" or screen!="shop": pass
-    elif pending_equipment!="": placement_rotation=(placement_rotation+1)%4; drag_valid=sim.install_feedback(pending_equipment,drag_point,placement_rotation)
-    elif _relocating(): drag_rotation=(drag_rotation+1)%4; drag_valid=sim.placement_feedback(drag_id,drag_point,drag_rotation)
+    elif pending_equipment!="": _rotate_equipment()
+    elif _relocating(): _rotate_equipment()
     elif build and sim.state["machines"].has(selected_machine):
      var id="dtf2" if selected_machine=="shaker2" else ("dtf" if selected_machine=="shaker" else selected_machine)
      var m=sim.state["machines"][id]
-     sim.move_equipment(id,sim.cell(m["pos"]),(int(m["rotation"])+1)%4)
+     _rotate_equipment()
    KEY_F5:
     if screen=="shop": _action("save")
   return
@@ -233,12 +239,14 @@ func _input(event:InputEvent) -> void:
     if modal!="" or screen!="shop": return
     if pending_equipment!="":
      var tile=uniso(event.position)
-     if sim.install_equipment(pending_equipment,Vector2i(roundi(tile.x),roundi(tile.y)),placement_rotation):
+     var at=Vector2i(roundi(tile.x),roundi(tile.y))
+     if sim.install_equipment(pending_equipment,at,placement_rotation,placement_facing,Vector2(at)+preview_center_offset):
       selected_machine=pending_equipment;pending_equipment=""
      return
     if moving_equipment!="":
      var tile=uniso(event.position)
-     if sim.move_equipment(moving_equipment,Vector2i(roundi(tile.x),roundi(tile.y)),drag_rotation):
+     var at=Vector2i(roundi(tile.x),roundi(tile.y))
+     if sim.move_equipment(moving_equipment,at,drag_rotation,drag_facing,Vector2(at)+preview_center_offset):
       moving_equipment="";drag_valid={}
      return
     if not build:
@@ -255,7 +263,8 @@ func _input(event:InputEvent) -> void:
     if machine!="":
      selected_machine=machine
      if build:
-      dragging="machine"; drag_id=machine; drag_point=sim.cell(sim.state["machines"][machine]["pos"]); drag_offset=Vector2(drag_point)-uniso(event.position); drag_rotation=int(sim.state["machines"][machine]["rotation"]); drag_valid=sim.placement_feedback(machine,drag_point,drag_rotation)
+      dragging="machine"; drag_id=machine; drag_point=sim.cell(sim.state["machines"][machine]["pos"]); drag_offset=Vector2(drag_point)-uniso(event.position); drag_rotation=int(sim.state["machines"][machine]["rotation"]);drag_facing=sim.facing_of(sim.state["machines"][machine]); drag_valid=sim.placement_feedback(machine,drag_point,drag_rotation,drag_facing)
+      preview_center_offset=sim.equipment_center(machine,sim.state["machines"])-Vector2(drag_point)
      else: modal="machine"
      return
     var p=uniso(event.position)
@@ -273,8 +282,8 @@ func _input(event:InputEvent) -> void:
      # A fast final movement (or a dropped motion event) must still reject walls.
      var p=uniso(event.position)+drag_offset
      drag_point=Vector2i(roundi(p.x),roundi(p.y))
-     drag_valid=sim.placement_feedback(drag_id,drag_point,drag_rotation)
-     sim.move_equipment(drag_id,drag_point,drag_rotation)
+     _refresh_equipment_preview()
+     sim.move_equipment(drag_id,drag_point,drag_rotation,drag_facing,Vector2(drag_point)+preview_center_offset)
      dragging=""
      drag_valid={}
     elif dragging=="worker":
@@ -299,11 +308,11 @@ func _input(event:InputEvent) -> void:
   if _relocating():
    var p=uniso(event.position)+(drag_offset if moving_equipment=="" else Vector2.ZERO)
    drag_point=Vector2i(roundi(p.x),roundi(p.y))
-   drag_valid=sim.placement_feedback(drag_id,drag_point,drag_rotation)
+   _refresh_equipment_preview()
   if pending_equipment!="":
    var p=uniso(event.position)
    drag_point=Vector2i(roundi(p.x),roundi(p.y))
-   drag_valid=sim.install_feedback(pending_equipment,drag_point,placement_rotation)
+   _refresh_equipment_preview()
   if gang_drag>=0:
    var tile=sim.order(selected_order)["gang"][gang_drag]
    var pos=(event.position-GANG_POS)/GANG_SCALE-Vector2(tile[2],tile[3])*0.5
@@ -320,6 +329,7 @@ func _machine_at(p:Vector2) -> String:
   var px=clampi(int(uv.x*img.get_width()),0,img.get_width()-1)
   var py=clampi(int(uv.y*img.get_height()),0,img.get_height()-1)
   if img.get_pixel(px,py).a>0.15:
+   if hit.get("illustrated",false): return hit["id"]
    if hit["sprite"] in [12,13,14,15]:
     if build: return hit["printer"]
     if hit["sprite"]==13: return hit["id"] if uv.x<0.63 and uv.y>0.3 else hit["printer"]
@@ -345,7 +355,12 @@ func _save_before(action:String) -> bool:
  return false
 
 func _render_machines() -> Dictionary:
- return drag_valid["machines"] if _relocating() and drag_valid.get("valid",false) else sim.state["machines"]
+ return drag_valid["machines"] if (_relocating() or pending_equipment!="") and drag_valid.has("machines") else sim.state["machines"]
+
+func _refresh_equipment_preview() -> void:
+ var center=Vector2(drag_point)+preview_center_offset
+ if pending_equipment!="":drag_valid=sim.install_feedback(pending_equipment,drag_point,placement_rotation,placement_facing,center)
+ elif _relocating():drag_valid=sim.placement_feedback(drag_id,drag_point,drag_rotation,drag_facing,center)
 
 func _interact_nearby() -> void:
  var nearest=""
@@ -500,19 +515,22 @@ func _world() -> void:
  _poly([a,c,c+wall,a+wall],Color("f2dfbb") if sim.state["location"]==1 else Color("c4ccd0"),Color("70685d"),2)
  var exterior=Vector2(-11,-5)*zoom
  _poly([b,b+wall,b+wall+exterior,b+exterior],Color("a7ac9f"),Color("606e68"),2)
- for n in size.y:
-  var p=iso(Vector2(-0.5,n))
-  var half=Vector2(-20,10)*zoom
-  if n==9 and sim.state["location"]==1:
-   _poly([p+half,p-half,p-half+wall*0.93,p+half+wall*0.93],Color("224660"),INK,2)
-   _poly([p+half*0.85+Vector2(0,-8)*zoom,p-half*0.85+Vector2(0,-8)*zoom,p-half*0.85+wall*0.87,p+half*0.85+wall*0.87],Color("a1def0"),Color("4a9eaf"),2)
-   _panel(Rect2(p+Vector2(-22,-94)*zoom,Vector2(46,27)*zoom),RED)
-   _text(p+Vector2(-19,-76)*zoom,"OPEN",int(14*zoom),CREAM)
-  else:
-   _poly([p+half+wall*0.24,p-half+wall*0.24,p-half+wall*0.92,p+half+wall*0.92],Color("365767"),INK,2)
-   _poly([p+half*0.84+wall*0.29,p-half*0.84+wall*0.29,p-half*0.84+wall*0.87,p+half*0.84+wall*0.87],Color("b4e9f1"),Color("5a8492"),1)
-   draw_line(p+half+wall*0.57,p-half+wall*0.57,Color("4a7f8d"),3*zoom)
-   draw_line(p+Vector2(0,-high*0.28),p+Vector2(0,-high*0.9),Color("4a7f8d"),2*zoom)
+ # Three generous windows, separated by solid wall, rather than one per tile.
+ var entrance_y=float(sim.entrance().y)
+ for n in 3:
+  var along=lerpf(1.35,entrance_y-2.0,float(n)/2.0)
+  var p=iso(Vector2(-0.5,along))
+  var half=Vector2(-50.4,24.15)*zoom
+  _poly([p+half+wall*.22,p-half+wall*.22,p-half+wall*.91,p+half+wall*.91],Color("365767"),INK,2)
+  _poly([p+half*.9+wall*.27,p-half*.9+wall*.27,p-half*.9+wall*.86,p+half*.9+wall*.86],Color("b4e9f1"),Color("5a8492"),1)
+  draw_line(p+wall*.27,p+wall*.86,Color("4a7f8d"),3*zoom)
+  draw_line(p+half*.72+wall*.32,p+half*.72+wall*.8,Color("e1faff"),2*zoom)
+ var door=iso(Vector2(-0.5,entrance_y))
+ var door_half=Vector2(-21.6,10.35)*zoom
+ _poly([door+door_half,door-door_half,door-door_half+wall*.93,door+door_half+wall*.93],Color("224660"),INK,2)
+ _poly([door+door_half*.8+Vector2(0,-8)*zoom,door-door_half*.8+Vector2(0,-8)*zoom,door-door_half*.8+wall*.87,door+door_half*.8+wall*.87],Color("a1def0"),Color("4a9eaf"),2)
+ _panel(Rect2(door+Vector2(-22,-94)*zoom,Vector2(46,27)*zoom),RED)
+ _text(door+Vector2(-19,-76)*zoom,"OPEN",int(14*zoom),CREAM)
  for x in size.x:
   for y in size.y:
    var p=iso(Vector2(x,y))
@@ -531,12 +549,12 @@ func _world() -> void:
  for n in [2,5,8]:
   var p=iso(Vector2(0,n))
   _poly([p,p+Vector2(92,44)*zoom,p+Vector2(139,22)*zoom,p+Vector2(47,-22)*zoom],Color(1,0.95,0.69,0.11),Color.TRANSPARENT,0)
- _poster(iso(Vector2(2,-0.5))+Vector2(0,-124)*zoom,"PRINT MORE","GROW BIGGER",MAGENTA)
- _poster(iso(Vector2(size.x-3,-0.5))+Vector2(0,-117)*zoom,"GOOD PRINTS","HAPPY PEOPLE",GREEN)
+ _poster(iso(Vector2(4,-0.5)),["PRINT","MORE","GROW","BIGGER"],[BLUE,BLUE,MAGENTA,BLUE],true)
+ _poster(iso(Vector2(size.x-3,-0.5)),["GOOD","PRINTS","HAPPIER","PEOPLE"],[MAGENTA,BLUE,BLUE,GREEN],false)
  var items=[]
- for id in sim.state["machines"]:
+ for id in _render_machines():
   var m=_render_machines()[id]
-  var pos=_equipment_position(id)+Vector2((float(m["size"][0])-1)*0.5,(float(m["size"][1])-1)*0.5)
+  var pos=sim.equipment_center(id,_render_machines())
   var depth=pos.x+pos.y+0.3
   if m["kind"]=="shaker":
    var printer="dtf2" if id=="shaker2" else "dtf"
@@ -556,21 +574,36 @@ func _world() -> void:
    "machine": _machine(item["id"])
    "worker": _worker(item["id"])
    "customer": _customer(item["actor"])
-   "rack": _sprite(7,iso(item["pos"]),125)
+   "rack": _illustrated_prop("storage",iso(item["pos"]))
    "plant": _sprite(8,iso(item["pos"]),63)
- for x in [1,6,size.x-2]:
+ for x in [1.0,7.0,float(size.x)-.8]:
   var p=iso(Vector2(x,-0.5))+Vector2(0,-125)*zoom
   draw_line(p-Vector2(0,65)*zoom,p,Color("263442"),3*zoom)
   _oval(p+Vector2(0,5)*zoom,Vector2(19,8)*zoom,Color("25313d"))
   _oval(p+Vector2(0,9)*zoom,Vector2(13,3)*zoom,Color("ffeeb5"))
 
-func _poster(p:Vector2, line1:String,line2:String,color:Color) -> void:
- _panel(Rect2(p+Vector2(-38,0)*zoom,Vector2(76,80)*zoom),CREAM,Color("a47754"),2)
- _text(p+Vector2(-31,20)*zoom,line1,int(12*zoom),BLUE)
- _text(p+Vector2(-31,40)*zoom,line2,int(10*zoom),color)
- draw_circle(p+Vector2(0,59)*zoom,8*zoom,YELLOW)
- draw_circle(p+Vector2(-3,57)*zoom,1.5*zoom,INK); draw_circle(p+Vector2(3,57)*zoom,1.5*zoom,INK)
- draw_arc(p+Vector2(0,59)*zoom,4*zoom,0,PI,10,INK,1.3)
+func _poster(p:Vector2,lines:Array,colors:Array,heart:bool) -> void:
+ # Match the wall's horizontal slope. Text and frame share one local canvas,
+ # so the lettering stays centered, inside the border, and flush to the wall.
+ var across=Vector2(1.0,23.0/48.0)
+ draw_set_transform_matrix(Transform2D(across*zoom,Vector2(0,zoom),p-(across*50+Vector2(0,139))*zoom))
+ draw_rect(Rect2(3,3,100,122),Color(0.18,.12,.06,.12))
+ draw_rect(Rect2(0,0,100,122),Color("fffdf4"))
+ draw_rect(Rect2(0,0,100,122),Color("bd9970"),false,2)
+ draw_rect(Rect2(5,5,90,112),Color("e9d7bd"),false,1)
+ for n in lines.size():
+  var font_size=22
+  while bold.get_string_size(lines[n],HORIZONTAL_ALIGNMENT_LEFT,-1,font_size).x>78:font_size-=1
+  var width=bold.get_string_size(lines[n],HORIZONTAL_ALIGNMENT_LEFT,-1,font_size).x
+  draw_string(bold,Vector2((100-width)*.5,23+n*21),lines[n],HORIZONTAL_ALIGNMENT_LEFT,-1,font_size,colors[n])
+ if heart:
+  draw_circle(Vector2(45,102),6,MAGENTA);draw_circle(Vector2(55,102),6,MAGENTA)
+  _poly([Vector2(39,103),Vector2(61,103),Vector2(50,116)],MAGENTA,Color.TRANSPARENT,0)
+ else:
+  draw_circle(Vector2(50,105),11,YELLOW)
+  draw_circle(Vector2(46,102),1.4,INK);draw_circle(Vector2(54,102),1.4,INK)
+  draw_arc(Vector2(50,105),5,0,PI,16,INK,1.5)
+ draw_set_transform_matrix(Transform2D.IDENTITY)
 
 func _film_paths() -> void:
  # The supplied combined sprite already contains the connected printed film.
@@ -613,6 +646,9 @@ func _equipment_port(id:String,point:Vector2) -> Vector2:
 
 func _machine(id:String) -> void:
  var m=_render_machines()[id]
+ if not illustrated.is_empty():
+  _illustrated_machine(id)
+  return
  if m["kind"] in ["dtf","shaker"] and dtf_line_texture!=null:
   _approved_dtf_line(id)
   return
@@ -722,7 +758,7 @@ func _station_hover_label() -> void:
  # Overlapping image rectangles must never produce stacked station labels.
  var id=_machine_at(mouse)
  if id=="": return
- var title=sim.state["machines"][id]["title"]
+ var title=_render_machines()[id]["title"]
  var width=font.get_string_size(title,HORIZONTAL_ALIGNMENT_LEFT,-1,14).x+18
  var p=Vector2(clampf(mouse.x+15,18,1582-width),clampf(mouse.y+20,125,690))
  _panel(Rect2(p,Vector2(width,27)),NAVY)
@@ -889,10 +925,8 @@ func _toolbar() -> void:
  for i in entries.size():
   var r=Rect2(18+i*169,780,159,90)
   _panel(r,Color("e7fbff") if i==0 else CREAM,BLUE)
-  if i==0:
-   if dtf_line_texture!=null:
-    draw_texture_rect(dtf_line_texture,Rect2(r.position+Vector2(35,7),Vector2(90,60)),false)
-   else: _equipment_geometry("dtf",r.position+Vector2(61,64),65); _equipment_geometry("shaker",r.position+Vector2(103,70),63)
+  var icon_kind={0:"dtf",2:"sticker",3:"heat",4:"banner",5:"cnc",6:"art",7:"storage",11:"dock"}.get(entries[i][0],"")
+  if icon_kind!="": _illustrated_icon(icon_kind,Rect2(r.position+Vector2(27,4),Vector2(105,61)))
   else: _sprite(entries[i][0],r.position+Vector2(79,63),67,false)
   _text(r.position+Vector2(8,79),entries[i][1],16,BLUE,-1,true)
   buttons.append({"rect":r,"action":entries[i][2]})
@@ -924,17 +958,10 @@ func _toolbar() -> void:
 func _build_panel() -> void:
  _panel(Rect2(23,274,390,218),CREAM,BLUE)
  _text(Vector2(40,315),"ARRANGE YOUR SHOP",26,BLUE,-1,true)
- _text(Vector2(40,345),"Drag equipment, or select it and click Move.\nR rotates the selected printer / shaker line.\nGreen fits. Red is blocked. Escape cancels.",16,INK,350)
+ _text(Vector2(40,345),"Drag equipment, or select it and click Move.\nR rotates equipment by 22.5° (16 angles).\nGreen fits. Red is blocked. Escape cancels.",16,INK,350)
  _button(Rect2(41,407,167,35),"ROTATE  (R)","rotate_equipment",GREEN,true,15)
  _button(Rect2(222,407,167,35),"MOVE SELECTED","move_equipment",CYAN,sim.state["machines"].has(selected_machine),15)
  _button(Rect2(41,449,348,30),"DONE BUILDING","build",YELLOW,true,15)
- if pending_equipment!="":
-  if drag_valid.get("valid",false):
-   var previous=sim.state["machines"]
-   sim.state["machines"]=drag_valid["machines"]
-   _machine(pending_equipment)
-   if pending_equipment=="dtf": _machine("shaker")
-   sim.state["machines"]=previous
  if pending_equipment!="" or _relocating():
   _panel(Rect2(420,682,760,49),GREEN if drag_valid.get("valid",false) else RED)
   _text(Vector2(439,713),("Click floor to place. " if pending_equipment!="" or moving_equipment!="" else "Release to place. ")+drag_valid.get("reason","Choose a clear floor tile."),16,CREAM,715)
@@ -1214,8 +1241,7 @@ func _equipment_panel() -> void:
   var id=ids[n]
   var y=220+(n%5)*83
   var station=C.layout(2 if id in ["banner","cnc","dock"] else 1)[id]
-  if id=="dtf": draw_texture_rect(dtf_line_texture,Rect2(394,y-12,90,60),false)
-  else: _sprite(station["sprite"],Vector2(438,y+51),67,false)
+  _illustrated_icon(id,Rect2(394,y-12,90,68))
   _text(Vector2(500,y+10),titles[id],21,BLUE,-1,true)
   var price=C.EQUIPMENT_PRICES[id]
   _text(Vector2(500,y+37),"Included starter bench" if price==0 else "$%d" % price,17,MUTED)
@@ -1226,15 +1252,14 @@ func _equipment_panel() -> void:
  _button(Rect2(801,710,406,43),"MORE EQUIPMENT" if equipment_page==0 else "STARTER EQUIPMENT","equipment_page",CYAN)
 
 func _dtf_views_panel() -> void:
- _header("DTF PRINTER + SHAKER","Your supplied equipment images")
- var texture:Texture2D=dtf_views[dtf_view_index]
- var box=Rect2(405,206,790,431)
+ _header("DTF PRINTER + SHAKER","Approved illustrated equipment - 16 viewing angles")
+ var texture:Texture2D=illustrated["dtf"][dtf_view_index]
+ var box=Rect2(405,206,790,389)
  var size=Vector2(texture.get_width(),texture.get_height())
  size*=minf(box.size.x/size.x,box.size.y/size.y)
  draw_texture_rect(texture,Rect2(box.get_center()-size*0.5,size),false)
- var labels=["MAIN VIEW","RIGHT SIDE","LEFT SIDE","BACK","FRONT"]
- for n in labels.size():
-  _button(Rect2(389+n*165,650,157,38),labels[n],"dtf_view:%d" % n,CYAN if n==dtf_view_index else CREAM,true,15)
+ for n in 16:
+  _button(Rect2(389+(n%8)*103,610+(n/8)*43,96,37),"%s°" % (n*22.5),"dtf_view:%d" % n,CYAN if n==dtf_view_index else CREAM,true,15)
  _button(Rect2(389,710,818,43),"BACK TO EQUIPMENT","back_machine",NAVY)
 
 func _gang_panel() -> void:
@@ -1400,7 +1425,9 @@ func _action(action:String) -> void:
    "machine": selected_machine=parts[1]; modal="machine"; build=false
    "place":
     moving_equipment="";dragging="";drag_id="";drag_offset=Vector2.ZERO
-    pending_equipment=parts[1];placement_rotation=0;drag_point=Vector2i(5,3);drag_valid=sim.install_feedback(pending_equipment,drag_point);modal="";build=true
+    pending_equipment=parts[1];placement_rotation=0;placement_facing=0;drag_point=Vector2i(5,3);drag_valid=sim.install_feedback(pending_equipment,drag_point);modal="";build=true
+    var ms=_render_machines()
+    preview_center_offset=sim.equipment_center(pending_equipment,ms)-Vector2(drag_point) if ms.has(pending_equipment) else Vector2.ZERO
    "dtf_view": dtf_view_index=int(parts[1]); modal="dtf_views"
    "speed": sim.state["speed"]=int(parts[1])
    "hire": sim.hire(int(parts[1]))
@@ -1428,15 +1455,16 @@ func _action(action:String) -> void:
    var id="dtf2" if selected_machine=="shaker2" else ("dtf" if selected_machine=="shaker" else selected_machine)
    if sim.state["machines"].has(id):
     selected_machine=id;moving_equipment=id;drag_id=id;dragging="";pending_equipment="";build=true;modal=""
-    drag_point=sim.cell(sim.state["machines"][id]["pos"]);drag_rotation=int(sim.state["machines"][id]["rotation"])
-    drag_valid=sim.placement_feedback(id,drag_point,drag_rotation)
+    drag_point=sim.cell(sim.state["machines"][id]["pos"]);drag_rotation=int(sim.state["machines"][id]["rotation"]);drag_facing=sim.facing_of(sim.state["machines"][id])
+    preview_center_offset=sim.equipment_center(id,sim.state["machines"])-Vector2(drag_point)
+    drag_valid=sim.placement_feedback(id,drag_point,drag_rotation,drag_facing)
   "rotate_equipment":
-   if pending_equipment!="": placement_rotation=(placement_rotation+1)%4;drag_valid=sim.install_feedback(pending_equipment,drag_point,placement_rotation)
-   elif _relocating(): drag_rotation=(drag_rotation+1)%4;drag_valid=sim.placement_feedback(drag_id,drag_point,drag_rotation)
+   if pending_equipment!="": _rotate_equipment()
+   elif _relocating(): _rotate_equipment()
    elif sim.state["machines"].has(selected_machine):
     var id="dtf2" if selected_machine=="shaker2" else ("dtf" if selected_machine=="shaker" else selected_machine)
     var m=sim.state["machines"][id]
-    sim.move_equipment(id,sim.cell(m["pos"]),(int(m["rotation"])+1)%4)
+    _rotate_equipment()
   "save":
    if _save_before("save"):
     status="Shop saved locally."
@@ -1465,7 +1493,7 @@ func _action(action:String) -> void:
    var printer="dtf2" if target=="shaker2" else "dtf"
    if sim.state["machines"].has(printer):
     var m=sim.state["machines"][printer]
-    sim.move_equipment(printer,sim.cell(m["pos"]),int(m["rotation"]))
+    sim.move_equipment(printer,sim.cell(m["pos"]),int(m["rotation"]),sim.facing_of(m))
   "accept": sim.accept(selected_order)
   "rush": sim.accept(selected_order,true)
   "decline": sim.decline(selected_order)
@@ -1568,3 +1596,76 @@ func _start_music() -> void:
   bytes.encode_s16(i*2,int(value))
  stream.data=bytes; stream.loop_mode=AudioStreamWAV.LOOP_FORWARD; stream.loop_begin=0; stream.loop_end=frames
  music.stream=stream; music.volume_db=-9; music.play()
+
+func _load_illustrated() -> void:
+ illustrated_info=JSON.parse_string(FileAccess.get_file_as_string("res://assets/equipment/equipment.json"))
+ for kind in illustrated_info:
+  var sheet:Texture2D=load("res://assets/equipment/"+kind+".png")
+  var image=sheet.get_image()
+  illustrated[kind]=[]
+  for frame in illustrated_info[kind]["frames"]:
+   var r=frame["region"]
+   var img=image.get_region(Rect2i(int(r[0]),int(r[1]),int(r[2]),int(r[3])))
+   illustrated[kind].append(ImageTexture.create_from_image(img))
+   machine_images[kind+":"+str(illustrated[kind].size()-1)]=img
+
+func _illustrated_icon(kind:String,rect:Rect2) -> void:
+ var texture:Texture2D=illustrated[kind][14]
+ var size=texture.get_size();size*=minf(rect.size.x/size.x,rect.size.y/size.y)
+ draw_texture_rect(texture,Rect2(rect.get_center()-size*0.5,size),false)
+
+func _rotate_equipment() -> void:
+ if pending_equipment!="":
+  placement_facing=(placement_facing+1)%16;placement_rotation=placement_facing/4
+  _refresh_equipment_preview()
+ elif _relocating():
+  drag_facing=(drag_facing+1)%16;drag_rotation=drag_facing/4
+  _refresh_equipment_preview()
+ elif build and sim.state["machines"].has(selected_machine):
+  var id="dtf2" if selected_machine=="shaker2" else ("dtf" if selected_machine=="shaker" else selected_machine)
+  var m=sim.state["machines"][id]
+  var facing=(sim.facing_of(m)+1)%16
+  sim.rotate_equipment(id)
+
+func _illustrated_prop(kind:String,p:Vector2) -> void:
+ var info=illustrated_info[kind]["frames"][14]
+ var size=Vector2(info["size"][0],info["size"][1])*zoom
+ draw_texture_rect(illustrated[kind][14],Ground.rect_at(p,size,Vector2(info["origin"][0],info["origin"][1])),false)
+
+func _illustrated_machine(id:String) -> void:
+ var ms=_render_machines();var m=ms[id];var kind=str(m["kind"])
+ if kind=="dtf":return
+ var target=id
+ if kind=="shaker":
+  target="dtf2" if id=="shaker2" else "dtf";m=ms[target];kind="dtf"
+ var facing=sim.facing_of(m)
+ var frame=posmod(14-facing,16)
+ var info=illustrated_info[kind]["frames"][frame]
+ var p=iso(sim.equipment_center(target,ms))
+ if build:
+  var polygon=sim.equipment_polygon(target,ms)
+  var points=[]
+  for point in polygon:points.append(iso(point))
+  var invalid=(target==pending_equipment or target==drag_id and _relocating()) and not drag_valid.get("valid",true)
+  _poly(points,Color(.95,.12,.15,.25) if invalid else Color(.15,.9,.5,.22),RED if invalid else Color(.05,.5,.3,.6),1.5)
+  _diamond(iso(Vector2(sim.service(target,ms))),25*zoom,12*zoom,CYAN)
+ var size=Vector2(info["size"][0],info["size"][1])*zoom
+ var anchor=Vector2(info["origin"][0],info["origin"][1])
+ var rect=Ground.rect_at(p,size,anchor)
+ var floor_poly=[]
+ var center=sim.equipment_center(target,ms)
+ for point in sim.equipment_polygon(target,ms):floor_poly.append(iso(center+(point-center)*.75))
+ _poly(floor_poly,Color(0.1,.06,.02,.12),Color.TRANSPARENT,0)
+ draw_texture_rect(illustrated[kind][frame],rect,false)
+ world_hits.append({"id":target,"printer":target if kind=="dtf" else "","rect":rect,"sprite":kind+":"+str(frame),"flip":false,"illustrated":true,"facing":facing})
+ if int(m["active"])>=0:
+  _panel(Rect2(p+Vector2(-63,9)*zoom,Vector2(126,14)*zoom),NAVY,NAVY,6)
+  draw_rect(Rect2(p+Vector2(-59,13)*zoom,Vector2(118*sim.machine_progress(target),6)*zoom),GREEN)
+  _text(p+Vector2(-80,41)*zoom,m["phase"],int(12*zoom),INK)
+ elif not build and sim.state["machines"].has(target):
+  for oi in sim.active_orders():
+   var job=sim.order(oi)
+   if job.get("output_machine","")==target and job["stage"] in ["press","qc","pack","ready"]:
+    var r=Rect2(p+Vector2(45,-27)*zoom,Vector2(38,38)*zoom)
+    _panel(r,YELLOW,NAVY,8);_product(job["type"],r.get_center(),25*zoom)
+    output_hits.append({"rect":r,"order":oi});break

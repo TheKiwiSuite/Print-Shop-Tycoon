@@ -1,0 +1,11 @@
+{
+  "passed": true,
+  "checks": [
+    "all reference and render images load",
+    "next/previous exact angle",
+    "contact-sheet selection",
+    "play/pause",
+    "16-view contact sheet rendered"
+  ],
+  "pageErrors": []
+}

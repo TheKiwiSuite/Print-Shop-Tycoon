@@ -1,0 +1,157 @@
+{
+  "status": "REJECTED AS ROTATION ASSETS: repeated or inaccurate directions. Reference artwork only.",
+  "angle_order": [
+    0,
+    45,
+    90,
+    135,
+    180,
+    225,
+    270,
+    315
+  ],
+  "method": "Built-in image generation with supplied references and targeted correction passes",
+  "items": [
+    {
+      "id": "dtf-line",
+      "title": "DTF printer + shaker line",
+      "roles": [
+        "dtf",
+        "dtf2",
+        "shaker",
+        "shaker2"
+      ],
+      "file": "dtf-line.png"
+    },
+    {
+      "id": "sticker",
+      "title": "Sticker print / cut station",
+      "roles": [
+        "sticker"
+      ],
+      "file": "sticker.png"
+    },
+    {
+      "id": "heat",
+      "title": "Heat press station",
+      "roles": [
+        "heat"
+      ],
+      "file": "heat.png"
+    },
+    {
+      "id": "workbench",
+      "title": "Artwork / inspection / packing desk",
+      "roles": [
+        "art",
+        "finish",
+        "pack"
+      ],
+      "file": "workbench.png"
+    },
+    {
+      "id": "storage",
+      "title": "Material storage",
+      "roles": [
+        "storage"
+      ],
+      "file": "storage.png"
+    },
+    {
+      "id": "banner",
+      "title": "Roll-to-roll printer",
+      "roles": [
+        "banner"
+      ],
+      "file": "banner.png"
+    },
+    {
+      "id": "cnc",
+      "title": "CNC flatbed cutter",
+      "roles": [
+        "cnc"
+      ],
+      "file": "cnc.png"
+    },
+    {
+      "id": "dock",
+      "title": "Shipping dock truck",
+      "roles": [
+        "dock"
+      ],
+      "file": "dock.png"
+    }
+  ],
+  "remaining": [
+    "Art review: consistent proportions, accessory positions and camera elevation still need validation.",
+    "Sheets have pale backgrounds and captions; not transparent runtime sprite atlases.",
+    "Separate views, calibrate pivots/floor contact and scale, implement eight-angle collision/service geometry, test in native Windows game.",
+    "No release was built or installed for these review sheets."
+  ],
+  "prompts": [
+    {
+      "id": "dtf-line",
+      "prompt": "Create an EIGHT-ANGLE rotation reference sheet for this exact equipment design. Polished 2.5D cartoon game art, consistent fine outlines and soft shading, faithful design and proportions from reference. Exactly eight fully visible objects in a 4-column by 2-row contact sheet with generous separate margins. Fixed orthographic camera elevation 30 degrees throughout; rotate the object around its vertical axis by exactly 45 degrees between frames. Read left to right: top row FRONT (0), FRONT RIGHT (45), RIGHT (90), BACK RIGHT (135); bottom row BACK (180), BACK LEFT (225), LEFT (270), FRONT LEFT (315). Add small readable angle captions below each object. Front means the operator/output face. Side views genuinely show the side, rear views genuinely show the back; never duplicate a front view to fake a rear. Same rigid equipment, all accessories anchored at unchanged physical coordinates, consistent scale and height in every frame. Neutral very pale background for review. No scene, floor tiles, people, extra equipment or decorative frame. Subject from input: DTF printer and connected white powder shaker/curing/take-up unit as ONE connected production line. Preserve exact teal/black printer, ink bottles, white cabinet, vent chimney, casters and continuous printed film path. Rotate BOTH machines together; never omit the white shaker even in back views."
+    },
+    {
+      "id": "sticker",
+      "prompt": "Create an EIGHT-ANGLE rotation reference sheet for this exact equipment design. Polished 2.5D cartoon game art, consistent fine outlines and soft shading, faithful design and proportions from reference. Exactly eight fully visible objects in a 4-column by 2-row contact sheet with generous separate margins. Fixed orthographic camera elevation 30 degrees throughout; rotate the object around its vertical axis by exactly 45 degrees between frames. Read left to right: top row FRONT (0), FRONT RIGHT (45), RIGHT (90), BACK RIGHT (135); bottom row BACK (180), BACK LEFT (225), LEFT (270), FRONT LEFT (315). Add small readable angle captions below each object. Front means the operator/output face. Side views genuinely show the side, rear views genuinely show the back; never duplicate a front view to fake a rear. Same rigid equipment, all accessories anchored at unchanged physical coordinates, consistent scale and height in every frame. Neutral very pale background for review. No scene, floor tiles, people, extra equipment or decorative frame. Subject from input: Sticker print/cut workstation at ROW ONE COLUMN THREE of atlas: mint desktop printer on wooden bench, cat stickers, vinyl rolls, mat, scissors, shelf bins. ONLY this workstation. Keep the printer on its original physical side of bench; do not shift props between views."
+    },
+    {
+      "id": "heat",
+      "prompt": "Create an EIGHT-ANGLE rotation reference sheet for this exact equipment design. Polished 2.5D cartoon game art, consistent fine outlines and soft shading, faithful design and proportions from reference. Exactly eight fully visible objects in a 4-column by 2-row contact sheet with generous separate margins. Fixed orthographic camera elevation 30 degrees throughout; rotate the object around its vertical axis by exactly 45 degrees between frames. Read left to right: top row FRONT (0), FRONT RIGHT (45), RIGHT (90), BACK RIGHT (135); bottom row BACK (180), BACK LEFT (225), LEFT (270), FRONT LEFT (315). Add small readable angle captions below each object. Front means the operator/output face. Side views genuinely show the side, rear views genuinely show the back; never duplicate a front view to fake a rear. Same rigid equipment, all accessories anchored at unchanged physical coordinates, consistent scale and height in every frame. Neutral very pale background for review. No scene, floor tiles, people, extra equipment or decorative frame. Subject from input: Heat press workstation at ROW ONE COLUMN FOUR of atlas: honey wooden table, open red flat heat press on physical left, blue mug press physical right, folded white shirts and lower shelf supplies. ONLY this workstation."
+    },
+    {
+      "id": "workbench",
+      "prompt": "Create an EIGHT-ANGLE rotation reference sheet for this exact equipment design. Polished 2.5D cartoon game art, consistent fine outlines and soft shading, faithful design and proportions from reference. Exactly eight fully visible objects in a 4-column by 2-row contact sheet with generous separate margins. Fixed orthographic camera elevation 30 degrees throughout; rotate the object around its vertical axis by exactly 45 degrees between frames. Read left to right: top row FRONT (0), FRONT RIGHT (45), RIGHT (90), BACK RIGHT (135); bottom row BACK (180), BACK LEFT (225), LEFT (270), FRONT LEFT (315). Add small readable angle captions below each object. Front means the operator/output face. Side views genuinely show the side, rear views genuinely show the back; never duplicate a front view to fake a rear. Same rigid equipment, all accessories anchored at unchanged physical coordinates, consistent scale and height in every frame. Neutral very pale background for review. No scene, floor tiles, people, extra equipment or decorative frame. Subject from input: Artwork / inspection / packing desk at ROW TWO COLUMN THREE of atlas: honey wooden bench with black monitor, keyboard, cartons, receipt printer, small plant, tape gun, and shelves of paper. ONLY this desk. This exact art serves three game roles."
+    },
+    {
+      "id": "storage",
+      "prompt": "Create an EIGHT-ANGLE rotation reference sheet for this exact equipment design. Polished 2.5D cartoon game art, consistent fine outlines and soft shading, faithful design and proportions from reference. Exactly eight fully visible objects in a 4-column by 2-row contact sheet with generous separate margins. Fixed orthographic camera elevation 30 degrees throughout; rotate the object around its vertical axis by exactly 45 degrees between frames. Read left to right: top row FRONT (0), FRONT RIGHT (45), RIGHT (90), BACK RIGHT (135); bottom row BACK (180), BACK LEFT (225), LEFT (270), FRONT LEFT (315). Add small readable angle captions below each object. Front means the operator/output face. Side views genuinely show the side, rear views genuinely show the back; never duplicate a front view to fake a rear. Same rigid equipment, all accessories anchored at unchanged physical coordinates, consistent scale and height in every frame. Neutral very pale background for review. No scene, floor tiles, people, extra equipment or decorative frame. Subject from input: Material storage shelving at ROW TWO COLUMN FOUR of atlas: black metal frame with wooden shelves, CMYK white ink bottles top, smaller inks next, white media rolls and boxed supplies below. ONLY this shelf."
+    },
+    {
+      "id": "banner",
+      "prompt": "Create an EIGHT-ANGLE rotation reference sheet for this exact equipment design. Polished 2.5D cartoon game art, consistent fine outlines and soft shading, faithful design and proportions from reference. Exactly eight fully visible objects in a 4-column by 2-row contact sheet with generous separate margins. Fixed orthographic camera elevation 30 degrees throughout; rotate the object around its vertical axis by exactly 45 degrees between frames. Read left to right: top row FRONT (0), FRONT RIGHT (45), RIGHT (90), BACK RIGHT (135); bottom row BACK (180), BACK LEFT (225), LEFT (270), FRONT LEFT (315). Add small readable angle captions below each object. Front means the operator/output face. Side views genuinely show the side, rear views genuinely show the back; never duplicate a front view to fake a rear. Same rigid equipment, all accessories anchored at unchanged physical coordinates, consistent scale and height in every frame. Neutral very pale background for review. No scene, floor tiles, people, extra equipment or decorative frame. Subject from input: Blue roll-to-roll wide format printer at ROW TWO COLUMN ONE of atlas: blue top cover, black stand on casters, sunset palm-tree banner emerging from front, ink cartridges side. ONLY this printer. The hanging printed banner is only on the front/output face; in rear views it is occluded by the printer and must not magically move to the back. Left side and right side must face opposite screen directions."
+    },
+    {
+      "id": "cnc",
+      "prompt": "Create an EIGHT-ANGLE rotation reference sheet for this exact equipment design. Polished 2.5D cartoon game art, consistent fine outlines and soft shading, faithful design and proportions from reference. Exactly eight fully visible objects in a 4-column by 2-row contact sheet with generous separate margins. Fixed orthographic camera elevation 30 degrees throughout; rotate the object around its vertical axis by exactly 45 degrees between frames. Read left to right: top row FRONT (0), FRONT RIGHT (45), RIGHT (90), BACK RIGHT (135); bottom row BACK (180), BACK LEFT (225), LEFT (270), FRONT LEFT (315). Add small readable angle captions below each object. Front means the operator/output face. Side views genuinely show the side, rear views genuinely show the back; never duplicate a front view to fake a rear. Same rigid equipment, all accessories anchored at unchanged physical coordinates, consistent scale and height in every frame. Neutral very pale background for review. No scene, floor tiles, people, extra equipment or decorative frame. Subject from input: White CNC flatbed cutting table at ROW TWO COLUMN TWO of atlas: gray-black cutting bed with tan cut panels and shapes, white gantry with carriage and black cable chain, white cabinet base on black feet. ONLY this cutter. The cutting gantry stays at the same end of the bed, the carriage stays at the same physical position, and tan pieces do not rearrange between views. FRONT LEFT must reveal the opposite side from FRONT RIGHT."
+    },
+    {
+      "id": "dock",
+      "prompt": "Create an EIGHT-ANGLE rotation reference sheet for this exact equipment design. Polished 2.5D cartoon game art, consistent fine outlines and soft shading, faithful design and proportions from reference. Exactly eight fully visible objects in a 4-column by 2-row contact sheet with generous separate margins. Fixed orthographic camera elevation 30 degrees throughout; rotate the object around its vertical axis by exactly 45 degrees between frames. Read left to right: top row FRONT (0), FRONT RIGHT (45), RIGHT (90), BACK RIGHT (135); bottom row BACK (180), BACK LEFT (225), LEFT (270), FRONT LEFT (315). Add small readable angle captions below each object. Front means the operator/output face. Side views genuinely show the side, rear views genuinely show the back; never duplicate a front view to fake a rear. Same rigid equipment, all accessories anchored at unchanged physical coordinates, consistent scale and height in every frame. Neutral very pale background for review. No scene, floor tiles, people, extra equipment or decorative frame. Subject from input: Shipping dock represented by white delivery box truck at ROW THREE COLUMN FOUR of atlas: cab, black tires, open rear cargo box filled with brown shipping cartons. ONLY this truck, keep cargo opening at rear across views. FRONT is cab windshield. REAR is open box cargo door. True full left and right sides. The truck cab stays at the same physical front, never appears on both ends."
+    },
+    {
+      "id": "dtf-correction",
+      "prompt": "Correct the eight-angle DTF rotation review sheet. Preserve the first image equipment design, typography and 4x2 layout. Input 2 is authoritative machine design. CRITICAL changes: 180 BACK must show the tall BLACK REAR OF THE PRINTER IN THE FOREGROUND, with the white shaker BEHIND it, mostly occluded, just its white top/chimney extending into background. The current 180 panel incorrectly puts the white shaker in foreground. 270 LEFT must face opposite direction from 90 RIGHT: WHITE SHAKER ON LEFT, TEAL PRINTER ON RIGHT, continuous film between. 315 FRONT LEFT must show the opposite diagonal from 45 FRONT RIGHT: white shaker toward LOWER LEFT, teal printer toward UPPER RIGHT. 225 BACK LEFT must show printer toward LOWER RIGHT and shaker toward UPPER LEFT. Keep each entire pair within its own cell, equal scale, fixed elevated orthographic camera. Same physical machine rotating, no moving ink reservoir to different side or rearranging mechanical parts. Eight captions 0 FRONT,45 FRONT RIGHT,90 RIGHT,135 BACK RIGHT,180 BACK,225 BACK LEFT,270 LEFT,315 FRONT LEFT. Polished 2.5D art, clean pale background, no redesign."
+    },
+    {
+      "id": "banner-correction",
+      "prompt": "Precisely edit this labeled eight-angle game equipment review sheet. BLUE PRINTER: bottom-right 315 FRONT LEFT wrongly duplicates top row 45. Redraw ONLY that printer from the OPPOSITE diagonal: plain blue LEFT end cap nearest viewer at LOWER LEFT, body recedes UPPER RIGHT, front banner extends toward LOWER RIGHT. The ink cartridges and control panel are on far physical right, at upper-right end; do not move them onto the left end. All seven other cells and labels stay unchanged. Keep consistent polished 2.5D style, scale and elevation. This must be a distinct 315 degree view, not a repeated 45-degree view or accessories rearranged. Pale background."
+    },
+    {
+      "id": "cnc-correction",
+      "prompt": "Precisely edit this labeled eight-angle game equipment review sheet. CNC: bottom-right 315 FRONT LEFT wrongly duplicates top 45. Redraw ONLY that CNC from the opposite diagonal, showing its physical LEFT cabinet side nearest viewer, the front edge slopes UP RIGHT instead of UP LEFT, gantry far upper-right; control cabinet remains on physical right at far upper-right, NOT near right corner. Preserve cutting pattern and all other seven views. All seven other cells and labels stay unchanged. Keep consistent polished 2.5D style, scale and elevation. This must be a distinct 315 degree view, not a repeated 45-degree view or accessories rearranged. Pale background."
+    },
+    {
+      "id": "heat-correction",
+      "prompt": "Correct this eight-angle review sheet. HEAT BENCH: redraw bottom-right 315 from opposite diagonal to top45: the wooden bench's physical LEFT end nearest viewer at LOWER LEFT, front long edge recedes UP RIGHT. Red press nearest lower left, blue press farther upper right. Preserve actual relative positions. Redraw bottom-row second 225 from opposite diagonal to 135: physical LEFT END nearest lower right, long rear edge recedes UP LEFT, red press nearer lower right and blue press far upper left. Keep labels and all other cells unchanged. Fixed orthographic elevation, equal scale, faithful equipment design. A real rotated view, not a duplicate of another angle. Pale background, polished 2.5D cartoon game art."
+    },
+    {
+      "id": "workbench-correction",
+      "prompt": "Correct this eight-angle review sheet. DESK: redraw bottom-right 315 from opposite diagonal to top45. LEFT short end of bench nearest viewer at LOWER LEFT, front long edge recedes UP RIGHT, cartons nearer left foreground, monitor and receipt printer farther upper right. Redraw bottom-row second 225 from opposite diagonal to135: LEFT short end nearest LOWER RIGHT, long rear edge recedes UP LEFT, cartons near right foreground, back of monitor farther left. Keep labels and all other cells unchanged. Fixed orthographic elevation, equal scale, faithful equipment design. A real rotated view, not a duplicate of another angle. Pale background, polished 2.5D cartoon game art."
+    },
+    {
+      "id": "dock-correction",
+      "prompt": "Correct this eight-angle review sheet. TRUCK: bottom-right 315 FRONT LEFT must have CAB AT LOWER RIGHT with box extending UPPER LEFT; show opposite side from45. Bottom-row second 225 BACK LEFT must have REAR CARGO OPENING AT LOWER RIGHT, box and cab receding UPPER LEFT, opposite diagonal from135. Preserve all other cells. Never put rear cargo door on a side panel. There can be one side access opening as in original reference, but rear door is at rear. Keep labels and all other cells unchanged. Fixed orthographic elevation, equal scale, faithful equipment design. A real rotated view, not a duplicate of another angle. Pale background, polished 2.5D cartoon game art."
+    },
+    {
+      "id": "heat-final-correction",
+      "prompt": "Targeted correction to this eight-angle game art review sheet. ONLY change bottom row second cell 225 BACK LEFT: Keep the bench in this cell in its current screen orientation. We are looking at the BACK of both heat presses. Replace the exposed black flat pressing surface on the red machine with its CLOSED SOLID RED REAR ELECTRONICS PANEL, vent grille and power cord. Red machine's handle linkage seen from behind, not operator side; no visible digital front screen on this red rear panel. Blue press is also viewed from behind, no front display. Leave 315 and all other six cells alone. Preserve the object's design and all captions. Pale background, matching 2.5D style."
+    },
+    {
+      "id": "storage-final-correction",
+      "prompt": "Targeted correction to this eight-angle game art review sheet. ONLY change bottom row THIRD cell 270 LEFT. It currently repeats the90 right side. Show opposite LEFT END of shelf: the CYAN top bottle is NEAREST viewer at front, bottles recede behind it in magenta,yellow,black,white order. Lower shelves should show small ink bottles nearest viewer instead of white roll holes, upright white rolls rather than cardboard boxes nearest at next shelf. Keep narrow side profile, same scale, all other seven cells unchanged. Preserve the object's design and all captions. Pale background, matching 2.5D style."
+    }
+  ]
+}

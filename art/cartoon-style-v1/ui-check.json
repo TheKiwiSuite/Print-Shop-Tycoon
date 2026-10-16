@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "equipment": 10,
+  "views": 160,
+  "checks": [
+    "all image files load",
+    "all 10 selections",
+    "16 views each",
+    "next/previous wrap",
+    "play/pause",
+    "download/source links",
+    "700px no horizontal overflow",
+    "no page errors"
+  ]
+}

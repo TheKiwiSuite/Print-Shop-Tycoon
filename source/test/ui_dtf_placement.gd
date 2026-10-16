@@ -68,16 +68,16 @@ func run() -> void:
 	await drag_release_at(Vector2i(4, 2))
 	check(game.sim.cell(game.sim.state["machines"]["dtf"]["pos"]) == Vector2i(4, 2), "Repeated drag commits new location from release event")
 	await drag_release_at(Vector2i(5, 5))
-	for rotation in 4:
+	for rotation in 16:
 		var key := InputEventKey.new()
 		key.keycode = KEY_R
 		key.pressed = true
 		game._input(key)
 		await redraw()
-		var expected := (rotation + 1) % 4
-		check(int(game.sim.state["machines"]["dtf"]["rotation"]) == expected, "R rotates installed printer orientation %d" % expected)
-		check(int(game.sim.state["machines"]["shaker"]["rotation"]) == expected, "Shaker follows orientation %d" % expected)
-		check(game.world_hits.any(func(h): return h.get("printer", "") == "dtf" and int(h["sprite"]) == 12 + expected), "Approved angle is rendered and selectable %d" % expected)
+		var expected := (rotation + 1) % 16
+		check(game.sim.facing_of(game.sim.state["machines"]["dtf"]) == expected, "R rotates installed printer orientation %d" % expected)
+		check(game.sim.facing_of(game.sim.state["machines"]["shaker"]) == expected, "Shaker follows orientation %d" % expected)
+		check(game.world_hits.any(func(h): return h.get("printer", "") == "dtf" and h.get("facing",-1) == expected), "Approved angle is rendered and selectable %d" % expected)
 	game.selected_machine = "dtf"
 	game._action("move_equipment")
 	check(game.moving_equipment == "dtf", "Installed machine Move button starts relocation")

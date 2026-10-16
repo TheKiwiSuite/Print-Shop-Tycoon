@@ -1,0 +1,159 @@
+{
+  "passed": true,
+  "checks": [
+    "16 unique file hashes",
+    "exact 22.5-degree directions",
+    "fixed 30-degree elevation",
+    "constant orthographic scale",
+    "900x900 RGBA",
+    "no clipped alpha bounds",
+    "assembly ground at zero",
+    "source hash matches"
+  ],
+  "frames": [
+    {
+      "angle": 0.0,
+      "alpha_bounds": [
+        204,
+        172,
+        696,
+        720
+      ]
+    },
+    {
+      "angle": 22.5,
+      "alpha_bounds": [
+        120,
+        188,
+        712,
+        740
+      ]
+    },
+    {
+      "angle": 45.0,
+      "alpha_bounds": [
+        79,
+        181,
+        769,
+        737
+      ]
+    },
+    {
+      "angle": 67.5,
+      "alpha_bounds": [
+        95,
+        197,
+        777,
+        709
+      ]
+    },
+    {
+      "angle": 90.0,
+      "alpha_bounds": [
+        163,
+        234,
+        737,
+        712
+      ]
+    },
+    {
+      "angle": 112.5,
+      "alpha_bounds": [
+        95,
+        285,
+        777,
+        754
+      ]
+    },
+    {
+      "angle": 135.0,
+      "alpha_bounds": [
+        79,
+        327,
+        769,
+        774
+      ]
+    },
+    {
+      "angle": 157.5,
+      "alpha_bounds": [
+        120,
+        333,
+        712,
+        767
+      ]
+    },
+    {
+      "angle": 180.0,
+      "alpha_bounds": [
+        204,
+        344,
+        696,
+        735
+      ]
+    },
+    {
+      "angle": 202.5,
+      "alpha_bounds": [
+        188,
+        333,
+        780,
+        767
+      ]
+    },
+    {
+      "angle": 225.0,
+      "alpha_bounds": [
+        131,
+        310,
+        820,
+        774
+      ]
+    },
+    {
+      "angle": 247.5,
+      "alpha_bounds": [
+        122,
+        249,
+        805,
+        755
+      ]
+    },
+    {
+      "angle": 270.0,
+      "alpha_bounds": [
+        163,
+        194,
+        737,
+        712
+      ]
+    },
+    {
+      "angle": 292.5,
+      "alpha_bounds": [
+        123,
+        155,
+        805,
+        709
+      ]
+    },
+    {
+      "angle": 315.0,
+      "alpha_bounds": [
+        131,
+        137,
+        821,
+        737
+      ]
+    },
+    {
+      "angle": 337.5,
+      "alpha_bounds": [
+        188,
+        143,
+        780,
+        740
+      ]
+    }
+  ]
+}

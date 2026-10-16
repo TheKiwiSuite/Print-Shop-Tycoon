@@ -2,7 +2,7 @@ name: Package Windows alpha
 on:
   push:
     branches: [main]
-    paths: [.github/workflows/windows-alpha.yml]
+    paths: [.github/workflows/windows-alpha.yml, 'source/**', 'Build-Release.ps1', 'Run-QA.ps1']
   workflow_dispatch:
 permissions:
   contents: read
@@ -40,25 +40,36 @@ jobs:
           engine="$RUNNER_TEMP/godot/Godot_v4.5.1-stable_linux.x86_64"
           "$engine" --headless --path source --editor --import
           mkdir -p "$(realpath -m source/../../../work)"
-          for test in acceptance customer_loop sales_growth session_reliability; do
+          for test in acceptance customer_loop sales_growth session_reliability illustrated_equipment rotation_stability illustrated_ui ui_dtf_placement wall_visual_review; do
             timeout 120 xvfb-run -a "$engine" --path source --rendering-method gl_compatibility --audio-driver Dummy --script "res://test/$test.gd" 2>&1 | tee "$RUNNER_TEMP/$test.log"
             if grep -E 'SCRIPT ERROR:|ERROR:|FAIL:' "$RUNNER_TEMP/$test.log"; then exit 1; fi
           done
+      - name: Read game version
+        id: game
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^config\/version="\([^"]*\)"/\1/p' source/project.godot | tr -d '\r')"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Export and package Windows x86_64
+        env:
+          GAME_VERSION: ${{ steps.game.outputs.version }}
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p release/PrintShopTycoon/windows
           "$RUNNER_TEMP/godot/Godot_v4.5.1-stable_linux.x86_64" --headless --path source --export-release 'Windows Desktop' "$GITHUB_WORKSPACE/release/PrintShopTycoon/windows/Print Shop Tycoon.exe"
-          cp README.txt GAME-AUDIT.md ART-SOURCES.txt release/PrintShopTycoon/
-          printf 'Source commit: %s\nEngine: Godot 4.5.1\nWindows x86_64 alpha 0.2.13\nUnsigned community test build. Known issues: GAME-AUDIT.md\n' "$GITHUB_SHA" > release/PrintShopTycoon/BUILD.txt
+          cp README.md README.txt RELEASE-NOTES.md GAME-AUDIT.md ART-SOURCES.txt release/PrintShopTycoon/
+          printf 'Source commit: %s\nEngine: Godot 4.5.1\nWindows x86_64 alpha %s\nUnsigned community test build. Known issues: GAME-AUDIT.md\n' "$GITHUB_SHA" "$GAME_VERSION" > release/PrintShopTycoon/BUILD.txt
           cd release
-          zip -qr PrintShopTycoon-Windows-v0.2.13.zip PrintShopTycoon
-          sha256sum PrintShopTycoon-Windows-v0.2.13.zip > PrintShopTycoon-Windows-v0.2.13.zip.sha256
+          zip -qr "PrintShopTycoon-Windows-v${GAME_VERSION}.zip" PrintShopTycoon
+          sha256sum "PrintShopTycoon-Windows-v${GAME_VERSION}.zip" > "PrintShopTycoon-Windows-v${GAME_VERSION}.zip.sha256"
       - name: Publish Windows alpha download
         env:
           GH_TOKEN: ${{ github.token }}
+          GAME_VERSION: ${{ steps.game.outputs.version }}
         shell: bash
         run: |
           set -euo pipefail
-          gh release create v0.2.13-web-alpha release/PrintShopTycoon-Windows-v0.2.13.zip release/PrintShopTycoon-Windows-v0.2.13.zip.sha256 --target "$GITHUB_SHA" --title 'Print Shop Tycoon 0.2.13 · Windows alpha' --prerelease --notes 'Windows x86_64 alpha built from the recorded source commit with Godot 4.5.1. Extract the ZIP and open windows/Print Shop Tycoon.exe. Known issues are included in GAME-AUDIT.md. This build is unsigned. Simulation checks run before export; this workflow does not certify a native Windows playthrough.'
+          gh release create "v${GAME_VERSION}-windows-alpha" "release/PrintShopTycoon-Windows-v${GAME_VERSION}.zip" "release/PrintShopTycoon-Windows-v${GAME_VERSION}.zip.sha256" --target "$GITHUB_SHA" --title "Print Shop Tycoon ${GAME_VERSION} · Windows alpha" --prerelease --notes 'Windows x86_64 alpha built from the recorded source commit with Godot 4.5.1. Extract the ZIP and open windows/Print Shop Tycoon.exe. Changes and validation are in RELEASE-NOTES.md; the older audit remains in GAME-AUDIT.md. This build is unsigned. Simulation and rendered UI checks run before export; this workflow does not certify a native Windows playthrough.'

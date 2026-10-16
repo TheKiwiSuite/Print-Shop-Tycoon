@@ -10,3 +10,12 @@ windows/
 Thumbs.db
 *.tmp
 *.log
+
+# Python-generated caches and local credentials
+__pycache__/
+*.py[cod]
+.env
+.env.*
+!.env.example
+*.pem
+*.key

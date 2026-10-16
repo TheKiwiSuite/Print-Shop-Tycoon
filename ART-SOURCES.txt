@@ -27,3 +27,37 @@ Logo typeface: Barlow Condensed Black; bundled SIL Open Font License in
 source/assets/FONT-LICENSE.txt. Body text: engine fallback font.
 
 Art is not claimed to be a final exact reproduction of the reference style.
+
+October 16, 2026 - measured Blender equipment rotation artwork:
+The user approved art/dtf-reference-v2's DTF reconstruction and authorized
+the remaining equipment in that style. New editable models and 16-direction
+render sets are in art/equipment-review-v1. They cover sticker, heat, art,
+finish, pack, storage, banner, cnc, and dock catalog entries. The artwork,
+finishing, and packing benches now have distinct task-specific props.
+These nine new models are review candidates, not installed game assets.
+Existing shop-atlas.png informed geometry and supplies printed cat/sunset
+artwork through packed UV textures. Original inputs remain unchanged.
+Single rigid assemblies are rendered at exact 22.5-degree camera steps;
+no directional frame is fabricated by relabeling another view. Earlier
+image-generated rotation sheets remain rejected reference material.
+Current paths, measurements, editable sources, and validation reports are
+documented in art/equipment-review-v1/README.txt.
+
+October 16, 2026 - illustrated conversion of the measured rotation sets:
+The user explicitly authorized conversion of all 3D rendered views into the
+approved game illustration style. Built-in image generation repainted ten
+16-view sheets using the unchanged Blender guides and the original Level 2
+shop illustration. New outputs are in art/cartoon-style-v1/sheets. Prompts,
+provenance, a targeted truck correction, validation, and comparison viewer
+are in that folder. These are art-review candidates, not deployed game assets.
+The earlier generation halt was superseded for this explicitly requested task.
+AI repainting does not certify exact camera geometry or unchanged fine details;
+source Blender views remain the geometric authority. See README.txt for limits.
+
+October 16, 2026 - approved native integration (v0.2.14 through v0.2.16):
+The user approved all ten illustrated equipment sheets and authorized their
+installation. The earlier review-only status above is historical. The runtime
+uses unchanged approved PNG sheets in source/assets/equipment, with measured
+frame bounds and floor anchors prepared by prepare_game_assets.py. All 160
+views are connected to placement and rotation. Version 0.2.15 fixes exact
+rotation pivots; 0.2.16 redraws the signs and reduces the wall to three windows.

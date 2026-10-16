@@ -1,0 +1,125 @@
+{
+  "status": "REJECTED AS ROTATION ASSETS: repeated or inaccurate directions. Reference artwork only.",
+  "method": "Built-in image generation; reference-conditioned additional views and targeted correction passes",
+  "target_step_degrees": 22.5,
+  "original_angles": [
+    0,
+    45,
+    90,
+    135,
+    180,
+    225,
+    270,
+    315
+  ],
+  "additional_target_angles": [
+    22.5,
+    67.5,
+    112.5,
+    157.5,
+    202.5,
+    247.5,
+    292.5,
+    337.5
+  ],
+  "items": [
+    {
+      "id": "dtf-line",
+      "title": "DTF printer + shaker line",
+      "file": "dtf-line-intermediate.png",
+      "original": "../eight-angle/dtf-line.png"
+    },
+    {
+      "id": "sticker",
+      "title": "Sticker print / cut station",
+      "file": "sticker-intermediate.png",
+      "original": "../eight-angle/sticker.png"
+    },
+    {
+      "id": "heat",
+      "title": "Heat press station",
+      "file": "heat-intermediate.png",
+      "original": "../eight-angle/heat.png"
+    },
+    {
+      "id": "workbench",
+      "title": "Artwork / inspection / packing desk",
+      "file": "workbench-intermediate.png",
+      "original": "../eight-angle/workbench.png"
+    },
+    {
+      "id": "storage",
+      "title": "Material storage",
+      "file": "storage-intermediate.png",
+      "original": "../eight-angle/storage.png"
+    },
+    {
+      "id": "banner",
+      "title": "Roll-to-roll printer",
+      "file": "banner-intermediate.png",
+      "original": "../eight-angle/banner.png"
+    },
+    {
+      "id": "cnc",
+      "title": "CNC flatbed cutter",
+      "file": "cnc-intermediate.png",
+      "original": "../eight-angle/cnc.png"
+    },
+    {
+      "id": "dock",
+      "title": "Shipping dock truck",
+      "file": "dock-intermediate.png",
+      "original": "../eight-angle/dock.png"
+    }
+  ],
+  "coverage": "Eight distinct designs cover all ten catalog choices. Workbench serves art/finish/pack. DTF printer and shaker remain paired; duplicate industrial line reuses same design.",
+  "quality_notes": [
+    "Labels specify target directions, not measured camera rotations. Generation did not achieve uniform angular spacing in every cell.",
+    "In particular DTF, desk and CNC near-side views still resemble older diagonal views; need precise art correction before runtime use.",
+    "Accessories and proportions can vary between cells. Storage lower-shelf contents and desk carton arrangement need reconciliation.",
+    "Pale background and captions are intentional for review. These are not alpha sprites.",
+    "No source game code or installed executable changed. Runtime integration needs sprite extraction, pivots, footprint/collision and service-position changes plus native tests."
+  ],
+  "prompts": [
+    {
+      "id": "dtf-line",
+      "prompt": "Create an ADDITIONAL eight-view equipment rotation reference sheet, filling the MIDPOINTS BETWEEN the eight angles in the supplied sheet. Do NOT reproduce the original views with changed captions. Fixed orthographic camera elevation 30 degrees, same rigid object, size, parts, colors and polished 2.5D cartoon style. Exactly 4 columns by 2 rows, all objects fully visible with clear margins on pale neutral background. Top row captions and true directions: 22.5° (almost frontal, slightly right), 67.5° (mostly right side, some front), 112.5° (mostly right side, some rear), 157.5° (mostly rear, slightly right). Bottom row: 202.5° (mostly rear, slightly left), 247.5° (mostly left side, some rear), 292.5° (mostly left side, some front), 337.5° (almost frontal, slightly left). Front and rear views must have correct occlusion; left side is opposite direction from right. For a wide rectangular machine, near-front views show much more front width than side depth; near-side views show narrow front width and much more side depth. Keep exact physical accessory positions; do not rearrange objects. Angle labels below each cell. Maintain equal physical scale and consistent projection through all frames. No new parts, people, room, or scenery. Subject: DTF printer + shaker line. Keep teal printer and white shaker connected in all frames. At rear angles printer must occlude shaker, front angles shaker is closer. Film path, reservoir, casters and controls cannot move to other sides."
+    },
+    {
+      "id": "sticker",
+      "prompt": "Create an ADDITIONAL eight-view equipment rotation reference sheet, filling the MIDPOINTS BETWEEN the eight angles in the supplied sheet. Do NOT reproduce the original views with changed captions. Fixed orthographic camera elevation 30 degrees, same rigid object, size, parts, colors and polished 2.5D cartoon style. Exactly 4 columns by 2 rows, all objects fully visible with clear margins on pale neutral background. Top row captions and true directions: 22.5° (almost frontal, slightly right), 67.5° (mostly right side, some front), 112.5° (mostly right side, some rear), 157.5° (mostly rear, slightly right). Bottom row: 202.5° (mostly rear, slightly left), 247.5° (mostly left side, some rear), 292.5° (mostly left side, some front), 337.5° (almost frontal, slightly left). Front and rear views must have correct occlusion; left side is opposite direction from right. For a wide rectangular machine, near-front views show much more front width than side depth; near-side views show narrow front width and much more side depth. Keep exact physical accessory positions; do not rearrange objects. Angle labels below each cell. Maintain equal physical scale and consistent projection through all frames. No new parts, people, room, or scenery. Subject: Sticker print / cut station. Keep mint printer, cat sticker sheet, vinyl rolls, scissors cup, cutting mat and supplies attached to fixed locations on same bench."
+    },
+    {
+      "id": "heat",
+      "prompt": "Create an ADDITIONAL eight-view equipment rotation reference sheet, filling the MIDPOINTS BETWEEN the eight angles in the supplied sheet. Do NOT reproduce the original views with changed captions. Fixed orthographic camera elevation 30 degrees, same rigid object, size, parts, colors and polished 2.5D cartoon style. Exactly 4 columns by 2 rows, all objects fully visible with clear margins on pale neutral background. Top row captions and true directions: 22.5° (almost frontal, slightly right), 67.5° (mostly right side, some front), 112.5° (mostly right side, some rear), 157.5° (mostly rear, slightly right). Bottom row: 202.5° (mostly rear, slightly left), 247.5° (mostly left side, some rear), 292.5° (mostly left side, some front), 337.5° (almost frontal, slightly left). Front and rear views must have correct occlusion; left side is opposite direction from right. For a wide rectangular machine, near-front views show much more front width than side depth; near-side views show narrow front width and much more side depth. Keep exact physical accessory positions; do not rearrange objects. Angle labels below each cell. Maintain equal physical scale and consistent projection through all frames. No new parts, people, room, or scenery. Subject: Heat press station. Keep red flat press and blue mug press in fixed positions on bench. Back views show solid rear panels rather than front screens; shirts and shelf supplies stay fixed. Captions should be ONLY the numeric degree values, without long descriptions. Precisely midpoint orientations, not old45-degree views."
+    },
+    {
+      "id": "workbench",
+      "prompt": "Create an ADDITIONAL eight-view equipment rotation reference sheet, filling the MIDPOINTS BETWEEN the eight angles in the supplied sheet. Do NOT reproduce the original views with changed captions. Fixed orthographic camera elevation 30 degrees, same rigid object, size, parts, colors and polished 2.5D cartoon style. Exactly 4 columns by 2 rows, all objects fully visible with clear margins on pale neutral background. Top row captions and true directions: 22.5° (almost frontal, slightly right), 67.5° (mostly right side, some front), 112.5° (mostly right side, some rear), 157.5° (mostly rear, slightly right). Bottom row: 202.5° (mostly rear, slightly left), 247.5° (mostly left side, some rear), 292.5° (mostly left side, some front), 337.5° (almost frontal, slightly left). Front and rear views must have correct occlusion; left side is opposite direction from right. For a wide rectangular machine, near-front views show much more front width than side depth; near-side views show narrow front width and much more side depth. Keep exact physical accessory positions; do not rearrange objects. Angle labels below each cell. Maintain equal physical scale and consistent projection through all frames. No new parts, people, room, or scenery. Subject: Artwork / inspection / packing desk. Keep monitor, keyboard, cartons, plant, receipt printer, tape gun, paper and rolls in fixed positions. Rear views show monitor back. Captions should be ONLY the numeric degree values, without long descriptions. Precisely midpoint orientations, not old45-degree views."
+    },
+    {
+      "id": "storage",
+      "prompt": "Create an ADDITIONAL eight-view equipment rotation reference sheet, filling the MIDPOINTS BETWEEN the eight angles in the supplied sheet. Do NOT reproduce the original views with changed captions. Fixed orthographic camera elevation 30 degrees, same rigid object, size, parts, colors and polished 2.5D cartoon style. Exactly 4 columns by 2 rows, all objects fully visible with clear margins on pale neutral background. Top row captions and true directions: 22.5° (almost frontal, slightly right), 67.5° (mostly right side, some front), 112.5° (mostly right side, some rear), 157.5° (mostly rear, slightly right). Bottom row: 202.5° (mostly rear, slightly left), 247.5° (mostly left side, some rear), 292.5° (mostly left side, some front), 337.5° (almost frontal, slightly left). Front and rear views must have correct occlusion; left side is opposite direction from right. For a wide rectangular machine, near-front views show much more front width than side depth; near-side views show narrow front width and much more side depth. Keep exact physical accessory positions; do not rearrange objects. Angle labels below each cell. Maintain equal physical scale and consistent projection through all frames. No new parts, people, room, or scenery. Subject: Material storage. Keep black frame, wooden shelves, exact bottle order and shelf contents physically fixed. Opposite sides reveal different end bottles. Captions numeric degrees only. Cell 67.5 MUST be closer to SIDE than front; 157.5 MUST be closer to REAR than side; 247.5 MUST be closer to LEFT SIDE than rear; 337.5 MUST be closer to FRONT than left side. Do not reuse 45degree angles."
+    },
+    {
+      "id": "banner",
+      "prompt": "Create an ADDITIONAL eight-view equipment rotation reference sheet, filling the MIDPOINTS BETWEEN the eight angles in the supplied sheet. Do NOT reproduce the original views with changed captions. Fixed orthographic camera elevation 30 degrees, same rigid object, size, parts, colors and polished 2.5D cartoon style. Exactly 4 columns by 2 rows, all objects fully visible with clear margins on pale neutral background. Top row captions and true directions: 22.5° (almost frontal, slightly right), 67.5° (mostly right side, some front), 112.5° (mostly right side, some rear), 157.5° (mostly rear, slightly right). Bottom row: 202.5° (mostly rear, slightly left), 247.5° (mostly left side, some rear), 292.5° (mostly left side, some front), 337.5° (almost frontal, slightly left). Front and rear views must have correct occlusion; left side is opposite direction from right. For a wide rectangular machine, near-front views show much more front width than side depth; near-side views show narrow front width and much more side depth. Keep exact physical accessory positions; do not rearrange objects. Angle labels below each cell. Maintain equal physical scale and consistent projection through all frames. No new parts, people, room, or scenery. Subject: Roll-to-roll printer. Keep blue printer body, control panel and cartridges on same physical side; sunset banner hangs ONLY from front face, blank media roll is at rear. Captions numeric degrees only. Cell 67.5 MUST be closer to SIDE than front; 157.5 MUST be closer to REAR than side; 247.5 MUST be closer to LEFT SIDE than rear; 337.5 MUST be closer to FRONT than left side. Do not reuse 45degree angles."
+    },
+    {
+      "id": "cnc",
+      "prompt": "Create an ADDITIONAL eight-view equipment rotation reference sheet, filling the MIDPOINTS BETWEEN the eight angles in the supplied sheet. Do NOT reproduce the original views with changed captions. Fixed orthographic camera elevation 30 degrees, same rigid object, size, parts, colors and polished 2.5D cartoon style. Exactly 4 columns by 2 rows, all objects fully visible with clear margins on pale neutral background. Top row captions and true directions: 22.5° (almost frontal, slightly right), 67.5° (mostly right side, some front), 112.5° (mostly right side, some rear), 157.5° (mostly rear, slightly right). Bottom row: 202.5° (mostly rear, slightly left), 247.5° (mostly left side, some rear), 292.5° (mostly left side, some front), 337.5° (almost frontal, slightly left). Front and rear views must have correct occlusion; left side is opposite direction from right. For a wide rectangular machine, near-front views show much more front width than side depth; near-side views show narrow front width and much more side depth. Keep exact physical accessory positions; do not rearrange objects. Angle labels below each cell. Maintain equal physical scale and consistent projection through all frames. No new parts, people, room, or scenery. Subject: CNC flatbed cutter. Keep white cabinet base, gantry and carriage at fixed positions, same tan cut pieces on bed, controls and cable chain on original sides. Captions numeric degrees only. Cell67.5 closer to SIDE than front, cell157.5 closer to REAR than side, cell247.5 closer to LEFT SIDE than rear, cell337.5 closer to FRONT than left side. Side faces and front faces must change projected widths according to actual angles. Preserve shapes."
+    },
+    {
+      "id": "dock",
+      "prompt": "Create an ADDITIONAL eight-view equipment rotation reference sheet, filling the MIDPOINTS BETWEEN the eight angles in the supplied sheet. Do NOT reproduce the original views with changed captions. Fixed orthographic camera elevation 30 degrees, same rigid object, size, parts, colors and polished 2.5D cartoon style. Exactly 4 columns by 2 rows, all objects fully visible with clear margins on pale neutral background. Top row captions and true directions: 22.5° (almost frontal, slightly right), 67.5° (mostly right side, some front), 112.5° (mostly right side, some rear), 157.5° (mostly rear, slightly right). Bottom row: 202.5° (mostly rear, slightly left), 247.5° (mostly left side, some rear), 292.5° (mostly left side, some front), 337.5° (almost frontal, slightly left). Front and rear views must have correct occlusion; left side is opposite direction from right. For a wide rectangular machine, near-front views show much more front width than side depth; near-side views show narrow front width and much more side depth. Keep exact physical accessory positions; do not rearrange objects. Angle labels below each cell. Maintain equal physical scale and consistent projection through all frames. No new parts, people, room, or scenery. Subject: Shipping dock truck. Keep white cab at front and open cargo door at rear, same wheelbase and box proportions. Do not move doors between sides. Captions numeric degrees only. Cell67.5 closer to SIDE than front, cell157.5 closer to REAR than side, cell247.5 closer to LEFT SIDE than rear, cell337.5 closer to FRONT than left side. Side faces and front faces must change projected widths according to actual angles. Preserve shapes."
+    },
+    {
+      "id": "storage-correction",
+      "prompt": "Targeted correction to intermediate-angle game equipment sheet. Change ONLY bottom row third cell 292.5 and fourth cell337.5. They show wrong bottle order. The actual fixed physical top bottle order viewed from FRONT is cyan,magenta,yellow,black,white. In 292.5 LEFT FRONT view CYAN is nearest viewer at lower left, others recede toward upper right; render mostly the LEFT NARROW END plus a little FRONT face. In337.5 show mostly FRONT face, cyan at LEFT and white atRIGHT, narrow LEFT end visible. Keep other shelves fixed accordingly, small inks on physical left, roll holes on physical right. Do not swap top bottle order. Other six cells unchanged. Preserve labels and dimensions. Same polished 2.5D art and pale background."
+    },
+    {
+      "id": "dock-correction",
+      "prompt": "Targeted correction to intermediate-angle game equipment sheet. Change ONLY top row third cell112.5. It incorrectly shows the opposite side. Right-rear112.5 must have CAB at UPPER RIGHT, REAR CARGO opening at LOWER LEFT, view mostly vehicle RIGHT SIDE with only narrow glimpse of cargo door. Long truck side occupies most of projected width, cargo opening is narrow on left. It must be between right-side90 and back-right135. Keep other7cells unchanged. Preserve labels and dimensions. Same polished 2.5D art and pale background."
+    }
+  ]
+}

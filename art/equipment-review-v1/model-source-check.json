@@ -1,0 +1,77 @@
+{
+  "passed": true,
+  "models": [
+    {
+      "id": "sticker",
+      "geometry_objects": 99,
+      "root_at_floor": true,
+      "reference_orientation": true,
+      "source_unchanged": true,
+      "lowest_point": 0.0
+    },
+    {
+      "id": "heat",
+      "geometry_objects": 100,
+      "root_at_floor": true,
+      "reference_orientation": true,
+      "source_unchanged": true,
+      "lowest_point": 0.0
+    },
+    {
+      "id": "art",
+      "geometry_objects": 146,
+      "root_at_floor": true,
+      "reference_orientation": true,
+      "source_unchanged": true,
+      "lowest_point": 0.0
+    },
+    {
+      "id": "finish",
+      "geometry_objects": 146,
+      "root_at_floor": true,
+      "reference_orientation": true,
+      "source_unchanged": true,
+      "lowest_point": 0.0
+    },
+    {
+      "id": "pack",
+      "geometry_objects": 180,
+      "root_at_floor": true,
+      "reference_orientation": true,
+      "source_unchanged": true,
+      "lowest_point": 0.0
+    },
+    {
+      "id": "storage",
+      "geometry_objects": 176,
+      "root_at_floor": true,
+      "reference_orientation": true,
+      "source_unchanged": true,
+      "lowest_point": 0.0
+    },
+    {
+      "id": "banner",
+      "geometry_objects": 84,
+      "root_at_floor": true,
+      "reference_orientation": true,
+      "source_unchanged": true,
+      "lowest_point": -1.4206200660282775e-09
+    },
+    {
+      "id": "cnc",
+      "geometry_objects": 283,
+      "root_at_floor": true,
+      "reference_orientation": true,
+      "source_unchanged": true,
+      "lowest_point": 0.0
+    },
+    {
+      "id": "dock",
+      "geometry_objects": 293,
+      "root_at_floor": true,
+      "reference_orientation": true,
+      "source_unchanged": true,
+      "lowest_point": -4.371139006309477e-09
+    }
+  ]
+}

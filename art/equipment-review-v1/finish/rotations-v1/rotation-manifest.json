@@ -1,0 +1,382 @@
+{
+  "status": "candidate",
+  "design_approved": false,
+  "method": "Single rigid Blender scene; measured orthographic camera orbit",
+  "source_file": "finish.blend",
+  "source_sha256": "b029016e8b57371228eed3d18f1f131a1c1448b1d2561c56d228361f1931b80c",
+  "angle_step_degrees": 22.5,
+  "frame_count": 16,
+  "mesh_count": 145,
+  "visible_geometry_count": 146,
+  "bounds": [
+    [
+      -1.2000000476837158,
+      -0.625,
+      0.0
+    ],
+    [
+      1.2000000476837158,
+      0.625,
+      1.779958963394165
+    ]
+  ],
+  "target": [
+    0.0,
+    0.0,
+    0.8899794816970825
+  ],
+  "frames": [
+    {
+      "index": 0,
+      "azimuth_degrees": 0.0,
+      "elevation_degrees": 30,
+      "file": "angle-000-000.0.png",
+      "sha256": "4d5998b3b505640b25ad4619132ce132ee020a907b0240937b9a2c152a880b2d",
+      "camera_position": [
+        0.0,
+        8.240429878234863,
+        5.6475934982299805
+      ],
+      "view_direction": [
+        0.0,
+        0.8660253882408142,
+        0.5
+      ],
+      "ortho_scale": 3.5682108402252197,
+      "floor_anchor_pixels": [
+        449.9997854232788,
+        644.4032102823257
+      ]
+    },
+    {
+      "index": 1,
+      "azimuth_degrees": 22.5,
+      "elevation_degrees": 30,
+      "file": "angle-001-022.5.png",
+      "sha256": "0fc8392b1db5841d57dcce07deee65db9b6e3eaf315e9b6636863595267fc161",
+      "camera_position": [
+        3.1534759998321533,
+        7.613163948059082,
+        5.6475934982299805
+      ],
+      "view_direction": [
+        0.3314135670661926,
+        0.8001031279563904,
+        0.5
+      ],
+      "ortho_scale": 3.5682108402252197,
+      "floor_anchor_pixels": [
+        449.99986588954926,
+        644.4029152393341
+      ]
+    },
+    {
+      "index": 2,
+      "azimuth_degrees": 45.0,
+      "elevation_degrees": 30,
+      "file": "angle-002-045.0.png",
+      "sha256": "c45a82f8b77f3e5858ee71fcb6d6ae88e73d871a89ba75717eeb27ba5773da8b",
+      "camera_position": [
+        5.826864242553711,
+        5.826864242553711,
+        5.6475934982299805
+      ],
+      "view_direction": [
+        0.6123724579811096,
+        0.6123724579811096,
+        0.5
+      ],
+      "ortho_scale": 3.5682108402252197,
+      "floor_anchor_pixels": [
+        450.0,
+        644.4028615951538
+      ]
+    },
+    {
+      "index": 3,
+      "azimuth_degrees": 67.5,
+      "elevation_degrees": 30,
+      "file": "angle-003-067.5.png",
+      "sha256": "9b9a5c645bbc0c33157ce28306128b91af907c4ef67733934ffa5c672118c8e3",
+      "camera_position": [
+        7.613163948059082,
+        3.1534759998321533,
+        5.6475934982299805
+      ],
+      "view_direction": [
+        0.8001031279563904,
+        0.3314135670661926,
+        0.5
+      ],
+      "ortho_scale": 3.5682108402252197,
+      "floor_anchor_pixels": [
+        450.0003218650818,
+        644.403263926506
+      ]
+    },
+    {
+      "index": 4,
+      "azimuth_degrees": 90.0,
+      "elevation_degrees": 30,
+      "file": "angle-004-090.0.png",
+      "sha256": "7e3a319e0398753bb847fca428e56fdbe0820b732ff751be0b7fdb5d3bd8e222",
+      "camera_position": [
+        8.240429878234863,
+        5.045808089320573e-16,
+        5.6475934982299805
+      ],
+      "view_direction": [
+        0.8660253882408142,
+        5.302876236065149e-17,
+        0.5
+      ],
+      "ortho_scale": 3.5682108402252197,
+      "floor_anchor_pixels": [
+        449.99981224536896,
+        644.4029688835144
+      ]
+    },
+    {
+      "index": 5,
+      "azimuth_degrees": 112.5,
+      "elevation_degrees": 30,
+      "file": "angle-005-112.5.png",
+      "sha256": "2f099cc8f475787f78143abffa1c7aeb393ca94b1403310f14b8aead686e31a1",
+      "camera_position": [
+        7.613163948059082,
+        -3.1534759998321533,
+        5.6475934982299805
+      ],
+      "view_direction": [
+        0.8001031279563904,
+        -0.3314135670661926,
+        0.5
+      ],
+      "ortho_scale": 3.5682108402252197,
+      "floor_anchor_pixels": [
+        450.0001072883606,
+        644.4029688835144
+      ]
+    },
+    {
+      "index": 6,
+      "azimuth_degrees": 135.0,
+      "elevation_degrees": 30,
+      "file": "angle-006-135.0.png",
+      "sha256": "f0fc6e28894d25ed2795513bec17ef5ce8381c64dd33a725e1acfb9f7d106e85",
+      "camera_position": [
+        5.826864242553711,
+        -5.826864242553711,
+        5.6475934982299805
+      ],
+      "view_direction": [
+        0.6123724579811096,
+        -0.6123724579811096,
+        0.5
+      ],
+      "ortho_scale": 3.5682108402252197,
+      "floor_anchor_pixels": [
+        449.9998927116394,
+        644.4027811288834
+      ]
+    },
+    {
+      "index": 7,
+      "azimuth_degrees": 157.5,
+      "elevation_degrees": 30,
+      "file": "angle-007-157.5.png",
+      "sha256": "8ae97af6b0344a83f484a95032c0d9aa5cb0e9724a2c3791cd97030eeff4e657",
+      "camera_position": [
+        3.1534759998321533,
+        -7.613163948059082,
+        5.6475934982299805
+      ],
+      "view_direction": [
+        0.3314135670661926,
+        -0.8001031279563904,
+        0.5
+      ],
+      "ortho_scale": 3.5682108402252197,
+      "floor_anchor_pixels": [
+        450.0000536441803,
+        644.402888417244
+      ]
+    },
+    {
+      "index": 8,
+      "azimuth_degrees": 180.0,
+      "elevation_degrees": 30,
+      "file": "angle-008-180.0.png",
+      "sha256": "247f719e175d0e9b8d1bb53bf5d9e729709c8958f265cd8fd47533e6f379b15b",
+      "camera_position": [
+        1.0091616178641146e-15,
+        -8.240429878234863,
+        5.6475934982299805
+      ],
+      "view_direction": [
+        1.0605752472130298e-16,
+        -0.8660253882408142,
+        0.5
+      ],
+      "ortho_scale": 3.5682108402252197,
+      "floor_anchor_pixels": [
+        450.0,
+        644.4025933742523
+      ]
+    },
+    {
+      "index": 9,
+      "azimuth_degrees": 202.5,
+      "elevation_degrees": 30,
+      "file": "angle-009-202.5.png",
+      "sha256": "ce155ccd88505751253929e8e07b491bee41f33bd5ecd1f5ac70e8b44d5697b2",
+      "camera_position": [
+        -3.1534759998321533,
+        -7.613163948059082,
+        5.6475934982299805
+      ],
+      "view_direction": [
+        -0.3314135670661926,
+        -0.8001031279563904,
+        0.5
+      ],
+      "ortho_scale": 3.5682108402252197,
+      "floor_anchor_pixels": [
+        449.99991953372955,
+        644.402888417244
+      ]
+    },
+    {
+      "index": 10,
+      "azimuth_degrees": 225.0,
+      "elevation_degrees": 30,
+      "file": "angle-010-225.0.png",
+      "sha256": "37db488818f483b8319bf6f630b7eedbe90069f5ae6a63f97753c8c9cdca7598",
+      "camera_position": [
+        -5.826864242553711,
+        -5.826864242553711,
+        5.6475934982299805
+      ],
+      "view_direction": [
+        -0.6123724579811096,
+        -0.6123724579811096,
+        0.5
+      ],
+      "ortho_scale": 3.5682108402252197,
+      "floor_anchor_pixels": [
+        450.0001072883606,
+        644.4027811288834
+      ]
+    },
+    {
+      "index": 11,
+      "azimuth_degrees": 247.5,
+      "elevation_degrees": 30,
+      "file": "angle-011-247.5.png",
+      "sha256": "d937cc2ea77cfa7157d1600f6036923201ff91ba6bbc965bfb3526dea76fc35b",
+      "camera_position": [
+        -7.613163948059082,
+        -3.1534759998321533,
+        5.6475934982299805
+      ],
+      "view_direction": [
+        -0.8001031279563904,
+        -0.3314135670661926,
+        0.5
+      ],
+      "ortho_scale": 3.5682108402252197,
+      "floor_anchor_pixels": [
+        449.99986588954926,
+        644.4029688835144
+      ]
+    },
+    {
+      "index": 12,
+      "azimuth_degrees": 270.0,
+      "elevation_degrees": 30,
+      "file": "angle-012-270.0.png",
+      "sha256": "fed7af905065c5b9c3f9e1db6ab42ef17968d8da50e7ee40625a7140444409b1",
+      "camera_position": [
+        -8.240429878234863,
+        -1.513742426796172e-15,
+        5.6475934982299805
+      ],
+      "view_direction": [
+        -0.8660253882408142,
+        -1.5908628708195447e-16,
+        0.5
+      ],
+      "ortho_scale": 3.5682108402252197,
+      "floor_anchor_pixels": [
+        450.0002145767212,
+        644.4029688835144
+      ]
+    },
+    {
+      "index": 13,
+      "azimuth_degrees": 292.5,
+      "elevation_degrees": 30,
+      "file": "angle-013-292.5.png",
+      "sha256": "c726960bc90c79f123866c1b7199bdbf8e036c73f470df35815a598f3b5279b1",
+      "camera_position": [
+        -7.613163948059082,
+        3.1534759998321533,
+        5.6475934982299805
+      ],
+      "view_direction": [
+        -0.8001031279563904,
+        0.3314135670661926,
+        0.5
+      ],
+      "ortho_scale": 3.5682108402252197,
+      "floor_anchor_pixels": [
+        449.9996781349182,
+        644.403263926506
+      ]
+    },
+    {
+      "index": 14,
+      "azimuth_degrees": 315.0,
+      "elevation_degrees": 30,
+      "file": "angle-014-315.0.png",
+      "sha256": "e59bcb8605ff32d7e9c8ac24538bf5fe175b859f1c21197d48045eebfcf0560a",
+      "camera_position": [
+        -5.826864242553711,
+        5.826864242553711,
+        5.6475934982299805
+      ],
+      "view_direction": [
+        -0.6123724579811096,
+        0.6123724579811096,
+        0.5
+      ],
+      "ortho_scale": 3.5682108402252197,
+      "floor_anchor_pixels": [
+        450.0,
+        644.4028615951538
+      ]
+    },
+    {
+      "index": 15,
+      "azimuth_degrees": 337.5,
+      "elevation_degrees": 30,
+      "file": "angle-015-337.5.png",
+      "sha256": "ce553892f09c4c7a82994abb016062913516c7ea387836d23881a8def2071182",
+      "camera_position": [
+        -3.1534759998321533,
+        7.613163948059082,
+        5.6475934982299805
+      ],
+      "view_direction": [
+        -0.3314135670661926,
+        0.8001031279563904,
+        0.5
+      ],
+      "ortho_scale": 3.5682108402252197,
+      "floor_anchor_pixels": [
+        450.0001609325409,
+        644.4029152393341
+      ]
+    }
+  ]
+}
