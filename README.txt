@@ -49,6 +49,8 @@ new staggered arrival flow. Your existing layout and progress still load.
 Customers walk in, wait for acceptance, leave during production, and return
 for pickup. Click a customer to open their order. Pickup handoff waits until
 the customer reaches the counter. Declined and expired inquiries walk out.
+Marketing campaigns charge once and schedule equipment-matched inquiries;
+campaign spending appears in the daily profit report and survives save/load.
 
 Accept a job, approve/repair artwork or request a customer revision, choose a
 gang sheet or product preset, queue production, and operate the station.
@@ -101,14 +103,13 @@ Run source/test/acceptance.gd with the Godot --headless --script option to repea
 the acceptance suite. It writes separate acceptance save profiles.
 
 VALIDATION AND CURRENT SCOPE
-109 simulation acceptance checks passed, covering all five product routes,
-both rooms, solid machine footprints, route/access validation, stock shortages
-and delayed delivery, garment sizes, faults/reprints, hires/upgrades, several
-shop days, and local/in-flight save restoration. Windows UI testing completed
-the tutorial order and restored its payment/progress through Continue. Walking,
-keyboard shortcuts, and new-day order generation after Continue were verified.
-This is the first native playable build, not the final illustrated art pass or
-a finished commercial release. The scene does not yet match the supplied
+The October 15 audit reran 397 existing checks across eight suites, covering
+all five product routes, both rooms, machine footprints, walking, arrivals,
+stock, faults, staffing, marketing, payments, placement, and save reliability.
+Additional edge-case probes and native UI inspection identified 15 findings;
+see GAME-AUDIT.md for the open defects, evidence, and recommended priorities.
+The existing checks passing does not mean these additional findings are fixed.
+This is a native playable development build. The scene does not yet match the supplied
 references pixel for pixel. Equipment paint, environment density, staff visual
 variety, character operating animations and interface styling need refinement.
 Customers use the current walking sprite sheet with distinct clothing tints.
@@ -117,5 +118,5 @@ The two shops use a tile layout with fixed camera orientation. There is no
 third shop, multiplayer, controller mapping, arbitrary uploaded customer art,
 or freehand pixel editing inside the game. Production parameters are game
 balancing values, not instructions for operating real print equipment.
-NEXT-VERSION-PLAN.txt lists the proposed blank-shop starter choices and the
-gameplay, collision, interface, and art work for the next development pass.
+GAME-AUDIT.md and NEXT-VERSION-PLAN.txt list the remaining gameplay, collision,
+interface, starter-equipment, and art work for the next development pass.

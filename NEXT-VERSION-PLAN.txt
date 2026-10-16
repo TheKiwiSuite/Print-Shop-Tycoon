@@ -1,16 +1,19 @@
 PRINT SHOP TYCOON — REMAINING DEVELOPMENT PLAN
 
-Implemented through v0.2.11: empty and paused player setup, equipment-matched
+Implemented through v0.2.13: empty and paused player setup, equipment-matched
 inquiries, customer receipts/satisfaction, walking customers and pickup return,
 equipment relocation, complete DTF rotations, placement and aisle validation,
-and duplicate-payment protection across save/load.
+duplicate-payment protection across save/load, marketing campaigns with daily
+accounting, and save/exit retry safeguards. GAME-AUDIT.md records the edge cases
+and visual/workflow gaps found in the October 15 audit; prioritize those fixes.
 
 Next priorities for a separate development pass:
 1. Apply the user's next approved sticker print/cut artwork. Preserve supplied
    DTF images and the official logo. Continue approval item by item.
 2. Add the Cricut-style cutter and desktop DTF starter choices with matching
    affordable equipment, supplies, recipes and first orders. These are pending.
-3. Connect marketing/outreach to demand and review the early business economy.
+3. Review the existing marketing system, production durations, and early
+   business economy against real shop progression.
 4. Expand approved customer/staff visual variety and operating animations.
 5. Refine environment detail and GUI against the official reference images;
    maintain the established isometric camera angle and readable version footer.

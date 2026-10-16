@@ -1,0 +1,143 @@
+[
+  {
+    "actual": {
+      "backup_exists": true,
+      "load_returned": true,
+      "owner": {
+
+      }
+    },
+    "id": "BUG-01",
+    "reproduced": true
+  },
+  {
+    "actual": {
+      "backup_after_new_game": 5432.0,
+      "backup_after_next_save": 1200.0,
+      "original_cash": 5432
+    },
+    "id": "BUG-02",
+    "reproduced": true
+  },
+  {
+    "actual": {
+      "owner_customer_distance": 0.0
+    },
+    "id": "BUG-03",
+    "reproduced": true
+  },
+  {
+    "actual": {
+      "machine_active": 0,
+      "order_stage": "queued",
+      "worker_working": true
+    },
+    "id": "BUG-04",
+    "reproduced": true
+  },
+  {
+    "actual": {
+      "drag_index": 0,
+      "first_design": [
+        -56.5,
+        -31.0,
+        11.0,
+        14.0
+      ],
+      "modal": ""
+    },
+    "id": "BUG-05",
+    "reproduced": true
+  },
+  {
+    "actual": {
+      "boxes_needed": 1,
+      "boxes_owned": 0,
+      "forecast": {
+        "required": {
+
+        },
+        "shortages": {
+
+        }
+      }
+    },
+    "id": "BUG-06",
+    "reproduced": true
+  },
+  {
+    "actual": {
+      "cost_recorded": 0.0,
+      "kits_used": 1
+    },
+    "id": "BUG-07",
+    "reproduced": true
+  },
+  {
+    "actual": {
+      "role": "Prepress artist",
+      "role_matches": false,
+      "task": {
+        "machine": "dtf",
+        "order": 0,
+        "stage": "queued",
+        "working": false
+      }
+    },
+    "id": "BUG-08",
+    "reproduced": true
+  },
+  {
+    "actual": {
+      "printer_phase": "Cure transfer",
+      "shaker_phase": "Idle"
+    },
+    "id": "BUG-09",
+    "reproduced": true
+  },
+  {
+    "actual": {
+      "feedback_added": false,
+      "hire_button_enabled": true,
+      "worker_count": 9
+    },
+    "id": "BUG-10",
+    "reproduced": true
+  },
+  {
+    "actual": {
+      "machines": [
+        "sticker"
+      ],
+      "tutorial_stage": "intake",
+      "tutorial_type": "transfer"
+    },
+    "id": "BUG-11",
+    "reproduced": true
+  },
+  {
+    "actual": {
+      "modal": "",
+      "notice": "No valid save found. The backup is checked automatically.",
+      "screen": "title"
+    },
+    "id": "BUG-13",
+    "reproduced": true
+  },
+  {
+    "actual": {
+      "sound_after_continue": true,
+      "sound_selected_on_title": false
+    },
+    "id": "BUG-14",
+    "reproduced": true
+  },
+  {
+    "actual": {
+      "actual_window_mode": 0,
+      "saved_fullscreen": true
+    },
+    "id": "BUG-15",
+    "reproduced": true
+  }
+]
