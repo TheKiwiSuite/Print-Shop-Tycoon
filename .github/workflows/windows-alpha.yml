@@ -76,7 +76,7 @@ jobs:
           set -euo pipefail
           mkdir -p release/PrintShopTycoon/windows
           "$RUNNER_TEMP/godot/Godot_v4.5.1-stable_linux.x86_64" --headless --path source --export-release 'Windows Desktop' "$GITHUB_WORKSPACE/release/PrintShopTycoon/windows/Print Shop Tycoon.exe"
-          cp README.md README.txt RELEASE-NOTES.md GAME-AUDIT.md ART-SOURCES.txt ASSESSMENT-INTEGRATION.md release/PrintShopTycoon/
+          cp README.md README.txt RELEASE-NOTES.md GAME-AUDIT.md ART-SOURCES.txt ASSESSMENT-INTEGRATION.md STRATEGY-UPGRADE.md release/PrintShopTycoon/
           printf 'Source commit: %s\nEngine: Godot 4.5.1\nWindows x86_64 alpha %s\nUnsigned community test build. Known issues: GAME-AUDIT.md\n' "$GITHUB_SHA" "$GAME_VERSION" > release/PrintShopTycoon/BUILD.txt
           cd release
           zip -qr "PrintShopTycoon-Windows-v${GAME_VERSION}.zip" PrintShopTycoon
@@ -110,7 +110,7 @@ jobs:
           $executable = Join-Path $destination 'PrintShopTycoon/windows/Print Shop Tycoon.exe'
           New-Item -ItemType Directory -Path native-validation -Force | Out-Null
           $log = Join-Path $env:GITHUB_WORKSPACE 'native-validation/native_windows.log'
-          $arguments = @('--headless', '--log-file', ('"{0}"' -f $log), '--script', 'res://test/native_release_walkthrough.gd')
+          $arguments = @('--headless', '--log-file', ('"{0}"' -f $log), '--script', 'res://qa/native_release_walkthrough.gd')
           $process = Start-Process -FilePath $executable -ArgumentList $arguments -PassThru
           if (!$process.WaitForExit(180000)) { $process.Kill(); throw 'Packaged Windows walkthrough timed out.' }
           $process.WaitForExit()

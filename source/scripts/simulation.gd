@@ -58,6 +58,19 @@ func reprint_cost(o:Dictionary) -> float:
  if o["type"]=="apparel": cost+=int(o["quantity"])*4
  return cost
 
+func preset_feedback(o:Dictionary) -> Dictionary:
+ var p=Strategy.planned(o);var recipe=C.recipe(p);var cost=0.0;var seconds=0.0
+ for key in recipe: cost+=float(recipe[key])*C.PRICES[key]
+ var kind={"transfer":"dtf","apparel":"dtf","sticker":"sticker","banner":"banner","cnc":"cnc"}[o["type"]]
+ for phase in C.phases(kind,p): seconds+=float(phase[1])
+ var risks=[]
+ if kind=="dtf" and p["settings"]["white"]=="economy": risks.append("Economy white causes low-opacity recovery")
+ if kind=="sticker" and not p["settings"]["registration"]: risks.append("Skipped marks cause registration recovery")
+ if o["type"]=="apparel" and p["settings"]["press"]!="cotton_warm": risks.append("Cotton blanks require warm peel")
+ var note="Print inputs $%.1f / base machine work %.1f shop min. Pressing, handling and packing are additional." % [cost,seconds*SHOP_HOURS_PER_SECOND*60]
+ if not risks.is_empty(): note+=" "+"; ".join(risks)+"."
+ return {"text":note,"warning":not risks.is_empty()}
+
 func quote(i:int,rush:bool=false,board_snapshot:Dictionary={}) -> Dictionary:
  Strategy.ensure(self)
  var o=order(i)

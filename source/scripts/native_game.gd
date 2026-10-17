@@ -100,6 +100,8 @@ var movement_bindings={"left":KEY_A,"right":KEY_D,"up":KEY_W,"down":KEY_S}
 var binding_action=""
 var forecast_preview={}
 var forecast_preview_at=-1000
+var record_modal_text=false
+var modal_accessible_text=[]
 const DESKTOP_MENUS=["File","Edit","View","Window","Help"]
 const DESKTOP_HEIGHT=40.0
 const GANG_POS = Vector2(460,218)
@@ -159,6 +161,9 @@ func _ready() -> void:
  accessible_summary.mouse_filter=Control.MOUSE_FILTER_IGNORE
  accessible_summary.self_modulate=Color(1,1,1,0)
  accessible_summary.accessibility_name="Shop status"
+ accessible_summary.size=Vector2(800,600)
+ accessible_summary.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+ accessible_summary.clip_text=true
  add_child(accessible_summary)
 
 func _capture() -> void:
@@ -653,9 +658,23 @@ func _panel(r:Rect2, color:Color=CREAM, border:Color=NAVY, radius:int=13) -> voi
  draw_style_box(box,r)
 
 func _text(p:Vector2, text:String, size:int=19, color:Color=INK, width:float=-1, heavy:bool=false) -> void:
+ if record_modal_text: modal_accessible_text.append(text)
  var f=bold if heavy else font
  if width>0: draw_multiline_string(f,p,text,HORIZONTAL_ALIGNMENT_LEFT,width,size,-1,color)
  else: draw_string(f,p,text,HORIZONTAL_ALIGNMENT_LEFT,-1,size,color)
+
+func _line(p:Vector2,text:String,size:int,color:Color,width:float,heavy:bool=false) -> void:
+ if record_modal_text: modal_accessible_text.append(text)
+ var f=bold if heavy else font
+ var shown=text.replace("\n"," / ")
+ if f.get_string_size(shown,HORIZONTAL_ALIGNMENT_LEFT,-1,size).x>width:
+  var low=0;var high=shown.length()
+  while low<high:
+   var mid=(low+high+1)/2
+   if f.get_string_size(shown.left(mid)+"…",HORIZONTAL_ALIGNMENT_LEFT,-1,size).x<=width: low=mid
+   else: high=mid-1
+  shown=shown.left(low)+"…"
+ draw_string(f,p,shown,HORIZONTAL_ALIGNMENT_LEFT,-1,size,color)
 
 func _button(r:Rect2, title:String, action:String, color:Color=CYAN, enabled:bool=true, size:int=18) -> void:
  var hovered=enabled and r.has_point(get_global_mouse_position()-ui_offset)
@@ -688,8 +707,9 @@ func _sync_accessibility() -> void:
  for key in accessible_buttons:
   if not seen.has(key): accessible_buttons[key].hide()
  if accessible_summary!=null:
-  var clock_status="Clock paused" if sim.state["paused"] else ("Clock running" if modal in ["","order","machine","staff"] else "Clock held by menu")
+  var clock_status="Clock held by desktop menu" if desktop_menu!="" else ("Clock paused" if sim.state["paused"] else ("Clock running" if modal in ["","order","machine","staff"] else "Clock held by menu"))
   accessible_summary.text="%s. %s. %s. Cash %d. %d open orders. %s" % [screen,modal,clock_status,sim.state["cash"],sim.active_orders().size(),sim.state["notices"][0]]
+  if modal!="": accessible_summary.text+=". "+". ".join(modal_accessible_text)
 
 func _diamond(p:Vector2, w:float, h:float, color:Color, border:Color=Color("947450")) -> void:
  _poly([p+Vector2(-w,0),p+Vector2(0,-h),p+Vector2(w,0),p+Vector2(0,h)],color,border,1.0)
@@ -1200,6 +1220,7 @@ func _orders() -> void:
   _product(o["type"],r.position+Vector2(27,26),30)
   _text(r.position+Vector2(50,22),"%d %s" % [o["quantity"],{"transfer":"Transfers","sticker":"Stickers","apparel":"Shirts","banner":"Banners","cnc":"Signs"}[o["type"]]],21,BLUE,-1,true)
   var stage={"queued":"Needs operator","waiting_stock":"Needs supplies","prepress":"Artwork preparation","production":"Printing / curing","press":"Ready to press","inspecting":"Quality check","delivering":"Pickup / shipping"}.get(o["stage"],_stage(o["stage"]))
+  if o["stage"]=="production": stage={"transfer":"DTF print / powder / cure","apparel":"DTF transfer production","sticker":"Print / laminate / cut","banner":"Wide-format printing","cnc":"Cutting rigid panels"}[o["type"]]
   _text(r.position+Vector2(50,47),stage,12,RED if sim.now()>o["due"] else MUTED)
   _text(r.position+Vector2(12,69),"$%d  /  %s" % [o["reward"],_due(o)],12,INK)
   draw_rect(Rect2(r.position+Vector2(12,80),Vector2(212,5)),Color("c4d9f2"))
@@ -1279,7 +1300,7 @@ func _due(o:Dictionary) -> String:
  return "D%d %s" % [day,_clock(8+fmod(due,9))]
 
 func _stage(s:String) -> String:
- return {"scheduled":"Customer due to arrive","abandoned":"Inquiry expired","intake":"New order","preflight":"Check artwork","revision":"Awaiting artwork","plan":"Plan production","queued":"Queued / needs operator","waiting_stock":"Waiting for stock","production":"Printing / curing","press":"Ready for heat press","pressing":"Pressing garments","qc":"Inspect output","inspecting":"Quality inspection","fault":"Quality recovery","pack":"Ready to pack","packing":"Packing output","ready":"Ready for delivery","delivering":"Pickup / dispatch","completed":"Fulfilled","declined":"Declined"}.get(s,s)
+ return {"scheduled":"Customer due to arrive","abandoned":"Inquiry expired","intake":"New order","preflight":"Check artwork","revision":"Awaiting artwork","plan":"Plan production","queued":"Queued / needs operator","waiting_stock":"Waiting for stock","batch_wait":"Shared sheet in production","production":"Production in progress","press":"Ready for heat press","pressing":"Pressing garments","qc":"Inspect output","inspecting":"Quality inspection","fault":"Quality recovery","pack":"Ready to pack","packing":"Packing output","ready":"Ready for delivery","delivering":"Pickup / dispatch","completed":"Fulfilled","declined":"Declined"}.get(s,s)
 
 func _setup_pending() -> bool:
  return sim.state["day"]==1 and sim.state["completed"]==0 and sim.state["orders"].all(func(o): return o["stage"]=="scheduled")
@@ -1356,12 +1377,12 @@ func _customers_panel() -> void:
   var y=215+n*112
   _panel(Rect2(386,y,822,99),Color("edf5ff"),Color("d0e1f6"),8)
   _product(o["type"],Vector2(426,y+45),43)
-  _text(Vector2(468,y+26),o["customer"],20,BLUE,490,true)
+  _line(Vector2(468,y+26),o["customer"],20,BLUE,490,true)
   _text(Vector2(468,y+52),"%d %s  •  %s" % [o["quantity"],o["product"],_stage(o["stage"])],15,INK,495)
   var detail=_customer_detail(o)
   if o["stage"]=="completed": detail="Paid $%d  •  Satisfaction %d%%" % [o.get("payment",o["reward"]),o.get("satisfaction",o["quality"])]
   elif o["stage"]=="intake" and sim.customer_patience(o)>=0: detail+="  •  %d shop minutes to respond" % ceili(sim.customer_patience(o)*60)
-  _text(Vector2(468,y+80),detail,15,MUTED,495)
+  _line(Vector2(468,y+80),detail,15,MUTED,495)
   _button(Rect2(1000,y+26,190,47),"RECEIPT" if o["stage"]=="completed" else "VIEW JOB","order:%d" % i,CYAN,true,16)
  _button(Rect2(389,703,397,48),"BACK TO SHOP","close",NAVY)
  _button(Rect2(801,703,406,48),"PAGE %d / %d  >" % [customer_page+1,pages],"more_customers",CREAM,pages>1)
@@ -1380,7 +1401,7 @@ func _customer_detail(o:Dictionary) -> String:
  return sim.customer_status(o)
 
 func _route_progress(o:Dictionary) -> float:
- return {"intake":0.0,"preflight":0.07,"revision":0.1,"plan":0.17,"queued":0.25,"waiting_stock":0.2,"production":0.4,"press":0.52,"pressing":0.59,"qc":0.66,"inspecting":0.73,"fault":0.7,"pack":0.8,"packing":0.86,"ready":0.92,"delivering":0.96,"completed":1.0}.get(o["stage"],0.0)
+ return {"intake":0.0,"preflight":0.07,"revision":0.1,"plan":0.17,"queued":0.25,"waiting_stock":0.2,"batch_wait":0.4,"production":0.4,"press":0.52,"pressing":0.59,"qc":0.66,"inspecting":0.73,"fault":0.7,"pack":0.8,"packing":0.86,"ready":0.92,"delivering":0.96,"completed":1.0}.get(o["stage"],0.0)
 
 func _tutorial_index() -> int:
  for i in sim.state["orders"].size():
@@ -1391,6 +1412,7 @@ func _tutorial_hint(o:Dictionary) -> String:
  return {"intake":"Accept the %d-%s order." % [o["quantity"],o["product"]],"preflight":"Check artwork and fix the background.","plan":"Open the gang sheet and auto-pack designs.","queued":"Work this job: Sam walks to the DTF line.","production":"Watch film print, powder, cure and wind.","qc":"Take output to the inspection bench.","pack":"Cut / roll and pack your finished transfers.","ready":"Deliver the box at the pickup counter.","completed":"Paid! Try stickers, then buy an upgrade."}.get(o["stage"],"Follow the highlighted next step in this job.")
 
 func _modal() -> void:
+ record_modal_text=true;modal_accessible_text=[]
  buttons.clear()
  draw_rect(Rect2(-ui_offset,_screen_size()),Color(0.015,0.055,0.14,0.42))
  match modal:
@@ -1413,6 +1435,7 @@ func _modal() -> void:
   "help": _help_panel()
   "confirm_new": _new_panel()
   "save_error": _save_error_panel()
+ record_modal_text=false
 
 func _save_error_panel() -> void:
  _header("YOUR SHOP IS STILL OPEN","Saving did not finish. Your current progress is still in this session.")
@@ -1469,6 +1492,8 @@ func _order_panel() -> void:
    _button(Rect2(801,522,406,51),"REQUEST CUSTOMER REVISION","revision",CREAM)
   "revision": _text(pos,"Corrected artwork arrives in %d shop minutes." % maxi(0,ceili((o["revision_eta"]-sim.now())*60)),19,BLUE)
   "plan":
+   var feedback=sim.preset_feedback(o)
+   _line(Vector2(389,654 if o["type"]=="sticker" else 606),feedback["text"],15,RED if feedback["warning"] else BLUE,810)
    if o["type"] in ["transfer","apparel"]:
     var batch=sim.batch_preview(selected_order)
     _button(Rect2(389,633,818,40),"MIXED BATCH: SAVE %d FT FILM" % batch.get("saved",0) if batch["valid"] else "BATCH: "+batch.get("reason","No match"),"batch",CREAM,batch["valid"],14)
@@ -1672,7 +1697,7 @@ func _stock_panel() -> void:
  _button(Rect2(801,618,406,42),"CMYK INK: +40 EACH  $64","ink",CYAN,true,15)
  var deliveries=[]
  for d in sim.state["deliveries"]: deliveries.append("%s: %d min" % [sim.missing_all(d["items"]),maxi(0,ceili((d["eta"]-sim.now())*60))])
- _text(Vector2(389,686),"Incoming: "+("none" if deliveries.is_empty() else "; ".join(deliveries)),16,INK,808)
+ _line(Vector2(389,686),"Incoming: "+("none" if deliveries.is_empty() else "; ".join(deliveries)),16,INK,808)
  _button(Rect2(389,714,818,42),"BACK TO SHOP","close",NAVY)
 
 func _move_panel() -> void:
@@ -1773,11 +1798,11 @@ func _capacity_panel() -> void:
   var row=rows[board_page*4+n];var o=sim.order(row["index"]);var y=261+n*80
   _panel(Rect2(389,y,818,73),Color("edf5ff"),Color("d0e1f6"),6)
   var eta="No ETA" if row["finish"]<0 else _due({"due":row["finish"]})
-  _text(Vector2(400,y+22),"%s / %d %s / %s" % [o["id"],o["quantity"],o["product"],row["risk"]],16,BLUE,650,true)
-  _text(Vector2(400,y+43),"Finish %s / margin $%.0f / %s at %s" % [eta,row["margin"],row["operator"],row["station"]],14,INK,650)
-  _text(Vector2(400,y+63),"; ".join(row["reasons"]),13,RED,650)
+  _line(Vector2(400,y+22),"%s / %d %s / %s" % [o["id"],o["quantity"],o["product"],row["risk"]],16,BLUE,650,true)
+  _line(Vector2(400,y+43),"Finish %s / margin $%.0f / %s at %s" % [eta,row["margin"],row["operator"],row["station"]],14,INK,650)
+  _line(Vector2(400,y+63),"; ".join(row["reasons"]),13,RED,650)
   _button(Rect2(1080,y+15,115,40),"OPEN","order:%d" % row["index"],CYAN,true,15)
- _text(Vector2(389,606),"Bills $%.0f / possible receipts $%d / cash after bills $%.0f" % [board["obligations"],board["receipts"],board["cash_after_bills"]],18,RED if board["cash_after_bills"]<0 else BLUE,810)
+ _line(Vector2(389,606),"Bills $%.0f / possible receipts $%d / cash after bills $%.0f" % [board["obligations"],board["receipts"],board["cash_after_bills"]],18,RED if board["cash_after_bills"]<0 else BLUE,810)
  _text(Vector2(389,636),"Stock is allocated in queue order. A forecast reserves no cash and guarantees no payment.",15,MUTED,810)
  _button(Rect2(389,659,397,34),"RECOVERY: +$100 / 2 HOURS","recovery_shift",CREAM,sim.state["clock"]<=15,14)
  _button(Rect2(801,659,406,34),"OPTIONAL RELAXED LOAN: $400","rescue_loan",CREAM,sim.state["rules"]["preset"]=="Relaxed" and not sim.state["rescue_used"],14)
