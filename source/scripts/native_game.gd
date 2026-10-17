@@ -688,7 +688,8 @@ func _sync_accessibility() -> void:
  for key in accessible_buttons:
   if not seen.has(key): accessible_buttons[key].hide()
  if accessible_summary!=null:
-  accessible_summary.text="%s. %s. Cash %d. %d open orders. %s" % [screen,modal,sim.state["cash"],sim.active_orders().size(),sim.state["notices"][0]]
+  var clock_status="Clock paused" if sim.state["paused"] else ("Clock running" if modal in ["","order","machine","staff"] else "Clock held by menu")
+  accessible_summary.text="%s. %s. %s. Cash %d. %d open orders. %s" % [screen,modal,clock_status,sim.state["cash"],sim.active_orders().size(),sim.state["notices"][0]]
 
 func _diamond(p:Vector2, w:float, h:float, color:Color, border:Color=Color("947450")) -> void:
  _poly([p+Vector2(-w,0),p+Vector2(0,-h),p+Vector2(w,0),p+Vector2(0,h)],color,border,1.0)
@@ -1423,11 +1424,14 @@ func _save_error_panel() -> void:
 
 func _header(title:String,subtitle:String="") -> void:
  _panel(Rect2(355,105,890,680),CREAM,BLUE,18)
- _text(Vector2(389,151),title,32,BLUE,-1,true)
+ var title_size=32
+ while title_size>22 and bold.get_string_size(title,HORIZONTAL_ALIGNMENT_LEFT,-1,title_size).x>535: title_size-=1
+ _text(Vector2(389,151),title,title_size,BLUE,535,true)
  _text(Vector2(389,182),subtitle,17,MUTED,810)
  if modal!="report": _button(Rect2(1180,122,42,37),"X","close",NAVY,true,20)
  if modal in ["order","machine","staff"]:
   _button(Rect2(930,122,230,37),"RESUME CLOCK" if sim.state["paused"] else "PAUSE CLOCK", "pause",NAVY,true,16)
+ elif screen=="shop": _text(Vector2(968,146),"CLOCK HELD BY MENU",14,BLUE)
 
 func _order_panel() -> void:
  var o=sim.order(selected_order)

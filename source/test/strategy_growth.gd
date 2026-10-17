@@ -25,6 +25,8 @@ func run() -> void:
   check(s.state["cash"]-500-125*Strategy.rules(name)["overhead"]>0,"Starter sticker route retains a cash buffer: "+name)
  var bounded=Strategy.rules("Custom",{"cash":100,"slack":-2,"faults":0})
  check(bounded["cash"]==2 and bounded["slack"]==.5 and bounded["faults"]==.5,"Custom rules are safely bounded")
+ var line=full();line.accept(0);line.preflight(0,"repair");line.auto_pack(0);line.queue_order(0)
+ check(line.work_station("shaker") and line.owner()["task"]["machine"]=="dtf","Shaker work command operates its connected printer line")
  var legacy=Sim.new();legacy.state=C.fresh();legacy.save_enabled=false
  var cash=legacy.state["cash"];var due=legacy.order(0)["due"]
  Strategy.ensure(legacy)

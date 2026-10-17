@@ -6,7 +6,8 @@ var events=[]
 var failures=0
 func _initialize() -> void: call_deferred("run")
 func run() -> void:
- root.size=Vector2i(1280,720)
+ DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+ root.size=Vector2i(960,540)
  game=load("res://main.tscn").instantiate()
  game.sim.save_enabled=false;game.sim.save_path="user://animation-review-qa.json"
  root.add_child(game);game.set_process(false);game.screen="shop";game.music.stop()

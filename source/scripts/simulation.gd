@@ -101,8 +101,15 @@ func repeat_order(i:int) -> bool:
 func recovery_shift() -> bool:
  if not state["paused"] or float(state["clock"])>15 or not state["report"].is_empty(): return false
  if not owner()["task"].is_empty(): notice("Finish Sam's current job first.");return false
- state["clock"]+=2.0;state["cash"]+=100
+ var target=float(state["clock"])+2.0
+ var speed=state["speed"];var manual=owner()["manual"]
+ state["cash"]+=100
  state["stats"]["recovery"]=state["stats"].get("recovery",0)+100
+ state["paused"]=false;state["speed"]=4;owner()["manual"]=true
+ # Staff, supplier arrivals, accepted deadlines and inquiry patience keep running.
+ while float(state["clock"])<target-.0000001 and not state["paused"]:
+  tick(minf(.1,(target-float(state["clock"]))/float(SHOP_HOURS_PER_SECOND*4)))
+ state["clock"]=target;state["speed"]=speed;owner()["manual"]=manual;state["paused"]=true
  notice("Recovery shift earned $100 and used two shop hours. Existing deadlines keep running.")
  return true
 
@@ -940,6 +947,9 @@ func work_order(i:int, station_override:String="") -> bool:
  owner()["manual"]=true
  var m=machine_for(o)
  if station_override!="": m=station_override
+ var required=machine_for(o)
+ if m!=required and not (required=="dtf" and m=="dtf2"):
+  notice("This job needs "+required+" at its current stage.");return false
  if not state["machines"].has(m): notice("Place the required station first: "+m+"."); return false
  if m=="dtf" and state["machines"].has("dtf2") and int(state["machines"]["dtf"]["active"])>=0: m="dtf2"
  var result=_dispatch(i,owner(),m)
@@ -955,6 +965,7 @@ func available_order(m:String) -> int:
  return -1
 
 func work_station(m:String) -> bool:
+ if m in ["shaker","shaker2"]: m="dtf2" if m=="shaker2" else "dtf"
  var i=available_order(m)
  if i<0: notice("No prepared jobs are waiting at this station."); return false
  return work_order(i,m)
@@ -1466,6 +1477,10 @@ func next_day() -> void:
     if types.has(favorite): type=favorite;break
   var q={"transfer":12,"sticker":60,"apparel":12,"banner":2,"cnc":6}[type]
   q+=(int(state["day"])%3)*({"transfer":6,"sticker":20,"apparel":0,"banner":0,"cnc":1}[type])
+  if int(state["rules"]["version"])>0:
+   # Partial sheets create a real material-saving / waiting tradeoff for batches.
+   if type=="transfer": q=10+(int(state["day"])%4)*3
+   if type=="apparel": q=9+(int(state["day"])%3)*2
   var customer=C.CUSTOMERS[(n+int(state["day"]))%C.CUSTOMERS.size()]
   var reward=roundi(q*{"transfer":20.0,"sticker":4.2,"apparel":50.0,"banner":380.0,"cnc":118.0}[type])
   var o=C.make_order("DAY%d-%d" % [state["day"],n],type,q,customer,now()+5.5+n*0.5,reward)
@@ -1559,6 +1574,14 @@ func _valid_save_state(loaded:Dictionary) -> bool:
   for key in C.make_order("","transfer",1,"",1,1):
    if not o.has(key): return false
   if not o["settings"] is Dictionary or not o["recipe"] is Dictionary or not o["gang"] is Array: return false
+  if not o["garments"] is Dictionary: return false
+  for key in ["white","registration","laminate","cut","media","press"]:
+   if not o["settings"].has(key): return false
+  for key in ["quantity","art_w","art_h","film_width","sheet_length"]:
+   if not o[key] is float and not o[key] is int: return false
+   if not is_finite(float(o[key])) or float(o[key])<=0: return false
+ for printer in ["dtf","dtf2"]:
+  if loaded["machines"].has(printer) and not loaded["machines"].has("shaker2" if printer=="dtf2" else "shaker"): return false
  return true
 
 func load_game() -> bool:

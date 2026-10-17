@@ -1,0 +1,1712 @@
+{
+  "engine": "Godot 4.5.1",
+  "failures": 0,
+  "rules": "strategy-v1",
+  "runs": [
+    {
+      "blocked_quote_polls": 2,
+      "branch": "Stickers",
+      "cash_floor": 1900.0,
+      "completed": 15,
+      "daily": [
+        {
+          "cash": 2376,
+          "cash_change": 476.0,
+          "day": 1,
+          "open": 0,
+          "paid": 2,
+          "profit": 447.8
+        },
+        {
+          "cash": 2702,
+          "cash_change": 326.0,
+          "day": 2,
+          "open": 0,
+          "paid": 1,
+          "profit": 305.9
+        },
+        {
+          "cash": 2860,
+          "cash_change": 158.0,
+          "day": 3,
+          "open": 0,
+          "paid": 1,
+          "profit": 145.1
+        },
+        {
+          "cash": 3102,
+          "cash_change": 242.0,
+          "day": 4,
+          "open": 0,
+          "paid": 1,
+          "profit": 224.9
+        },
+        {
+          "cash": 3428,
+          "cash_change": 326.0,
+          "day": 5,
+          "open": 0,
+          "paid": 1,
+          "profit": 305.9
+        },
+        {
+          "cash": 3586,
+          "cash_change": 158.0,
+          "day": 6,
+          "open": 0,
+          "paid": 1,
+          "profit": 145.1
+        },
+        {
+          "cash": 4164,
+          "cash_change": 578.0,
+          "day": 7,
+          "open": 0,
+          "paid": 1,
+          "profit": 545.0
+        },
+        {
+          "cash": 4980,
+          "cash_change": 816.0,
+          "day": 8,
+          "open": 0,
+          "paid": 1,
+          "profit": 777.5
+        },
+        {
+          "cash": 5460,
+          "cash_change": 480.0,
+          "day": 9,
+          "open": 0,
+          "paid": 1,
+          "profit": 456.4
+        },
+        {
+          "cash": 6097,
+          "cash_change": 637.0,
+          "day": 10,
+          "open": 0,
+          "paid": 1,
+          "profit": 615.0
+        },
+        {
+          "cash": 6903,
+          "cash_change": 806.0,
+          "day": 11,
+          "open": 0,
+          "paid": 1,
+          "profit": 777.5
+        },
+        {
+          "cash": 7383,
+          "cash_change": 480.0,
+          "day": 12,
+          "open": 0,
+          "paid": 1,
+          "profit": 456.4
+        },
+        {
+          "cash": 8020,
+          "cash_change": 637.0,
+          "day": 13,
+          "open": 0,
+          "paid": 1,
+          "profit": 615.0
+        },
+        {
+          "cash": 8806,
+          "cash_change": 786.0,
+          "day": 14,
+          "open": 0,
+          "paid": 1,
+          "profit": 777.5
+        }
+      ],
+      "day14": {
+        "cash": 8806,
+        "cash_change": 786.0,
+        "day": 14,
+        "open": 0,
+        "paid": 1,
+        "profit": 777.5
+      },
+      "day7": {
+        "cash": 4164,
+        "cash_change": 578.0,
+        "day": 7,
+        "open": 0,
+        "paid": 1,
+        "profit": 545.0
+      },
+      "ending_cash": 8806,
+      "expired_inquiries": 0,
+      "first_paid_minutes": 32.4000000000044,
+      "on_time_fraction": 1.0,
+      "policy": "Conservative",
+      "preset": "Relaxed"
+    },
+    {
+      "blocked_quote_polls": 11,
+      "branch": "Apparel",
+      "cash_floor": 1220.0,
+      "completed": 28,
+      "daily": [
+        {
+          "cash": 2226,
+          "cash_change": 976.0,
+          "day": 1,
+          "open": 0,
+          "paid": 2,
+          "profit": 847.8
+        },
+        {
+          "cash": 3107,
+          "cash_change": 881.0,
+          "day": 2,
+          "open": 0,
+          "paid": 2,
+          "profit": 754.2
+        },
+        {
+          "cash": 3748,
+          "cash_change": 641.0,
+          "day": 3,
+          "open": 0,
+          "paid": 2,
+          "profit": 543.0
+        },
+        {
+          "cash": 4365,
+          "cash_change": 617.0,
+          "day": 4,
+          "open": 0,
+          "paid": 2,
+          "profit": 564.4
+        },
+        {
+          "cash": 4981,
+          "cash_change": 616.0,
+          "day": 5,
+          "open": 0,
+          "paid": 2,
+          "profit": 596.8
+        },
+        {
+          "cash": 5737,
+          "cash_change": 756.0,
+          "day": 6,
+          "open": 0,
+          "paid": 2,
+          "profit": 817.2
+        },
+        {
+          "cash": 6722,
+          "cash_change": 985.0,
+          "day": 7,
+          "open": 0,
+          "paid": 2,
+          "profit": 953.5
+        },
+        {
+          "cash": 7634,
+          "cash_change": 912.0,
+          "day": 8,
+          "open": 0,
+          "paid": 2,
+          "profit": 858.5
+        },
+        {
+          "cash": 8257,
+          "cash_change": 623.0,
+          "day": 9,
+          "open": 0,
+          "paid": 2,
+          "profit": 631.8
+        },
+        {
+          "cash": 9332,
+          "cash_change": 1075.0,
+          "day": 10,
+          "open": 0,
+          "paid": 2,
+          "profit": 1024.6
+        },
+        {
+          "cash": 10228,
+          "cash_change": 896.0,
+          "day": 11,
+          "open": 0,
+          "paid": 2,
+          "profit": 897.5
+        },
+        {
+          "cash": 10973,
+          "cash_change": 745.0,
+          "day": 12,
+          "open": 0,
+          "paid": 2,
+          "profit": 720.6
+        },
+        {
+          "cash": 11636,
+          "cash_change": 663.0,
+          "day": 13,
+          "open": 0,
+          "paid": 2,
+          "profit": 631.8
+        },
+        {
+          "cash": 12725,
+          "cash_change": 1089.0,
+          "day": 14,
+          "open": 0,
+          "paid": 2,
+          "profit": 1107.3
+        }
+      ],
+      "day14": {
+        "cash": 12725,
+        "cash_change": 1089.0,
+        "day": 14,
+        "open": 0,
+        "paid": 2,
+        "profit": 1107.3
+      },
+      "day7": {
+        "cash": 6722,
+        "cash_change": 985.0,
+        "day": 7,
+        "open": 0,
+        "paid": 2,
+        "profit": 953.5
+      },
+      "ending_cash": 12725,
+      "expired_inquiries": 0,
+      "first_paid_minutes": 37.3680000000051,
+      "on_time_fraction": 1.0,
+      "policy": "Conservative",
+      "preset": "Relaxed"
+    },
+    {
+      "blocked_quote_polls": 2,
+      "branch": "Stickers",
+      "cash_floor": 1900.0,
+      "completed": 15,
+      "daily": [
+        {
+          "cash": 2376,
+          "cash_change": 476.0,
+          "day": 1,
+          "open": 0,
+          "paid": 2,
+          "profit": 447.8
+        },
+        {
+          "cash": 2702,
+          "cash_change": 326.0,
+          "day": 2,
+          "open": 0,
+          "paid": 1,
+          "profit": 305.9
+        },
+        {
+          "cash": 2860,
+          "cash_change": 158.0,
+          "day": 3,
+          "open": 0,
+          "paid": 1,
+          "profit": 145.1
+        },
+        {
+          "cash": 3102,
+          "cash_change": 242.0,
+          "day": 4,
+          "open": 0,
+          "paid": 1,
+          "profit": 224.9
+        },
+        {
+          "cash": 3428,
+          "cash_change": 326.0,
+          "day": 5,
+          "open": 0,
+          "paid": 1,
+          "profit": 305.9
+        },
+        {
+          "cash": 3586,
+          "cash_change": 158.0,
+          "day": 6,
+          "open": 0,
+          "paid": 1,
+          "profit": 145.1
+        },
+        {
+          "cash": 4164,
+          "cash_change": 578.0,
+          "day": 7,
+          "open": 0,
+          "paid": 1,
+          "profit": 545.0
+        },
+        {
+          "cash": 4980,
+          "cash_change": 816.0,
+          "day": 8,
+          "open": 0,
+          "paid": 1,
+          "profit": 777.5
+        },
+        {
+          "cash": 5460,
+          "cash_change": 480.0,
+          "day": 9,
+          "open": 0,
+          "paid": 1,
+          "profit": 456.4
+        },
+        {
+          "cash": 6097,
+          "cash_change": 637.0,
+          "day": 10,
+          "open": 0,
+          "paid": 1,
+          "profit": 615.0
+        },
+        {
+          "cash": 6903,
+          "cash_change": 806.0,
+          "day": 11,
+          "open": 0,
+          "paid": 1,
+          "profit": 777.5
+        },
+        {
+          "cash": 7383,
+          "cash_change": 480.0,
+          "day": 12,
+          "open": 0,
+          "paid": 1,
+          "profit": 456.4
+        },
+        {
+          "cash": 8020,
+          "cash_change": 637.0,
+          "day": 13,
+          "open": 0,
+          "paid": 1,
+          "profit": 615.0
+        },
+        {
+          "cash": 8806,
+          "cash_change": 786.0,
+          "day": 14,
+          "open": 0,
+          "paid": 1,
+          "profit": 777.5
+        }
+      ],
+      "day14": {
+        "cash": 8806,
+        "cash_change": 786.0,
+        "day": 14,
+        "open": 0,
+        "paid": 1,
+        "profit": 777.5
+      },
+      "day7": {
+        "cash": 4164,
+        "cash_change": 578.0,
+        "day": 7,
+        "open": 0,
+        "paid": 1,
+        "profit": 545.0
+      },
+      "ending_cash": 8806,
+      "expired_inquiries": 0,
+      "first_paid_minutes": 51.408000000007,
+      "on_time_fraction": 1.0,
+      "policy": "Novice",
+      "preset": "Relaxed"
+    },
+    {
+      "blocked_quote_polls": 11,
+      "branch": "Apparel",
+      "cash_floor": 1220.0,
+      "completed": 28,
+      "daily": [
+        {
+          "cash": 2370,
+          "cash_change": 1120.0,
+          "day": 1,
+          "open": 0,
+          "paid": 2,
+          "profit": 991.8
+        },
+        {
+          "cash": 3358,
+          "cash_change": 988.0,
+          "day": 2,
+          "open": 0,
+          "paid": 2,
+          "profit": 861.2
+        },
+        {
+          "cash": 4124,
+          "cash_change": 766.0,
+          "day": 3,
+          "open": 0,
+          "paid": 2,
+          "profit": 668.0
+        },
+        {
+          "cash": 4812,
+          "cash_change": 688.0,
+          "day": 4,
+          "open": 0,
+          "paid": 2,
+          "profit": 635.4
+        },
+        {
+          "cash": 5605,
+          "cash_change": 793.0,
+          "day": 5,
+          "open": 0,
+          "paid": 2,
+          "profit": 773.8
+        },
+        {
+          "cash": 6574,
+          "cash_change": 969.0,
+          "day": 6,
+          "open": 0,
+          "paid": 2,
+          "profit": 1030.2
+        },
+        {
+          "cash": 7808,
+          "cash_change": 1234.0,
+          "day": 7,
+          "open": 0,
+          "paid": 2,
+          "profit": 1202.5
+        },
+        {
+          "cash": 8861,
+          "cash_change": 1053.0,
+          "day": 8,
+          "open": 0,
+          "paid": 2,
+          "profit": 999.5
+        },
+        {
+          "cash": 9661,
+          "cash_change": 800.0,
+          "day": 9,
+          "open": 0,
+          "paid": 2,
+          "profit": 808.8
+        },
+        {
+          "cash": 10949,
+          "cash_change": 1288.0,
+          "day": 10,
+          "open": 0,
+          "paid": 2,
+          "profit": 1237.6
+        },
+        {
+          "cash": 12094,
+          "cash_change": 1145.0,
+          "day": 11,
+          "open": 0,
+          "paid": 2,
+          "profit": 1146.5
+        },
+        {
+          "cash": 12980,
+          "cash_change": 886.0,
+          "day": 12,
+          "open": 0,
+          "paid": 2,
+          "profit": 861.6
+        },
+        {
+          "cash": 13820,
+          "cash_change": 840.0,
+          "day": 13,
+          "open": 0,
+          "paid": 2,
+          "profit": 808.8
+        },
+        {
+          "cash": 15122,
+          "cash_change": 1302.0,
+          "day": 14,
+          "open": 0,
+          "paid": 2,
+          "profit": 1320.3
+        }
+      ],
+      "day14": {
+        "cash": 15122,
+        "cash_change": 1302.0,
+        "day": 14,
+        "open": 0,
+        "paid": 2,
+        "profit": 1320.3
+      },
+      "day7": {
+        "cash": 7808,
+        "cash_change": 1234.0,
+        "day": 7,
+        "open": 0,
+        "paid": 2,
+        "profit": 1202.5
+      },
+      "ending_cash": 15122,
+      "expired_inquiries": 0,
+      "first_paid_minutes": 37.3680000000051,
+      "on_time_fraction": 1.0,
+      "policy": "Rush",
+      "preset": "Relaxed"
+    },
+    {
+      "blocked_quote_polls": 2,
+      "branch": "Stickers",
+      "cash_floor": 940.0,
+      "completed": 15,
+      "daily": [
+        {
+          "cash": 1385,
+          "cash_change": 285.0,
+          "day": 1,
+          "open": 0,
+          "paid": 2,
+          "profit": 401.7
+        },
+        {
+          "cash": 1680,
+          "cash_change": 295.0,
+          "day": 2,
+          "open": 0,
+          "paid": 1,
+          "profit": 274.9
+        },
+        {
+          "cash": 1807,
+          "cash_change": 127.0,
+          "day": 3,
+          "open": 0,
+          "paid": 1,
+          "profit": 114.1
+        },
+        {
+          "cash": 2018,
+          "cash_change": 211.0,
+          "day": 4,
+          "open": 0,
+          "paid": 1,
+          "profit": 193.9
+        },
+        {
+          "cash": 2313,
+          "cash_change": 295.0,
+          "day": 5,
+          "open": 0,
+          "paid": 1,
+          "profit": 274.9
+        },
+        {
+          "cash": 2440,
+          "cash_change": 127.0,
+          "day": 6,
+          "open": 0,
+          "paid": 1,
+          "profit": 114.1
+        },
+        {
+          "cash": 2987,
+          "cash_change": 547.0,
+          "day": 7,
+          "open": 0,
+          "paid": 1,
+          "profit": 514.0
+        },
+        {
+          "cash": 3762,
+          "cash_change": 775.0,
+          "day": 8,
+          "open": 0,
+          "paid": 1,
+          "profit": 704.0
+        },
+        {
+          "cash": 4211,
+          "cash_change": 449.0,
+          "day": 9,
+          "open": 0,
+          "paid": 1,
+          "profit": 425.4
+        },
+        {
+          "cash": 4817,
+          "cash_change": 606.0,
+          "day": 10,
+          "open": 0,
+          "paid": 1,
+          "profit": 584.0
+        },
+        {
+          "cash": 5592,
+          "cash_change": 775.0,
+          "day": 11,
+          "open": 0,
+          "paid": 1,
+          "profit": 746.5
+        },
+        {
+          "cash": 6041,
+          "cash_change": 449.0,
+          "day": 12,
+          "open": 0,
+          "paid": 1,
+          "profit": 425.4
+        },
+        {
+          "cash": 6647,
+          "cash_change": 606.0,
+          "day": 13,
+          "open": 0,
+          "paid": 1,
+          "profit": 584.0
+        },
+        {
+          "cash": 7386,
+          "cash_change": 739.0,
+          "day": 14,
+          "open": 0,
+          "paid": 1,
+          "profit": 746.5
+        }
+      ],
+      "day14": {
+        "cash": 7386,
+        "cash_change": 739.0,
+        "day": 14,
+        "open": 0,
+        "paid": 1,
+        "profit": 746.5
+      },
+      "day7": {
+        "cash": 2987,
+        "cash_change": 547.0,
+        "day": 7,
+        "open": 0,
+        "paid": 1,
+        "profit": 514.0
+      },
+      "ending_cash": 7386,
+      "expired_inquiries": 0,
+      "first_paid_minutes": 70.6320000000096,
+      "on_time_fraction": 1.0,
+      "policy": "Conservative",
+      "preset": "Standard"
+    },
+    {
+      "blocked_quote_polls": 6,
+      "branch": "Apparel",
+      "cash_floor": 420.0,
+      "completed": 28,
+      "daily": [
+        {
+          "cash": 1395,
+          "cash_change": 945.0,
+          "day": 1,
+          "open": 0,
+          "paid": 2,
+          "profit": 816.8
+        },
+        {
+          "cash": 2245,
+          "cash_change": 850.0,
+          "day": 2,
+          "open": 0,
+          "paid": 2,
+          "profit": 723.2
+        },
+        {
+          "cash": 2855,
+          "cash_change": 610.0,
+          "day": 3,
+          "open": 0,
+          "paid": 2,
+          "profit": 512.0
+        },
+        {
+          "cash": 3225,
+          "cash_change": 370.0,
+          "day": 4,
+          "open": 0,
+          "paid": 2,
+          "profit": 533.4
+        },
+        {
+          "cash": 3810,
+          "cash_change": 585.0,
+          "day": 5,
+          "open": 0,
+          "paid": 2,
+          "profit": 565.8
+        },
+        {
+          "cash": 4559,
+          "cash_change": 749.0,
+          "day": 6,
+          "open": 0,
+          "paid": 2,
+          "profit": 786.2
+        },
+        {
+          "cash": 5513,
+          "cash_change": 954.0,
+          "day": 7,
+          "open": 0,
+          "paid": 2,
+          "profit": 922.5
+        },
+        {
+          "cash": 6388,
+          "cash_change": 875.0,
+          "day": 8,
+          "open": 0,
+          "paid": 2,
+          "profit": 771.5
+        },
+        {
+          "cash": 6988,
+          "cash_change": 600.0,
+          "day": 9,
+          "open": 0,
+          "paid": 2,
+          "profit": 600.8
+        },
+        {
+          "cash": 8068,
+          "cash_change": 1080.0,
+          "day": 10,
+          "open": 0,
+          "paid": 2,
+          "profit": 993.6
+        },
+        {
+          "cash": 8996,
+          "cash_change": 928.0,
+          "day": 11,
+          "open": 0,
+          "paid": 2,
+          "profit": 922.5
+        },
+        {
+          "cash": 9746,
+          "cash_change": 750.0,
+          "day": 12,
+          "open": 0,
+          "paid": 2,
+          "profit": 689.6
+        },
+        {
+          "cash": 10322,
+          "cash_change": 576.0,
+          "day": 13,
+          "open": 0,
+          "paid": 2,
+          "profit": 557.3
+        },
+        {
+          "cash": 11427,
+          "cash_change": 1105.0,
+          "day": 14,
+          "open": 0,
+          "paid": 2,
+          "profit": 1076.3
+        }
+      ],
+      "day14": {
+        "cash": 11427,
+        "cash_change": 1105.0,
+        "day": 14,
+        "open": 0,
+        "paid": 2,
+        "profit": 1076.3
+      },
+      "day7": {
+        "cash": 5513,
+        "cash_change": 954.0,
+        "day": 7,
+        "open": 0,
+        "paid": 2,
+        "profit": 922.5
+      },
+      "ending_cash": 11427,
+      "expired_inquiries": 0,
+      "first_paid_minutes": 37.3680000000051,
+      "on_time_fraction": 1.0,
+      "policy": "Conservative",
+      "preset": "Standard"
+    },
+    {
+      "blocked_quote_polls": 0,
+      "branch": "Stickers",
+      "cash_floor": 1100.0,
+      "completed": 15,
+      "daily": [
+        {
+          "cash": 1509,
+          "cash_change": 409.0,
+          "day": 1,
+          "open": 0,
+          "paid": 2,
+          "profit": 380.8
+        },
+        {
+          "cash": 1804,
+          "cash_change": 295.0,
+          "day": 2,
+          "open": 0,
+          "paid": 1,
+          "profit": 274.9
+        },
+        {
+          "cash": 1931,
+          "cash_change": 127.0,
+          "day": 3,
+          "open": 0,
+          "paid": 1,
+          "profit": 114.1
+        },
+        {
+          "cash": 2142,
+          "cash_change": 211.0,
+          "day": 4,
+          "open": 0,
+          "paid": 1,
+          "profit": 193.9
+        },
+        {
+          "cash": 2437,
+          "cash_change": 295.0,
+          "day": 5,
+          "open": 0,
+          "paid": 1,
+          "profit": 274.9
+        },
+        {
+          "cash": 2564,
+          "cash_change": 127.0,
+          "day": 6,
+          "open": 0,
+          "paid": 1,
+          "profit": 114.1
+        },
+        {
+          "cash": 2775,
+          "cash_change": 211.0,
+          "day": 7,
+          "open": 0,
+          "paid": 1,
+          "profit": 193.9
+        },
+        {
+          "cash": 3342,
+          "cash_change": 567.0,
+          "day": 8,
+          "open": 0,
+          "paid": 1,
+          "profit": 528.5
+        },
+        {
+          "cash": 3791,
+          "cash_change": 449.0,
+          "day": 9,
+          "open": 0,
+          "paid": 1,
+          "profit": 425.4
+        },
+        {
+          "cash": 4398,
+          "cash_change": 607.0,
+          "day": 10,
+          "open": 0,
+          "paid": 1,
+          "profit": 584.0
+        },
+        {
+          "cash": 5173,
+          "cash_change": 775.0,
+          "day": 11,
+          "open": 0,
+          "paid": 1,
+          "profit": 746.5
+        },
+        {
+          "cash": 5622,
+          "cash_change": 449.0,
+          "day": 12,
+          "open": 0,
+          "paid": 1,
+          "profit": 425.4
+        },
+        {
+          "cash": 6229,
+          "cash_change": 607.0,
+          "day": 13,
+          "open": 0,
+          "paid": 1,
+          "profit": 584.0
+        },
+        {
+          "cash": 6984,
+          "cash_change": 755.0,
+          "day": 14,
+          "open": 0,
+          "paid": 1,
+          "profit": 746.5
+        }
+      ],
+      "day14": {
+        "cash": 6984,
+        "cash_change": 755.0,
+        "day": 14,
+        "open": 0,
+        "paid": 1,
+        "profit": 746.5
+      },
+      "day7": {
+        "cash": 2775,
+        "cash_change": 211.0,
+        "day": 7,
+        "open": 0,
+        "paid": 1,
+        "profit": 193.9
+      },
+      "ending_cash": 6984,
+      "expired_inquiries": 0,
+      "first_paid_minutes": 52.4880000000072,
+      "on_time_fraction": 1.0,
+      "policy": "Novice",
+      "preset": "Standard"
+    },
+    {
+      "blocked_quote_polls": 6,
+      "branch": "Apparel",
+      "cash_floor": 420.0,
+      "completed": 28,
+      "daily": [
+        {
+          "cash": 1539,
+          "cash_change": 1089.0,
+          "day": 1,
+          "open": 0,
+          "paid": 2,
+          "profit": 960.8
+        },
+        {
+          "cash": 2496,
+          "cash_change": 957.0,
+          "day": 2,
+          "open": 0,
+          "paid": 2,
+          "profit": 830.2
+        },
+        {
+          "cash": 3231,
+          "cash_change": 735.0,
+          "day": 3,
+          "open": 0,
+          "paid": 2,
+          "profit": 637.0
+        },
+        {
+          "cash": 3672,
+          "cash_change": 441.0,
+          "day": 4,
+          "open": 0,
+          "paid": 2,
+          "profit": 604.4
+        },
+        {
+          "cash": 4434,
+          "cash_change": 762.0,
+          "day": 5,
+          "open": 0,
+          "paid": 2,
+          "profit": 742.8
+        },
+        {
+          "cash": 5396,
+          "cash_change": 962.0,
+          "day": 6,
+          "open": 0,
+          "paid": 2,
+          "profit": 999.2
+        },
+        {
+          "cash": 6599,
+          "cash_change": 1203.0,
+          "day": 7,
+          "open": 0,
+          "paid": 2,
+          "profit": 1171.5
+        },
+        {
+          "cash": 7615,
+          "cash_change": 1016.0,
+          "day": 8,
+          "open": 0,
+          "paid": 2,
+          "profit": 912.5
+        },
+        {
+          "cash": 8392,
+          "cash_change": 777.0,
+          "day": 9,
+          "open": 0,
+          "paid": 2,
+          "profit": 777.8
+        },
+        {
+          "cash": 9685,
+          "cash_change": 1293.0,
+          "day": 10,
+          "open": 0,
+          "paid": 2,
+          "profit": 1206.6
+        },
+        {
+          "cash": 10862,
+          "cash_change": 1177.0,
+          "day": 11,
+          "open": 0,
+          "paid": 2,
+          "profit": 1171.5
+        },
+        {
+          "cash": 11753,
+          "cash_change": 891.0,
+          "day": 12,
+          "open": 0,
+          "paid": 2,
+          "profit": 830.6
+        },
+        {
+          "cash": 12506,
+          "cash_change": 753.0,
+          "day": 13,
+          "open": 0,
+          "paid": 2,
+          "profit": 734.3
+        },
+        {
+          "cash": 13824,
+          "cash_change": 1318.0,
+          "day": 14,
+          "open": 0,
+          "paid": 2,
+          "profit": 1289.3
+        }
+      ],
+      "day14": {
+        "cash": 13824,
+        "cash_change": 1318.0,
+        "day": 14,
+        "open": 0,
+        "paid": 2,
+        "profit": 1289.3
+      },
+      "day7": {
+        "cash": 6599,
+        "cash_change": 1203.0,
+        "day": 7,
+        "open": 0,
+        "paid": 2,
+        "profit": 1171.5
+      },
+      "ending_cash": 13824,
+      "expired_inquiries": 0,
+      "first_paid_minutes": 37.3680000000051,
+      "on_time_fraction": 1.0,
+      "policy": "Rush",
+      "preset": "Standard"
+    },
+    {
+      "blocked_quote_polls": 2,
+      "branch": "Stickers",
+      "cash_floor": 700.0,
+      "completed": 15,
+      "daily": [
+        {
+          "cash": 1126,
+          "cash_change": 266.0,
+          "day": 1,
+          "open": 0,
+          "paid": 2,
+          "profit": 382.7
+        },
+        {
+          "cash": 1402,
+          "cash_change": 276.0,
+          "day": 2,
+          "open": 0,
+          "paid": 1,
+          "profit": 255.9
+        },
+        {
+          "cash": 1510,
+          "cash_change": 108.0,
+          "day": 3,
+          "open": 0,
+          "paid": 1,
+          "profit": 95.1
+        },
+        {
+          "cash": 1702,
+          "cash_change": 192.0,
+          "day": 4,
+          "open": 0,
+          "paid": 1,
+          "profit": 174.9
+        },
+        {
+          "cash": 1978,
+          "cash_change": 276.0,
+          "day": 5,
+          "open": 0,
+          "paid": 1,
+          "profit": 255.9
+        },
+        {
+          "cash": 2086,
+          "cash_change": 108.0,
+          "day": 6,
+          "open": 0,
+          "paid": 1,
+          "profit": 95.1
+        },
+        {
+          "cash": 2614,
+          "cash_change": 528.0,
+          "day": 7,
+          "open": 0,
+          "paid": 1,
+          "profit": 495.0
+        },
+        {
+          "cash": 3370,
+          "cash_change": 756.0,
+          "day": 8,
+          "open": 0,
+          "paid": 1,
+          "profit": 685.0
+        },
+        {
+          "cash": 3800,
+          "cash_change": 430.0,
+          "day": 9,
+          "open": 0,
+          "paid": 1,
+          "profit": 406.4
+        },
+        {
+          "cash": 4387,
+          "cash_change": 587.0,
+          "day": 10,
+          "open": 0,
+          "paid": 1,
+          "profit": 565.0
+        },
+        {
+          "cash": 5143,
+          "cash_change": 756.0,
+          "day": 11,
+          "open": 0,
+          "paid": 1,
+          "profit": 727.5
+        },
+        {
+          "cash": 5573,
+          "cash_change": 430.0,
+          "day": 12,
+          "open": 0,
+          "paid": 1,
+          "profit": 406.4
+        },
+        {
+          "cash": 6160,
+          "cash_change": 587.0,
+          "day": 13,
+          "open": 0,
+          "paid": 1,
+          "profit": 565.0
+        },
+        {
+          "cash": 6880,
+          "cash_change": 720.0,
+          "day": 14,
+          "open": 0,
+          "paid": 1,
+          "profit": 727.5
+        }
+      ],
+      "day14": {
+        "cash": 6880,
+        "cash_change": 720.0,
+        "day": 14,
+        "open": 0,
+        "paid": 1,
+        "profit": 727.5
+      },
+      "day7": {
+        "cash": 2614,
+        "cash_change": 528.0,
+        "day": 7,
+        "open": 0,
+        "paid": 1,
+        "profit": 495.0
+      },
+      "ending_cash": 6880,
+      "expired_inquiries": 0,
+      "first_paid_minutes": 70.6320000000096,
+      "on_time_fraction": 1.0,
+      "policy": "Conservative",
+      "preset": "Expert"
+    },
+    {
+      "blocked_quote_polls": 5,
+      "branch": "Apparel",
+      "cash_floor": 180.0,
+      "completed": 28,
+      "daily": [
+        {
+          "cash": 1136,
+          "cash_change": 926.0,
+          "day": 1,
+          "open": 0,
+          "paid": 2,
+          "profit": 797.8
+        },
+        {
+          "cash": 1967,
+          "cash_change": 831.0,
+          "day": 2,
+          "open": 0,
+          "paid": 2,
+          "profit": 704.2
+        },
+        {
+          "cash": 2558,
+          "cash_change": 591.0,
+          "day": 3,
+          "open": 0,
+          "paid": 2,
+          "profit": 493.0
+        },
+        {
+          "cash": 2765,
+          "cash_change": 207.0,
+          "day": 4,
+          "open": 0,
+          "paid": 2,
+          "profit": 514.4
+        },
+        {
+          "cash": 3331,
+          "cash_change": 566.0,
+          "day": 5,
+          "open": 0,
+          "paid": 2,
+          "profit": 546.8
+        },
+        {
+          "cash": 4061,
+          "cash_change": 730.0,
+          "day": 6,
+          "open": 0,
+          "paid": 2,
+          "profit": 767.2
+        },
+        {
+          "cash": 4996,
+          "cash_change": 935.0,
+          "day": 7,
+          "open": 0,
+          "paid": 2,
+          "profit": 903.5
+        },
+        {
+          "cash": 5852,
+          "cash_change": 856.0,
+          "day": 8,
+          "open": 0,
+          "paid": 2,
+          "profit": 752.5
+        },
+        {
+          "cash": 6433,
+          "cash_change": 581.0,
+          "day": 9,
+          "open": 0,
+          "paid": 2,
+          "profit": 581.8
+        },
+        {
+          "cash": 7494,
+          "cash_change": 1061.0,
+          "day": 10,
+          "open": 0,
+          "paid": 2,
+          "profit": 974.6
+        },
+        {
+          "cash": 8403,
+          "cash_change": 909.0,
+          "day": 11,
+          "open": 0,
+          "paid": 2,
+          "profit": 903.5
+        },
+        {
+          "cash": 9134,
+          "cash_change": 731.0,
+          "day": 12,
+          "open": 0,
+          "paid": 2,
+          "profit": 670.6
+        },
+        {
+          "cash": 9691,
+          "cash_change": 557.0,
+          "day": 13,
+          "open": 0,
+          "paid": 2,
+          "profit": 538.3
+        },
+        {
+          "cash": 10785,
+          "cash_change": 1094.0,
+          "day": 14,
+          "open": 0,
+          "paid": 2,
+          "profit": 1057.3
+        }
+      ],
+      "day14": {
+        "cash": 10785,
+        "cash_change": 1094.0,
+        "day": 14,
+        "open": 0,
+        "paid": 2,
+        "profit": 1057.3
+      },
+      "day7": {
+        "cash": 4996,
+        "cash_change": 935.0,
+        "day": 7,
+        "open": 0,
+        "paid": 2,
+        "profit": 903.5
+      },
+      "ending_cash": 10785,
+      "expired_inquiries": 0,
+      "first_paid_minutes": 37.3680000000051,
+      "on_time_fraction": 1.0,
+      "policy": "Conservative",
+      "preset": "Expert"
+    },
+    {
+      "blocked_quote_polls": 0,
+      "branch": "Stickers",
+      "cash_floor": 860.0,
+      "completed": 15,
+      "daily": [
+        {
+          "cash": 1250,
+          "cash_change": 390.0,
+          "day": 1,
+          "open": 0,
+          "paid": 2,
+          "profit": 361.8
+        },
+        {
+          "cash": 1526,
+          "cash_change": 276.0,
+          "day": 2,
+          "open": 0,
+          "paid": 1,
+          "profit": 255.9
+        },
+        {
+          "cash": 1634,
+          "cash_change": 108.0,
+          "day": 3,
+          "open": 0,
+          "paid": 1,
+          "profit": 95.1
+        },
+        {
+          "cash": 1826,
+          "cash_change": 192.0,
+          "day": 4,
+          "open": 0,
+          "paid": 1,
+          "profit": 174.9
+        },
+        {
+          "cash": 2102,
+          "cash_change": 276.0,
+          "day": 5,
+          "open": 0,
+          "paid": 1,
+          "profit": 255.9
+        },
+        {
+          "cash": 2210,
+          "cash_change": 108.0,
+          "day": 6,
+          "open": 0,
+          "paid": 1,
+          "profit": 95.1
+        },
+        {
+          "cash": 2402,
+          "cash_change": 192.0,
+          "day": 7,
+          "open": 0,
+          "paid": 1,
+          "profit": 174.9
+        },
+        {
+          "cash": 2950,
+          "cash_change": 548.0,
+          "day": 8,
+          "open": 0,
+          "paid": 1,
+          "profit": 509.5
+        },
+        {
+          "cash": 3380,
+          "cash_change": 430.0,
+          "day": 9,
+          "open": 0,
+          "paid": 1,
+          "profit": 406.4
+        },
+        {
+          "cash": 3968,
+          "cash_change": 588.0,
+          "day": 10,
+          "open": 0,
+          "paid": 1,
+          "profit": 565.0
+        },
+        {
+          "cash": 4724,
+          "cash_change": 756.0,
+          "day": 11,
+          "open": 0,
+          "paid": 1,
+          "profit": 727.5
+        },
+        {
+          "cash": 5154,
+          "cash_change": 430.0,
+          "day": 12,
+          "open": 0,
+          "paid": 1,
+          "profit": 406.4
+        },
+        {
+          "cash": 5742,
+          "cash_change": 588.0,
+          "day": 13,
+          "open": 0,
+          "paid": 1,
+          "profit": 565.0
+        },
+        {
+          "cash": 6478,
+          "cash_change": 736.0,
+          "day": 14,
+          "open": 0,
+          "paid": 1,
+          "profit": 727.5
+        }
+      ],
+      "day14": {
+        "cash": 6478,
+        "cash_change": 736.0,
+        "day": 14,
+        "open": 0,
+        "paid": 1,
+        "profit": 727.5
+      },
+      "day7": {
+        "cash": 2402,
+        "cash_change": 192.0,
+        "day": 7,
+        "open": 0,
+        "paid": 1,
+        "profit": 174.9
+      },
+      "ending_cash": 6478,
+      "expired_inquiries": 0,
+      "first_paid_minutes": 52.4880000000072,
+      "on_time_fraction": 1.0,
+      "policy": "Novice",
+      "preset": "Expert"
+    },
+    {
+      "blocked_quote_polls": 5,
+      "branch": "Apparel",
+      "cash_floor": 180.0,
+      "completed": 28,
+      "daily": [
+        {
+          "cash": 1280,
+          "cash_change": 1070.0,
+          "day": 1,
+          "open": 0,
+          "paid": 2,
+          "profit": 941.8
+        },
+        {
+          "cash": 2218,
+          "cash_change": 938.0,
+          "day": 2,
+          "open": 0,
+          "paid": 2,
+          "profit": 811.2
+        },
+        {
+          "cash": 2934,
+          "cash_change": 716.0,
+          "day": 3,
+          "open": 0,
+          "paid": 2,
+          "profit": 618.0
+        },
+        {
+          "cash": 3212,
+          "cash_change": 278.0,
+          "day": 4,
+          "open": 0,
+          "paid": 2,
+          "profit": 585.4
+        },
+        {
+          "cash": 3955,
+          "cash_change": 743.0,
+          "day": 5,
+          "open": 0,
+          "paid": 2,
+          "profit": 723.8
+        },
+        {
+          "cash": 4898,
+          "cash_change": 943.0,
+          "day": 6,
+          "open": 0,
+          "paid": 2,
+          "profit": 980.2
+        },
+        {
+          "cash": 6082,
+          "cash_change": 1184.0,
+          "day": 7,
+          "open": 0,
+          "paid": 2,
+          "profit": 1152.5
+        },
+        {
+          "cash": 7079,
+          "cash_change": 997.0,
+          "day": 8,
+          "open": 0,
+          "paid": 2,
+          "profit": 893.5
+        },
+        {
+          "cash": 7837,
+          "cash_change": 758.0,
+          "day": 9,
+          "open": 0,
+          "paid": 2,
+          "profit": 758.8
+        },
+        {
+          "cash": 9111,
+          "cash_change": 1274.0,
+          "day": 10,
+          "open": 0,
+          "paid": 2,
+          "profit": 1187.6
+        },
+        {
+          "cash": 10269,
+          "cash_change": 1158.0,
+          "day": 11,
+          "open": 0,
+          "paid": 2,
+          "profit": 1152.5
+        },
+        {
+          "cash": 11141,
+          "cash_change": 872.0,
+          "day": 12,
+          "open": 0,
+          "paid": 2,
+          "profit": 811.6
+        },
+        {
+          "cash": 11875,
+          "cash_change": 734.0,
+          "day": 13,
+          "open": 0,
+          "paid": 2,
+          "profit": 715.3
+        },
+        {
+          "cash": 13182,
+          "cash_change": 1307.0,
+          "day": 14,
+          "open": 0,
+          "paid": 2,
+          "profit": 1270.3
+        }
+      ],
+      "day14": {
+        "cash": 13182,
+        "cash_change": 1307.0,
+        "day": 14,
+        "open": 0,
+        "paid": 2,
+        "profit": 1270.3
+      },
+      "day7": {
+        "cash": 6082,
+        "cash_change": 1184.0,
+        "day": 7,
+        "open": 0,
+        "paid": 2,
+        "profit": 1152.5
+      },
+      "ending_cash": 13182,
+      "expired_inquiries": 0,
+      "first_paid_minutes": 37.3680000000051,
+      "on_time_fraction": 0.964285714285714,
+      "policy": "Rush",
+      "preset": "Expert"
+    }
+  ],
+  "scope": "12 reproducible scripted policies over 14 actual shop days. No manual-player or animation certification."
+}
