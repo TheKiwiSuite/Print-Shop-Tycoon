@@ -22,9 +22,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          BUILD_RUN: ${{ github.event.workflow_run.id || '39040965248' }}
+          BUILD_RUN: ${{ github.event.workflow_run.id || '' }}
         run: |
           $ErrorActionPreference = 'Stop'
+          if ([string]::IsNullOrWhiteSpace($env:BUILD_RUN)) {
+            $env:BUILD_RUN = gh api "repos/$env:GH_REPO/actions/workflows/windows-alpha.yml/runs?branch=main&status=success&per_page=1" --jq '.workflow_runs[0].id'
+            if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($env:BUILD_RUN)) { throw 'No validated packaging run is available.' }
+          }
           gh run download $env:BUILD_RUN --pattern 'tycoon-build-*' --dir build
           if ($LASTEXITCODE -ne 0) { throw 'Build artifact retrieval failed.' }
           $packages = @(Get-ChildItem -LiteralPath build -Recurse -File -Filter 'PrintShopTycoon-Windows-*.zip')
