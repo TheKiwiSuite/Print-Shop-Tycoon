@@ -61,3 +61,9 @@ uses unchanged approved PNG sheets in source/assets/equipment, with measured
 frame bounds and floor anchors prepared by prepare_game_assets.py. All 160
 views are connected to placement and rotation. Version 0.2.15 fixes exact
 rotation pivots; 0.2.16 redraws the signs and reduces the wall to three windows.
+
+October 16, 2026 - official logo update (v0.2.19):
+The owner supplied Transparent Print Shop Tycoon Logo.png as the official logo
+going forward. The runtime logo and icon/Official-Logo.png are unchanged copies.
+Transparent proportional Windows/Godot icon conversions use the same artwork.
+The earlier Kiwi Suite badge logo is archived under art/branding, not active.

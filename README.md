@@ -1,6 +1,8 @@
 # Print Shop Tycoon
 
-Native Windows print-shop game built with Godot. This repository contains the editable Godot project, game scripts and tests, approved art assets, Blender and Krita source files, and release/QA scripts for the current **v0.2.18** build.
+Native Windows print-shop game built with Godot. This repository contains the editable Godot project, game scripts and tests, approved art assets, Blender and Krita source files, and release/QA scripts for the current **v0.2.19** build.
+
+Version 0.2.19 adopts the owner-supplied transparent Print Shop Tycoon logo on the title screen, shop dock and Windows shortcut. The approved original is kept unchanged under `art/branding`; previous branding remains archived source material.
 
 Version 0.2.18 adds an auto-hiding desktop menu bar. Move the pointer to the top edge or press F10 for File, Edit, View, Window and Help, plus minimize, window/fullscreen and Close buttons. Window offers windowed restore, maximize and fullscreen. Menus pause shop input, outside clicks dismiss without moving Sam, and Close uses the existing guarded save flow. F11 still toggles fullscreen.
 

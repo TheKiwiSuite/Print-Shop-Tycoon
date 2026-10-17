@@ -1,8 +1,8 @@
 {
-  "version": "0.2.18",
-  "built_at": "2026-10-16T19:54:56.8224873-05:00",
+  "version": "0.2.19",
+  "built_at": "2026-10-16T20:07:33.9354689-05:00",
   "platform": "Windows x86_64",
   "engine": "Godot 4.5.1",
   "executable": "windows/Print Shop Tycoon.exe",
-  "sha256": "FAFE59B785C10D9C88AA9C7C06A439C90DA05A2887F5784F12C57D88987988C6"
+  "sha256": "DCC4CC6823E92340C4714696E01D9758BEA209855EA874963AD01590A52A6534"
 }

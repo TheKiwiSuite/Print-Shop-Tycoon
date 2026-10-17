@@ -1,4 +1,10 @@
-# Native Windows v0.2.18
+# Native Windows v0.2.19
+
+## Version 0.2.19 — new official transparent logo
+
+- Replaced the active title/shop logo with the exact newly supplied transparent PNG.
+- Updated the Godot window icon and desktop shortcut icon using proportional transparent conversions of that same artwork. The shortcut references a new icon filename to avoid reusing the old cached icon.
+- Archived prior logo inputs under `art/branding`; contributor guidance now identifies the new official source for future work. No equipment artwork or gameplay logic changed.
 
 ## Version 0.2.18 — accessible desktop window controls
 

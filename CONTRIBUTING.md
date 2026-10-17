@@ -14,7 +14,7 @@ For gameplay changes, include focused regression evidence and inspect the native
 
 ## Art and design
 
-Preserve the approved DTF equipment views and official Kiwi Suite logo. New equipment/character art needs owner review. Follow the existing isometric camera and approved 2.5D cartoon references; do not replace approved equipment with generated alternatives. Keep editable source files and calibrate sprite feet, shadows, collision footprints and selection areas together.
+Preserve the approved DTF equipment views and official logo in `art/branding/Transparent Print Shop Tycoon Logo.png`. New equipment/character art needs owner review. Follow the existing isometric camera and approved 2.5D cartoon references; do not replace approved equipment with generated alternatives. Keep editable source files and calibrate sprite feet, shadows, collision footprints and selection areas together.
 
 ## Releases and permissions
 
