@@ -16,10 +16,30 @@ static func place(s,kind:String,at:Vector2i) -> bool:
   for w in s.state["workers"]:
    if s.cell(w["pos"])==cell:return false
  var item={"id":"decor-"+str(s.state["style"]["next_decor"]),"kind":kind,"pos":[at.x,at.y],"width":spec["width"],"unbox":.8}
+ for actor in s.visible_customers():
+  var actor_cell=s.cell(actor["pos"])
+  if actor_cell.y==at.y and actor_cell.x>=at.x and actor_cell.x<at.x+int(spec["width"]):s.notice("A customer is standing there. Choose clear floor.");return false
  s.state["style"]["decor"].append(item)
  for id in s.state["machines"]:
   if s.path(s.entrance(),s.service(id)).is_empty() and s.entrance()!=s.service(id):
    s.state["style"]["decor"].pop_back();s.notice("That position would block a station's service route.");return false
+ # Check complete equipment clearances, including the DTF loading / film span.
+ for id in s.state["machines"]:
+  var m=s.state["machines"][id]
+  var feedback=s.placement_feedback(id,s.cell(m["pos"]),int(m["rotation"]),s.facing_of(m),s.equipment_center(id,s.state["machines"]))
+  if not feedback["valid"]:
+   s.state["style"]["decor"].pop_back();s.notice(feedback["reason"]);return false
+  break
+ # Resolve saved walking routes before the new display can obstruct them.
+ var routes={}
+ for w in s.state["workers"]:
+  if w["path"].is_empty():continue
+  var goal=s.cell(w["path"][-1]);var route=s.path(s.cell(w["pos"]),goal)
+  if goal!=s.cell(w["pos"]) and route.is_empty():
+   s.state["style"]["decor"].pop_back();s.notice("That display would cut off a worker's route.");return false
+  routes[w["id"]]=route
+ for id in routes:s.worker(id)["path"]=routes[id]
+ s._reroute_customers()
  s.state["style"]["next_decor"]+=1;s.state["cash"]-=spec["price"];s.state["stats"]["capex"]=s.state["stats"].get("capex",0)+spec["price"]
  s.notice("Placed "+spec["title"]+". Decor changes presentation, not machine throughput.");s.save_game();return true
 static func remove(s) -> bool:

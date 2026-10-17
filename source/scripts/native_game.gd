@@ -15,6 +15,7 @@ var floor_texture_path=""
 var photo_render=false
 var photo_active=false
 var photo_busy=false
+var photo_format=0
 var photo_imported=false
 var photo_previous={}
 var qte_previous_pause=false
@@ -2368,7 +2369,7 @@ func _stamp_offline() -> void:
 
 func _workshop_action(action:String) -> bool:
  var p=action.split(":")
- if p[0] not in ["workshop","worktab","promotion","service","finance","decor","decor_remove","floor_next","floor_import","outfit_worker","outfit_next","away_toggle","offline_toggle","offline_settle","auto_service","qte_toggle","assist_toggle","events_toggle","event","intervene","jam","qte_hit","qte_skip","photo_mode","photo_close","photo_export","photo_imported"]:return false
+ if p[0] not in ["workshop","worktab","promotion","service","finance","decor","decor_remove","floor_next","floor_import","outfit_worker","outfit_next","away_toggle","offline_toggle","offline_settle","auto_service","qte_toggle","assist_toggle","events_toggle","event","intervene","jam","qte_hit","qte_skip","photo_mode","photo_close","photo_export","photo_format","photo_imported"]:return false
  Ops.ensure(sim);Style.ensure(sim)
  var ops=sim.state["operations"];var style=sim.state["style"]
  match p[0]:
@@ -2418,6 +2419,7 @@ func _workshop_action(action:String) -> bool:
   "photo_close":
    if photo_busy:return true
    photo_active=false;sim.state["paused"]=photo_previous.get("paused",true);zoom=photo_previous.get("zoom",zoom);offset=photo_previous.get("offset",offset);origin=photo_previous.get("origin",origin);modal=photo_previous.get("modal","");build=photo_previous.get("build",false)
+  "photo_format":photo_format=int(p[1]);return true
   "photo_export":Photo.export_png(self,int(p[1]));return true
   "photo_imported":photo_imported=not photo_imported;return true
  if not photo_active:sim.save_game()

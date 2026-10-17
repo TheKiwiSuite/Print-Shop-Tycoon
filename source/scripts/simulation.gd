@@ -776,7 +776,9 @@ func placement_feedback(id:String, pos:Vector2i, rotation:int=0,facing:int=-1,ce
    occupied[p]=key
  for decor in state.get("style",{}).get("decor",[]):
   for dx in int(decor["width"]):
-   if occupied.has(cell(decor["pos"])+Vector2i(dx,0)):return {"valid":false,"reason":"Equipment overlaps decor.","machines":ms}
+   var decor_cell=cell(decor["pos"])+Vector2i(dx,0)
+   if occupied.has(decor_cell):return {"valid":false,"reason":"Equipment overlaps decor.","machines":ms}
+   occupied[decor_cell]="decor"
  for prop in room_props():
   if occupied.has(prop["pos"]): return {"valid":false,"reason":"Equipment overlaps a fixed shelf or plant.","machines":ms}
  for printer in ["dtf","dtf2"]:

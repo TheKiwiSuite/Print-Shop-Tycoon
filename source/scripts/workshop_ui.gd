@@ -34,7 +34,7 @@ static func draw(g) -> void:
    g._button(Rect2(389,407,397,43),"END AWAY SHIFT" if o["away"] else "START AWAY SHIFT","away_toggle",g.YELLOW)
    g._button(Rect2(801,407,406,43),"OFFLINE: "+("ON (15 MIN MAX)" if o["offline_enabled"] else "OFF"),"offline_toggle",g.CREAM,true,16)
    g._button(Rect2(389,469,397,43),"AUTO SERVICE: "+("ON" if o["auto_service"] else "OFF"),"auto_service",g.CREAM,true,16)
-   g._button(Rect2(801,469,406,43),"SETTLE SAVED OFFLINE TIME","offline_settle",g.CYAN,o["offline_enabled"] and o["away"],16)
+   g._button(Rect2(801,469,406,43),"OFFLINE SETTLES ON CONTINUE","worktab:2",g.CREAM,false,15)
    g._text(Vector2(389,550),"Service budget: $24 within $100 total / no automatic supply purchases.\nOffline runs at 1x once per saved interval. Enable it before leaving an Away shift.\nIt saves the result before showing it; save failure restores the prior state.",17,g.INK,810)
    g._text(Vector2(389,636),JSON.stringify(o["return_report"]),14,g.BLUE,810)
   3:

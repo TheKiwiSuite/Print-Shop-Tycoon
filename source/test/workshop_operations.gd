@@ -33,6 +33,27 @@ func run() -> void:
  for tick in 800:s.tick(.1)
  check(not m.has("service_work") and not m.get("broken",false) and m["condition"]==100,"Operator walks and recovers broken station")
  check(s.state["stock"]["maintenance"]==kits-1,"Service completion never charges a second kit")
+ s=fixture();s.state["day"]=5;m=s.state["machines"]["sticker"];m["condition"]=39;m["service_uses"]=8;m["last_service_day"]=1
+ Ops.tick(s,.1)
+ check(m.get("broken",false),"Severe wear plus sustained missed service creates recoverable stop")
+ kits=s.state["stock"]["maintenance"]
+ check(Ops.begin_jam(s,"sticker"),"Broken station offers optional three-step recovery")
+ check(not Ops.qte_result(s) and not Ops.qte_result(s) and s.state["stock"]["maintenance"]==kits,"First two jam steps do not consume a kit")
+ check(Ops.qte_result(s) and not m["broken"] and m["condition"]>=70 and s.state["stock"]["maintenance"]==kits-1,"Third jam step commits recovery and one kit exactly once")
+ check(not Ops.qte_result(s) and s.state["stock"]["maintenance"]==kits-1,"Completed jam cannot replay its stock charge")
+ s=fixture();s.state["production_annex"]=false;s.state["location"]=2;s.state["fit_out"]=true;s.state["completed"]=10;s.state["reputation"]=80
+ var before_machine=s.state["machines"].duplicate(true);var obligation=s.daily_obligations();cash=s.state["cash"]
+ check(Ops.annex(s) and s.bounds()==Vector2i(22,16),"Earned production annex adds usable floor")
+ check(s.state["machines"]==before_machine and s.daily_obligations()==obligation+75 and s.state["cash"]==cash-2200,"Annex retains layout and adds disclosed rent once")
+ check(not Ops.annex(s) and s.state["cash"]==cash-2200,"Annex cannot be purchased twice")
+ s=fixture();s.save_path="user://qa-service-persistence-"+str(Time.get_ticks_usec())+".json";s.save_enabled=true
+ check(Ops.start_service(s,"sticker") and s.save_game(),"In-flight service can be saved")
+ kits=s.state["stock"]["maintenance"]
+ var restored=Sim.new();restored.save_path=s.save_path
+ check(restored.load_game() and restored.state["machines"]["sticker"].has("service_work"),"Saved service reservation and route restore")
+ restored.save_enabled=false
+ for tick in 800:restored.tick(.1)
+ check(not restored.state["machines"]["sticker"].has("service_work") and restored.state["stock"]["maintenance"]==kits,"Reloaded service finishes without duplicate kit consumption")
  s=fixture();s.state["machines"].erase("sticker")
  var price=C.EQUIPMENT_PRICES["sticker"];cash=s.state["cash"]
  check(Ops.finance(s,"sticker"),"Financing reserves disclosed deposit and repayment terms")
