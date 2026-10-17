@@ -243,7 +243,7 @@ func _input(event:InputEvent) -> void:
     elif build: build=false
     else: modal="settings"
    KEY_SPACE:
-    if screen=="shop" and modal=="": _action("pause")
+    if screen=="shop" and modal in ["","order","machine","staff"]: _action("pause")
    KEY_B:
     if screen=="shop" and modal=="": _action("build")
    KEY_HOME: reset_camera()
@@ -1314,7 +1314,7 @@ func _tutorial_index() -> int:
  return -1
 
 func _tutorial_hint(o:Dictionary) -> String:
- return {"intake":"Accept the 24-transfer order.","preflight":"Check artwork and fix the background.","plan":"Open the gang sheet and auto-pack designs.","queued":"Work this job: Sam walks to the DTF line.","production":"Watch film print, powder, cure and wind.","qc":"Take output to the inspection bench.","pack":"Cut / roll and pack your finished transfers.","ready":"Deliver the box at the pickup counter.","completed":"Paid! Try stickers, then buy an upgrade."}.get(o["stage"],"Follow the highlighted next step in this job.")
+ return {"intake":"Accept the %d-%s order." % [o["quantity"],o["product"]],"preflight":"Check artwork and fix the background.","plan":"Open the gang sheet and auto-pack designs.","queued":"Work this job: Sam walks to the DTF line.","production":"Watch film print, powder, cure and wind.","qc":"Take output to the inspection bench.","pack":"Cut / roll and pack your finished transfers.","ready":"Deliver the box at the pickup counter.","completed":"Paid! Try stickers, then buy an upgrade."}.get(o["stage"],"Follow the highlighted next step in this job.")
 
 func _modal() -> void:
  buttons.clear()
@@ -1349,13 +1349,15 @@ func _header(title:String,subtitle:String="") -> void:
  _text(Vector2(389,151),title,32,BLUE,-1,true)
  _text(Vector2(389,182),subtitle,17,MUTED,810)
  if modal!="report": _button(Rect2(1180,122,42,37),"X","close",NAVY,true,20)
+ if modal in ["order","machine","staff"]:
+  _button(Rect2(930,122,230,37),"RESUME CLOCK" if sim.state["paused"] else "PAUSE CLOCK", "pause",NAVY,true,16)
 
 func _order_panel() -> void:
  var o=sim.order(selected_order)
  if o.is_empty(): modal=""; return
  _header("%d %s" % [o["quantity"],o["product"]],o["customer"]+(" • RETURNING CUSTOMER" if o.get("returning",false) else "")+(" • WHOLESALE" if o.get("wholesale",false) else ""))
  _product(o["type"],Vector2(1160,249),73)
- _text(Vector2(389,233),"$%d  •  Due %s  •  %s" % [o["reward"],_due(o),o["fulfillment"].to_upper()] if o["stage"]!="scheduled" else "$%d  •  Deadline starts when the customer arrives" % o["reward"],22,INK)
+ _text(Vector2(389,233),"$%d  •  Due %s  •  %s" % [roundi(o["reward"]*(0.76 if o.get("quality_accepted",false) else 1.0)),_due(o),o["fulfillment"].to_upper()] if o["stage"]!="scheduled" else "$%d  •  Deadline starts when the customer arrives" % o["reward"],22,INK)
  _text(Vector2(389,266),_stage(o["stage"])+"  •  "+sim.customer_status(o),18,RED if o["stage"]=="fault" else BLUE,710,true)
  var routes={"transfer":"ART > GANG SHEET > CMYK + WHITE > POWDER > CURE > TAKE-UP > QC > PACK","apparel":"ART > DTF TRANSFER > GARMENT BLANKS > HEAT PRESS / PEEL > QC > PACK","sticker":"BLEED / CUT PATH > PRINT > LAMINATE > REGISTRATION > CONTOUR CUT > QC","banner":"MEDIA WIDTH > WIDE PRINT > TRIM / GROMMETS > INSPECT > PACK > SHIP","cnc":"TOOLPATH > PANEL / TOOL PRESET > LOAD > GANTRY CUT > UNLOAD > QC"}
  _panel(Rect2(385,287,823,53),Color("edf5ff"),Color("d0e1f6"),6)
@@ -1541,7 +1543,7 @@ func _staff_panel() -> void:
    var y=270+i*53
    _text(Vector2(389,y+27),C.ROLES[i],20,INK)
    _text(Vector2(688,y+27),"$%d / $45 day" % C.HIRE_COST[i],17,MUTED)
-   _button(Rect2(1002,y,206,43),"HIRE "+C.NAMES[i],"hire:%d" % i,GREEN,sim.state["cash"]>=C.HIRE_COST[i],16)
+   _button(Rect2(1002,y,206,43),"HIRE "+C.NAMES[i],"hire:%d" % i,GREEN,sim.state["cash"]>=C.HIRE_COST[i] and sim.state["workers"].size()<9,16)
   _text(Vector2(389,677),"Team: "+_team_names()+". One worker runs one task at a time.",16,INK,808)
  else:
   var upgrades=[["auto_feeder","AUTO FEEDER",350,"30% faster printing on both DTF lanes."],["training","STAFF TRAINING",400,"25% faster work for Sam and current / future staff."],["quality_sensor","QUALITY SENSORS",450,"Detect risky ink / registration presets before starting."]]
@@ -1774,13 +1776,13 @@ func _action(action:String) -> void:
    if sim.move_garage(): modal=""; reset_camera(); order_page=0
   "end_day": sim.end_day(); modal="report"
   "next_day": sim.next_day(); modal=""
-  "sound": sim.state["settings"]["sound"]=not sim.state["settings"]["sound"]
+  "sound":
+   sim.state["settings"]["sound"]=not sim.state["settings"]["sound"]
+   _save_audio_preferences()
   "music":
    sim.state["settings"]["music"]=not sim.state["settings"]["music"]
    _start_music()
-   var preferences=ConfigFile.new()
-   preferences.set_value("audio","music",sim.state["settings"]["music"])
-   if preferences.save(sim.save_path+".preferences.cfg")!=OK:sim.notice("Music changed; preference could not be saved.")
+   _save_audio_preferences()
   "fullscreen":
    var full=DisplayServer.window_get_mode()==DisplayServer.WINDOW_MODE_FULLSCREEN
    DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MAXIMIZED if full else DisplayServer.WINDOW_MODE_FULLSCREEN)
@@ -1807,10 +1809,17 @@ func _sfx() -> void:
   bytes.encode_s16(i*2,int(sample))
  stream.data=bytes; audio.stream=stream; audio.play()
 
+func _save_audio_preferences() -> void:
+ var preferences=ConfigFile.new()
+ preferences.load(sim.save_path+".preferences.cfg")
+ for key in ["music","sound"]: preferences.set_value("audio",key,sim.state["settings"][key])
+ if preferences.save(sim.save_path+".preferences.cfg")!=OK: sim.notice("Audio changed; preference could not be saved.")
+
 func _load_music_preference() -> void:
  var preferences=ConfigFile.new()
  if preferences.load(sim.save_path+".preferences.cfg")==OK:
-  sim.state["settings"]["music"]=bool(preferences.get_value("audio","music",true))
+  for key in ["music","sound"]:
+   sim.state["settings"][key]=bool(preferences.get_value("audio",key,sim.state["settings"][key]))
 
 func _start_music() -> void:
  music.stop()

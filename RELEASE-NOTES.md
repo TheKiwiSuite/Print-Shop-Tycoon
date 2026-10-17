@@ -1,4 +1,17 @@
-# Native Windows v0.2.21
+# Native Windows v0.2.22
+
+## Version 0.2.22 — assessment recovery pass
+
+- Fixed valid printer/shaker assemblies rejecting JSON-loaded dimensions because numeric array element types differed. Dimensions are compared as grid sizes. Real disconnected assemblies remain rejected.
+- Fixed customers stalled at fractional doorway positions whose rounded route was already empty. Exiting visitors have passage priority over other customers so doorway and narrow aisle traffic can clear. This can briefly overlap visitor sprites in a narrow aisle; full crowd animation remains future work.
+- Recovered the supplied day-eight fixture's four unpaid pickups and three queued DTF jobs, through ordinary dispatch and settlement. No player save is rewritten or reset by this update.
+- Interrupted printing returns to the production state and consumes stock only on its first start.
+- Space now pauses/resumes order, machine and staff panels. Those live panels expose an explicit clock button. Other management panels retain their existing automatic pause policy.
+- Sound effects now use the separate audio preferences file alongside music. Continuing a shop cannot undo the saved Sound Off choice.
+- Tutorial acceptance text reads the current order quantity; discounted order payout display matches settlement; Hire buttons disable at the nine-person team limit.
+- Preserved v0.2.21 approved branding, equipment artwork, rotation pivots and workspace docks.
+
+Validation: see `ASSESSMENT-INTEGRATION.md`. This is a reliability update, not completion of the full difficulty, economy, progression, animation or accessibility specification. Windows packaging CI runs after the commit; it does not certify a native Windows playthrough.
 
 ## Version 0.2.21 — supplied logo-only Windows icon
 

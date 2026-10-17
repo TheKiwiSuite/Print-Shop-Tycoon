@@ -1,6 +1,8 @@
 # Print Shop Tycoon
 
-Native Windows print-shop game built with Godot. This repository contains the editable Godot project, game scripts and tests, approved art assets, Blender and Krita source files, and release/QA scripts for the current **v0.2.21** build.
+Native Windows print-shop game built with Godot. This repository contains the editable Godot project, game scripts and tests, approved art assets, Blender and Krita source files, and release/QA scripts for the current **v0.2.22** build.
+
+Version 0.2.22 repairs the Oct 16 assessment checkpoint: stalled pickups, loaded DTF line validation, interrupted print consumption, live-panel pause controls, sound preference restoration, tutorial quantity and discounted payout feedback. See [assessment integration](ASSESSMENT-INTEGRATION.md) for tested scope and remaining work.
 
 Version 0.2.21 uses the owner-supplied transparent Windows icon unchanged. It removes the rejected square badge from v0.2.20. The desktop shortcut and runtime icon show only the logo, with no added background or frame.
 

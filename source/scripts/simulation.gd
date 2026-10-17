@@ -214,7 +214,7 @@ func _door_busy(except_order:int) -> bool:
 func _customer_obstacles(actor:Dictionary) -> Dictionary:
  var occupied={}
  for other in visible_customers():
-  if other["order"]!=actor["order"]: occupied[Vector2i(roundi(other["pos"][0]),roundi(other["pos"][1]))]=true
+  if other["order"]!=actor["order"] and actor["purpose"]!="exit": occupied[Vector2i(roundi(other["pos"][0]),roundi(other["pos"][1]))]=true
  for w in state["workers"]:
   occupied[Vector2i(roundi(w["pos"][0]),roundi(w["pos"][1]))]=true
  occupied.erase(Vector2i(roundi(actor["pos"][0]),roundi(actor["pos"][1])))
@@ -228,7 +228,7 @@ func _walk_customer(actor:Dictionary,dt:float) -> void:
  var next=pos.move_toward(target,dt*2.2)
  var occupied=false
  for other in visible_customers():
-  if other["order"]!=actor["order"] and next.distance_to(v(other["pos"]))<0.55: occupied=true;break
+  if other["order"]!=actor["order"] and actor["purpose"]!="exit" and next.distance_to(v(other["pos"]))<0.55: occupied=true;break
  if not occupied:
   for w in state["workers"]:
    if next.distance_to(v(w["pos"]))<0.55: occupied=true;break
@@ -271,6 +271,10 @@ func _update_customer_actors(dt:float) -> void:
    actor["purpose"]=purpose;actor["goal"]=[goal.x,goal.y]
    actor["path"]=path(start,goal,{},_customer_obstacles(actor))
    actor["phase"]="leaving" if purpose=="exit" else "entering"
+  # A saved fractional position can round to the goal cell without reaching it.
+  # BFS then returns an empty route; finish that last partial step explicitly.
+  if actor["path"].is_empty() and start==goal and v(actor["pos"]).distance_to(Vector2(goal))>=0.05:
+   actor["path"]=[[goal.x,goal.y]]
   _walk_customer(actor,dt*0.8)
   if actor["path"].is_empty():
    if v(actor["pos"]).distance_to(Vector2(goal))<0.05:
@@ -520,7 +524,7 @@ func placement_feedback(id:String, pos:Vector2i, rotation:int=0,facing:int=-1,ce
   var s=cell(ms[shake]["pos"])
   var expected=ms.duplicate(true)
   configure_dtf(expected,printer,p,int(ms[printer]["rotation"]))
-  if s!=cell(expected[shake]["pos"]) or ms[shake]["size"]!=expected[shake]["size"] or int(ms[shake]["rotation"])!=int(ms[printer]["rotation"]): return {"valid":false,"reason":"Disconnected film feed: rotate and move the complete printer / shaker line."}
+  if s!=cell(expected[shake]["pos"]) or cell(ms[shake]["size"])!=cell(expected[shake]["size"]) or int(ms[shake]["rotation"])!=int(ms[printer]["rotation"]): return {"valid":false,"reason":"Disconnected film feed: rotate and move the complete printer / shaker line."}
   if int(ms[printer]["width"])!=int(ms[shake]["width"]): return {"valid":false,"reason":"Printer and shaker media widths do not match."}
   if uses_rotated_footprint(printer,ms): continue
   var reserved=[]
@@ -801,17 +805,18 @@ func _begin_task(w:Dictionary) -> void:
  var m=state["machines"][t["machine"]]
  if o["stage"]!=t["stage"] or m["active"]>=0: w["task"]={}; return
  if t["stage"]=="preflight": o["stage"]="prepress"
- if t["stage"]=="queued" and not o["consumed"]:
-  if state["upgrades"]["quality_sensor"]:
-   o["settings"]["white"]="standard"
-   o["settings"]["registration"]=true
-   o["recipe"]=C.recipe(o)
-   m["condition"]=maxi(70,m["condition"])
-  if not materials_available(o["recipe"]): o["stage"]="waiting_stock"; w["task"]={}; return
-  _consume(o["recipe"],o)
-  o["consumed"]=true
+ if t["stage"]=="queued":
+  if not o["consumed"]:
+   if state["upgrades"]["quality_sensor"]:
+    o["settings"]["white"]="standard"
+    o["settings"]["registration"]=true
+    o["recipe"]=C.recipe(o)
+    m["condition"]=maxi(70,m["condition"])
+   if not materials_available(o["recipe"]): o["stage"]="waiting_stock"; w["task"]={}; return
+   _consume(o["recipe"],o)
+   o["consumed"]=true
   o["production_machine"]=t["machine"]
-  o["started_at"]=now()
+  if float(o["started_at"])<0: o["started_at"]=now()
   o["stage"]="production"
  elif t["stage"]=="press":
   if not o.get("garments_consumed",false) and not garment_available(o): w["task"]={}; return
