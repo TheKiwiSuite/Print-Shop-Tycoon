@@ -1818,10 +1818,10 @@ func _growth_panel() -> void:
  _button(Rect2(389,380,397,49),"INDUSTRIAL FIT-OUT  $350","fit_out",CYAN,sim.state["location"]==2 and not sim.state["fit_out"] and sim.state["cash"]>=350,17)
  _button(Rect2(801,380,406,49),"PURCHASE EQUIPMENT","equipment",CREAM,true,17)
  _button(Rect2(389,439,818,32),"SECOND DTF LINE  $900 / PLACE IN A CLEAR AISLE","second_line",CREAM,sim.state["fit_out"] and not sim.state["machines"].has("dtf2") and sim.state["cash"]>=900,14)
- _text(Vector2(389,475),"CLIENT FOCUS: "+sim.state["specialty"],23,BLUE,-1,true)
+ _text(Vector2(389,499),"CLIENT FOCUS: "+sim.state["specialty"],23,BLUE,-1,true)
  var names=["General","Stickers","Apparel","Signs"]
- for i in names.size(): _button(Rect2(389+i*207,501,197,47),names[i],"specialty:"+names[i],CYAN if names[i]==sim.state["specialty"] else CREAM,true,17)
- _text(Vector2(389,588),"Your focus favors the next day's first inquiry when its equipment is installed. Diversify whenever useful. No accepted order changes.",19,INK,810)
+ for i in names.size(): _button(Rect2(389+i*207,526,197,47),names[i],"specialty:"+names[i],CYAN if names[i]==sim.state["specialty"] else CREAM,true,17)
+ _text(Vector2(389,610),"Your focus favors the next day's first inquiry when its equipment is installed. Diversify whenever useful. No accepted order changes.",19,INK,810)
  _button(Rect2(389,710,818,43),"BACK TO SHOP","close",NAVY)
 
 func _roster_panel() -> void:

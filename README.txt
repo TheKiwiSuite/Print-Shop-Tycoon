@@ -1,13 +1,28 @@
 PRINT SHOP TYCOON — NATIVE WINDOWS PLAYABLE BUILD
 
+VERSION 0.3.0 — PLANNING AND STAGED GROWTH
+Choose Relaxed, Standard, Expert or Custom when starting a new shop. Existing
+shops retain their previous economy until you explicitly apply new rules in
+Settings. Accepted prices and deadlines remain fixed. Starting another shop
+archives the previous save; Continue keeps the current shop.
+Q opens capacity, input, deadline and cash forecasts. Expand premises, fit out
+the industrial floor and buy machines separately. Completed clients can repeat
+approved orders; compatible transfer/apparel work can share a film batch.
+Tab / Shift+Tab / Enter navigate controls. Arrow keys / Enter place equipment.
+Settings includes movement remapping and Reduce Motion.
+Read STRATEGY-UPGRADE.md for exact rules, assumptions and remaining acceptance;
+RELEASE-NOTES.md records this version. Older scope notes below are historical.
+
 PLAY
-Use the Print Shop Tycoon desktop shortcut to play the latest installed build.
+Extract the complete download and open windows/Print Shop Tycoon.exe.
+If you installed a local build, its desktop shortcut opens that installed copy.
 The current version is always shown in the bottom-left footer and window title.
 Equipment uses floor-contact anchors and shadows at its feet/wheels. The
 default camera keeps the complete shop floor above the bottom interface.
 The DTF line uses your supplied printer/shaker combo. Open either component,
 then EQUIPMENT VIEWS to see the supplied main, right, left, back and front images.
-BUILD-INFO.json records the installed version, build time, and executable hash.
+The download's BUILD.txt records the source commit and engine. Local installer
+builds also write BUILD-INFO.json with their version and executable hash.
 You can also double-click windows/Print Shop Tycoon.exe. The executable contains its game
 data. No browser, account, web server, installation, or internet is required.
 Choose Start a New Shop for an empty floor. ADD EQUIPMENT opens the station
@@ -42,7 +57,7 @@ Space: pause. 1/2/4: speed. F5: save. F11: fullscreen. Escape: back/settings.
 PLAY LOOP
 New shops receive inquiries over time for equipment they own. A sticker-only
 shop starts with a 36-sticker job. Add the included inspection and pickup
-benches, then Open Shop. Unaccepted inquiries wait three shop-hours; accepted
+benches, then Open Shop. Inquiry patience follows the selected rules; accepted
 jobs remain committed. Pause/build mode freezes customer waiting time.
 CUSTOMERS + RECEIPTS shows upcoming inquiries, active jobs and completed sales.
 Packing makes a job ready for pickup; finishing handoff pays once and records
@@ -106,7 +121,7 @@ Machine-specific template paths are used only during export, then restored.
 Run source/test/acceptance.gd with the Godot --headless --script option to repeat
 the acceptance suite. It writes separate acceptance save profiles.
 
-VALIDATION AND CURRENT SCOPE
+HISTORICAL VALIDATION AND SCOPE — SEE STRATEGY-UPGRADE.md FOR 0.3.0
 The October 15 audit reran 397 existing checks across eight suites, covering
 all five product routes, both rooms, machine footprints, walking, arrivals,
 stock, faults, staffing, marketing, payments, placement, and save reliability.

@@ -83,6 +83,8 @@ func run() -> void:
   game.sim.state=C.fresh();game.sim.state["orders"]=[C.make_order("VISUAL-"+type,type,3,"Long customer name for safe wrapping / approved artwork",8,180)]
   game.modal="order";game.selected_order=0;game.forecast_preview={}
   await capture("product-"+type)
+  game.sim.order(0)["stage"]="plan";game.sim.order(0)["art_ready"]=true
+  await capture("preset-"+type)
  game.modal="";game.sim.state=C.fresh();game.sim.owner()["manual"]=false
  game.sim.accept(0);game.sim.preflight(0,"repair");game.sim.auto_pack(0);game.sim.queue_order(0)
  for n in 600:
