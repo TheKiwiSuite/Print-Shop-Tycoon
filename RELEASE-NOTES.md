@@ -1,4 +1,19 @@
-# Native Windows v0.2.22
+# Native Windows v0.3.0
+
+## Version 0.3.0 — planning and staged growth
+
+- Added new-shop Relaxed, Standard, Expert and bounded Custom rules. Standard opens with $1,600; opening funds, quoted slack, overhead, supplier timing, inquiry patience and recoverable defect risk are disclosed. Existing prices/deadlines/fault rolls survive prospective difficulty changes. Legacy shops retain their prior economy until an explicit change.
+- Added the Q capacity board with actionable input/blocker/overdue/ready filters, due/margin sorting, finite stock and delivery allocation, garment/box requirements, shared operator/station scheduling, finish estimates and daily bill/cash forecasts. Estimates assume prompt approvals and normal quality; returning customers and disruptions add uncertainty.
+- Normal quotes cover the modeled route plus slack; rush quotes show the premium and tighter deadline before commitment. New rules allow one rush premium per day, preventing a universal premium on every job.
+- Larger premises cost $900 and preserve installed equipment/layout. A separate $350 fit-out enables industrial equipment purchases. An additional DTF line costs $900 and requires safe service access. Old-economy saves retain their grandfathered expansion.
+- Added reversible client focus and repeat inquiries retaining approved art/presets with separate fulfillment. Compatible DTF/apparel jobs can share physically packed sheets; each customer retains output ownership, finishing, stock charges and exactly-once payment. Batches are offered only when the shelf-packed layout saves film. Individual reprints detach from shared film allocations.
+- Added unique hire names/IDs, role enforcement, current-task/idle reasons, shift utilization and an opening-bill cash guard for hiring. Added a disclosed two-hour/$100 recovery shift and an optional one-time Relaxed rescue loan with fixed repayment.
+- Added native focusable button controls, keyboard equipment placement, movement remapping and Reduce Motion. Actual assistive-technology behavior still needs hardware acceptance.
+- Added task-clock-driven printer, cutter, heat press, artwork, inspection and packing cues, worker carrying and customer parcel/payment cues. Help spacing is corrected; labels use authoritative station activity. Approved equipment art and logos are retained.
+- Sound, motion, remapped input and window-mode preferences are separate from shop snapshots. New-game creation archives the previous shop beyond the ordinary rotating backup. Structurally damaged saves fall back to a valid backup.
+- Fixed the older placement helper regression without changing attempted-preview geometry. Discount and reprint input displays include the real settlement and maintenance costs. Day reports distinguish current cash, pending daily bills and operating costs.
+
+Validation and exact boundaries: `STRATEGY-UPGRADE.md`. The release pipeline packages a separate QA ZIP with the render matrix, motion video, 14-day policy results and actual Windows executable walkthrough log. Physical Windows display scaling and screen-reader interaction are not certified by CI.
 
 ## Version 0.2.22 — assessment recovery pass
 

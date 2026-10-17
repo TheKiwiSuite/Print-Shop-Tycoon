@@ -1,5 +1,9 @@
 # October 16 assessment integration
 
+## Current follow-up: 0.3.0
+
+`STRATEGY-UPGRADE.md` records the implemented difficulty, forecast, staged-growth, repeat-client, shared-batch, input and visual systems, together with exact validation boundaries. The sections below are the historical 0.2.22 recovery checkpoint. They must not be read as the current open-task list. The 0.3.0 workflow gates publication on rendered checks and an automated walkthrough of the actual packaged Windows executable; manual DPI, assistive software, broad human balance and all-route motion acceptance remain separate.
+
 Baseline: `152da3c7190470a37fff177de97a41137d54c27b`, native Windows v0.2.21. The supplied assessment played v0.2.13 (`8ea6350` per its metadata). It contains findings and proposed work, not a source patch. Later approved artwork, branding, rotation and workspace work is retained.
 
 ## Implemented in v0.2.22

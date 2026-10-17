@@ -2,12 +2,216 @@ extends RefCounted
 
 const C = preload("res://scripts/catalog.gd")
 const Marketing = preload("res://scripts/marketing.gd")
+const Strategy = preload("res://scripts/shop_strategy.gd")
+const SHOP_HOURS_PER_SECOND=0.009
 const SAVE = "user://native-shop-v3.json"
 var save_path=SAVE
 var state:Dictionary = C.empty_shop()
 var save_enabled = true
 var manual_input = Vector2.ZERO
 var last_save_error = ""
+
+func start_shop(preset:String="Standard",custom:Dictionary={}) -> void:
+ state=C.empty_shop()
+ state["rules"]=Strategy.rules(preset,custom)
+ state["schema"]=4
+ state["cash"]=roundi(Strategy.BASE_CASH*state["rules"]["cash"])
+ state["day_open_cash"]=state["cash"]
+ Strategy.ensure(self)
+ notice("%s shop. Starting cash $%d. Forecast commitments before accepting work." % [state["rules"]["preset"],state["cash"]])
+
+func change_rules(preset:String,custom:Dictionary={}) -> bool:
+ if not state["paused"]: notice("Pause the shop before changing difficulty.");return false
+ Strategy.ensure(self)
+ var next=Strategy.rules(preset,custom)
+ state["rule_history"].append({"at":now(),"before":state["rules"].duplicate(true),"after":next.duplicate(true)})
+ state["rules"]=next
+ state["schema"]=4
+ notice("Rules changed for future commitments and purchases. Accepted terms, stock, cash and fault rolls are retained.")
+ save_game()
+ return true
+
+func capacity_board(include_inquiries:bool=false) -> Dictionary:
+ return Strategy.board(self,include_inquiries)
+
+func missing_all(items:Dictionary) -> String:
+ var parts=[]
+ for key in items: parts.append("%s %d" % [key,int(items[key])])
+ return ", ".join(parts)
+
+func daily_obligations(extra_wage:int=0) -> float:
+ Strategy.ensure(self)
+ var bills=roundi((125 if int(state["location"])==1 else 200)*float(state["rules"]["overhead"]))+extra_wage+mini(50,int(state.get("loan_remaining",0)))
+ for w in state["workers"]: bills+=int(w["wage"])
+ return bills
+
+func hiring_buffer(role_index:int) -> bool:
+ Strategy.ensure(self)
+ return int(state["rules"]["version"])==0 or float(state["cash"])-C.HIRE_COST[role_index]>=daily_obligations(45)
+
+func reprint_cost(o:Dictionary) -> float:
+ var p=Strategy.planned(o)
+ p["settings"]["white"]="standard";p["settings"]["registration"]=true
+ var cost=float(C.PRICES["maintenance"])
+ var recipe=C.recipe(p)
+ for key in recipe: cost+=float(recipe[key])*C.PRICES[key]
+ if o["type"]=="apparel": cost+=int(o["quantity"])*4
+ return cost
+
+func quote(i:int,rush:bool=false,board_snapshot:Dictionary={}) -> Dictionary:
+ Strategy.ensure(self)
+ var o=order(i)
+ if o.is_empty(): return {"valid":false,"reason":"Choose an order."}
+ var row={}
+ var board=capacity_board(true) if board_snapshot.is_empty() else board_snapshot
+ for candidate in board["rows"]:
+  if candidate["index"]==i: row=candidate;break
+ if row.is_empty(): return {"valid":false,"reason":"No live quote for this order."}
+ var legacy=int(state["rules"]["version"])==0
+ var finish=float(row["finish"])
+ var due=now()+(1.8 if rush else 6.5)*float(state["rules"]["slack"])
+ if not legacy and finish>=0: due=maxf(due,finish+(.5 if rush else 2.0)*float(state["rules"]["slack"]))
+ var valid=legacy or finish>=0
+ var reason="Resolve supplies and station/operator blockers before quoting." if not valid else row["assumptions"]
+ if rush and not legacy:
+  for other in state["orders"]:
+   if other.get("rush",false) and int(other.get("accepted_day",-1))==int(state["day"]):
+    valid=false;reason="One rush premium per shop day. Review the normal quote instead.";break
+ return {"valid":valid,"reason":reason,"due":due,"finish":finish,"payout":roundi(o["reward"]*(1.3 if rush else 1.0)),"cost":row["remaining_cost"],"missing":row["missing"],"risk":"BLOCKED" if finish<0 else ("AT RISK" if finish>due else "ON TRACK")}
+
+func select_specialty(name:String) -> bool:
+ if not Strategy.SPECIALTIES.has(name): return false
+ Strategy.ensure(self)
+ state["specialty"]=name
+ notice(name+" focus selected. Future daily inquiries favor its installed routes; prices on accepted work stay fixed.")
+ return true
+
+func repeat_order(i:int) -> bool:
+ var original=order(i)
+ if original.is_empty() or original["stage"]!="completed": return false
+ if active_orders().size()>=6: notice("Clear an inquiry slot before requesting a repeat.");return false
+ var price=int(original.get("base_reward",roundi(original["reward"]/(1.3 if original.get("rush",false) else 1.0))))
+ var next=C.make_order("REPEAT-%d" % state["orders"].size(),original["type"],int(original["quantity"]),original["customer"],now()+6.5,price)
+ for key in ["settings","gang","film_width","sheet_length","art_w","art_h"]: next[key]=original[key].duplicate(true) if original[key] is Array or original[key] is Dictionary else original[key]
+ next["art_ready"]=true;next["returning"]=true;next["source_order"]=original["id"]
+ state["orders"].append(next);_ensure_visit(next)
+ notice("Repeat inquiry created with approved artwork and preset. Review the new quote before accepting.")
+ return true
+
+func recovery_shift() -> bool:
+ if not state["paused"] or float(state["clock"])>15 or not state["report"].is_empty(): return false
+ if not owner()["task"].is_empty(): notice("Finish Sam's current job first.");return false
+ state["clock"]+=2.0;state["cash"]+=100
+ state["stats"]["recovery"]=state["stats"].get("recovery",0)+100
+ notice("Recovery shift earned $100 and used two shop hours. Existing deadlines keep running.")
+ return true
+
+func rescue_loan() -> bool:
+ Strategy.ensure(self)
+ if state["rules"]["preset"]!="Relaxed" or state["rescue_used"]: return false
+ state["cash"]+=400;state["rescue_used"]=true;state["loan_remaining"]=400
+ state["stats"]["loan_in"]=state["stats"].get("loan_in",0)+400
+ notice("Optional $400 interest-free rescue loan. $50 is repaid at each day close until cleared.")
+ return true
+
+func expand_premises() -> bool:
+ if int(state["location"])==2 or not garage_progress()["ready"]: return false
+ for w in state["workers"]:
+  if not w["task"].is_empty(): notice("Finish active work before moving.");return false
+ # The larger room contains the old room: retain every equipment transform.
+ state["cash"]-=900;state["location"]=2;state["fit_out"]=false
+ state["stats"]["capex"]=state["stats"].get("capex",0)+900
+ _reroute_customers()
+ notice("Larger premises purchased for $900. Existing equipment and layout retained. Fit-out and new machines are separate investments.")
+ save_game();return true
+
+func fit_out() -> bool:
+ Strategy.ensure(self)
+ if int(state["location"])!=2 or state["fit_out"] or state["cash"]<350: return false
+ state["cash"]-=350;state["fit_out"]=true
+ state["stats"]["capex"]=state["stats"].get("capex",0)+350
+ notice("Industrial fit-out complete. Banner, CNC and shipping equipment can now be purchased separately.")
+ return true
+
+func install_second_line() -> bool:
+ Strategy.ensure(self)
+ if int(state["location"])!=2 or not state["fit_out"] or state["machines"].has("dtf2") or state["cash"]<900: return false
+ var previous=state["machines"]
+ var candidate=previous.duplicate(true)
+ var source=C.layout(2)
+ candidate["dtf2"]=source["dtf2"];candidate["shaker2"]=source["shaker2"]
+ state["machines"]=candidate
+ for y in range(2,10):
+  for x in range(3,14):
+   var result=placement_feedback("dtf2",Vector2i(x,y))
+   if result["valid"]:
+    state["machines"]=result["machines"];state["cash"]-=900
+    state["stats"]["capex"]=state["stats"].get("capex",0)+900
+    notice("Second DTF line purchased for $900 and placed with clear service aisles. Use Build to adjust it.")
+    save_game();return true
+ state["machines"]=previous
+ notice("No safe position for a second line. Rearrange equipment and keep a full line footprint clear.")
+ return false
+
+func order_recipe(o:Dictionary) -> Dictionary:
+ return o.get("batch_recipe",C.recipe(o))
+
+func dispatch_recipe(o:Dictionary) -> Dictionary:
+ var total={}
+ for i in o.get("batch_members",[]):
+  var member=order(int(i))
+  if member.get("consumed",false): continue
+  for key in member["recipe"]: total[key]=int(total.get(key,0))+int(member["recipe"][key])
+ return total if o.has("batch_members") else o["recipe"]
+
+func batch_preview(i:int) -> Dictionary:
+ var base=order(i);var members=[]
+ if base.is_empty() or base["type"] not in ["transfer","apparel"]: return {"valid":false,"reason":"Select a planned DTF job."}
+ for j in active_orders():
+  var o=order(j)
+  if o["type"] not in ["transfer","apparel"] or o["stage"] not in ["plan","queued"] or o["consumed"] or o.has("batch_leader"): continue
+  if o["film_width"]!=base["film_width"] or o["sheet_length"]!=base["sheet_length"] or o["settings"]["white"]!=base["settings"]["white"] or not o["art_ready"]: continue
+  var busy=false
+  for w in state["workers"]:
+   if not w["task"].is_empty() and int(w["task"]["order"])==j: busy=true
+  if not busy: members.append(j)
+ if not members.has(i) or members.size()<2: return {"valid":false,"reason":"Need two unstarted DTF jobs with matching film, length and white preset."}
+ # Deterministic shelf packing records every customer-owned design on each sheet.
+ var slots=[];var sheet=0;var x=0.0;var y=0.0;var height=0.0;var old_film=0;var counts={}
+ for j in members:
+  var o=order(j);var p=Strategy.planned(o)
+  old_film+=int(C.recipe(p)["film"]);counts[j]=int(o["quantity"])
+  var w=float(o["art_w"]);var h=float(o["art_h"])
+  if w>float(base["film_width"]) or h>float(base["sheet_length"]): return {"valid":false,"reason":"A design does not fit an unrotated batch sheet."}
+  for n in int(o["quantity"]):
+   if x+w>float(base["film_width"]): x=0;y+=height;height=0
+   if y+h>float(base["sheet_length"]): sheet+=1;x=0;y=0;height=0
+   slots.append({"order":o["id"],"sheet":sheet,"rect":[x,y,w,h]})
+   x+=w;height=maxf(height,h)
+ var film=ceili((sheet+1)*float(base["sheet_length"])/12.0)
+ if film>=old_film: return {"valid":false,"reason":"This grouping saves no film. Keep individual jobs or change their layouts."}
+ return {"valid":true,"members":members,"leader":i,"slots":slots,"film":film,"saved":old_film-film,"sheets":sheet+1}
+
+func batch_orders(i:int) -> bool:
+ var plan=batch_preview(i)
+ if not plan["valid"]: notice(plan["reason"]);return false
+ var recipes={};var total={};var remaining=int(plan["film"]);var quantity=0
+ for j in plan["members"]: quantity+=int(order(j)["quantity"])
+ for n in plan["members"].size():
+  var j=plan["members"][n];var o=order(j)
+  var recipe=C.recipe(Strategy.planned(o))
+  recipe["film"]=remaining if n==plan["members"].size()-1 else floori(float(plan["film"])*float(o["quantity"])/quantity)
+  remaining-=int(recipe["film"]);recipes[j]=recipe
+  for key in recipe: total[key]=int(total.get(key,0))+int(recipe[key])
+ if not materials_available(total): notice("Batch needs supplies: "+missing(total));return false
+ for j in plan["members"]:
+  var o=order(j)
+  if o["gang"].is_empty(): o["gang"]=Strategy.planned(o)["gang"]
+  o["batch_leader"]=i;o["batch_recipe"]=recipes[j];o["recipe"]=recipes[j]
+  o["stage"]="queued" if j==i else "batch_wait"
+ order(i)["batch_members"]=plan["members"];order(i)["batch_slots"]=plan["slots"]
+ notice("Mixed batch queued: %d jobs, %d sheets, %d ft film saved. Each customer's output and payment stay separate." % [plan["members"].size(),plan["sheets"],plan["saved"]])
+ return true
 
 func notice(text:String) -> void:
  state["notices"].push_front(text)
@@ -138,6 +342,7 @@ func start_campaign(id:String) -> bool:
  return true
 
 func _update_visits() -> void:
+ Strategy.ensure(self)
  for i in state["orders"].size():
   var o=order(i)
   if not state.get("customer_flow",false) and not o.has("campaign"): continue
@@ -158,8 +363,8 @@ func _update_visits() -> void:
    o["due"]=now()+6.5
    o["visit"]["status"]="inquiry"
    o["visit"]["arrived_at"]=now()
-   o["visit"]["patience_until"]=now()+3.0
-   notice("%s arrived: %d %s. Accept their inquiry within 3 shop hours." % [o["customer"],o["quantity"],o["product"]])
+   o["visit"]["patience_until"]=now()+3.0*float(state["rules"]["patience"])
+   notice("%s arrived: %d %s. Respond within %d shop minutes." % [o["customer"],o["quantity"],o["product"],roundi(180*float(state["rules"]["patience"]))])
   elif o["stage"]=="intake" and float(o["visit"].get("patience_until",-1.0))>=0 and now()>=float(o["visit"]["patience_until"]):
    o["stage"]="abandoned"
    o["visit"]["status"]="left"
@@ -455,6 +660,8 @@ func install_feedback(id:String,pos:Vector2i,rotation:int=0,facing:int=-1,center
  if state["machines"].has(id): return {"valid":false,"reason":"This station is already installed."}
  if state["cash"]<C.EQUIPMENT_PRICES[id]: return {"valid":false,"reason":"Not enough cash for this station."}
  if id in ["banner","cnc","dock"] and state["location"]==1: return {"valid":false,"reason":"Expand to the industrial shop for this equipment."}
+ Strategy.ensure(self)
+ if id in ["banner","cnc","dock"] and int(state["rules"]["version"])>0 and not state["fit_out"]: return {"valid":false,"reason":"Complete the $350 industrial fit-out first."}
  var previous=state["machines"]
  var candidate=previous.duplicate(true)
  var source=C.layout(2 if id in ["banner","cnc","dock"] else 1)
@@ -472,6 +679,7 @@ func install_equipment(id:String,pos:Vector2i,rotation:int=0,facing:int=-1,cente
  state["machines"]=result["machines"]
  _reroute_customers()
  state["cash"]-=C.EQUIPMENT_PRICES[id]
+ state["stats"]["capex"]=state["stats"].get("capex",0)+C.EQUIPMENT_PRICES[id]
  notice("Placed "+state["machines"][id]["title"]+". Add more stations or resume the clock when ready.")
  save_game()
  return true
@@ -567,10 +775,19 @@ func accept(i:int, rush:bool=false) -> bool:
  if not state["paused"]: _update_visits()
  var o=order(i)
  if o.is_empty() or o["stage"]!="intake": return false
+ Strategy.ensure(self)
+ o["base_reward"]=o["reward"]
+ if int(state["rules"]["version"])>0:
+  var terms=quote(i,rush)
+  if not terms["valid"]: notice(terms["reason"]);return false
+  o["due"]=terms["due"];o["reward"]=terms["payout"];o["rush"]=rush
+  o["rules_at_accept"]=state["rules"].duplicate(true)
+  o["accepted_day"]=state["day"]
+  o["fault_roll"]=float(absi((o["id"]+":quality").hash())%10000)/10000.0
  o["stage"]="preflight"
  _ensure_visit(o)
  o["visit"]["status"]="production"
- if rush:
+ if rush and int(state["rules"]["version"])==0:
   o["rush"]=true
   o["reward"]=roundi(o["reward"]*1.3)
   o["due"]=now()+1.8
@@ -599,6 +816,7 @@ func preflight(i:int, action:String) -> bool:
   if state["cash"]<30: notice("Artwork repair needs $30."); return false
   state["cash"]-=30
   state["stats"]["art_fees"]+=30
+  o["art_cost"]=o.get("art_cost",0)+30
  o["art_ready"]=true
  o["stage"]="plan"
  notice("Preflight passed: dimensions, transparency, bleed / toolpath checked.")
@@ -661,7 +879,7 @@ func queue_order(i:int) -> bool:
  if o.is_empty() or o["stage"] not in ["plan","waiting_stock"]: return false
  if o["type"] in ["transfer","apparel"] and not gang_valid(i,o["gang"]): notice("Lay out a valid gang sheet first."); return false
  if o["type"]=="cnc" and o["settings"]["media"] not in ["PVC","ACM"]: notice("Incompatible cutter preset: select PVC or ACM panel stock."); return false
- o["recipe"]=C.recipe(o)
+ o["recipe"]=order_recipe(o)
  o["stage"]="queued" if materials_available(o["recipe"]) else "waiting_stock"
  if o["stage"]=="waiting_stock": notice("Waiting for stock: "+missing(o["recipe"])); return false
  notice("Job queued. Work here with Sam, or let a hired operator take it.")
@@ -682,6 +900,7 @@ func role_matches(w:Dictionary, m:String) -> bool:
 func _dispatch(i:int, w:Dictionary, m:String) -> bool:
  var o=order(i)
  if w.is_empty() or not w["task"].is_empty() or not state["machines"].has(m): return false
+ if not role_matches(w,m): return false
  var machine=state["machines"][m]
  if int(machine["active"])>=0: return false
  for w2 in state["workers"]:
@@ -693,11 +912,11 @@ func _dispatch(i:int, w:Dictionary, m:String) -> bool:
    return false
   if not placement_feedback(m,cell(machine["pos"]),int(machine["rotation"]),facing_of(machine))["valid"]: return false
  if o["stage"]=="waiting_stock":
-  if not materials_available(o["recipe"]): return false
+  if not materials_available(dispatch_recipe(o)): return false
   o["stage"]="queued"
  if o["stage"] not in ["preflight","queued","press","qc","pack","ready"]: return false
  if o["stage"]=="ready" and not customer_ready_for_handoff(o): return false
- if o["stage"]=="queued" and not o["consumed"] and not materials_available(o["recipe"]): o["stage"]="waiting_stock"; return false
+ if o["stage"]=="queued" and not o["consumed"] and not materials_available(dispatch_recipe(o)): o["stage"]="waiting_stock"; return false
  if o["stage"]=="press" and not o.get("garments_consumed",false) and not garment_available(o): notice("Reserve the correct garment sizes / color first."); return false
  if o["stage"]=="pack" and not o.get("boxes_consumed",false) and state["stock"]["packaging"]<boxes_for(o): notice("Packaging stock is low. Restock boxes."); return false
  var start=Vector2i(roundi(w["pos"][0]),roundi(w["pos"][1]))
@@ -769,6 +988,7 @@ func assign(w_id:String, m_id:String) -> bool:
  if not state["machines"].has(m_id) or worker(w_id).is_empty(): return false
  var m=state["machines"][m_id]
  if m["kind"]=="shaker": m_id="dtf2" if m_id=="shaker2" else "dtf"; m=state["machines"][m_id]
+ if not role_matches(worker(w_id),m_id): notice("This role is not qualified for that station.");return false
  if m["active"]>=0: notice("Finish this job before changing its operator."); return false
  m["worker"]=w_id
  worker(w_id)["manual"]=false
@@ -806,15 +1026,32 @@ func _begin_task(w:Dictionary) -> void:
  if o["stage"]!=t["stage"] or m["active"]>=0: w["task"]={}; return
  if t["stage"]=="preflight": o["stage"]="prepress"
  if t["stage"]=="queued":
+  var batch=o.get("batch_members",[t["order"]])
+  var total={}
+  for j in batch:
+   var member=order(int(j))
+   if member.get("consumed",false): continue
+   if state["upgrades"]["quality_sensor"] and member.has("batch_recipe"):
+    member["settings"]["white"]="standard";member["settings"]["registration"]=true
+    var recipe=C.recipe(member);recipe["film"]=member["batch_recipe"]["film"]
+    member["recipe"]=recipe;member["batch_recipe"]=recipe
+   for key in member["recipe"]: total[key]=int(total.get(key,0))+int(member["recipe"][key])
+  if not materials_available(total): o["stage"]="waiting_stock";w["task"]={};return
   if not o["consumed"]:
    if state["upgrades"]["quality_sensor"]:
     o["settings"]["white"]="standard"
     o["settings"]["registration"]=true
-    o["recipe"]=C.recipe(o)
+    o["recipe"]=order_recipe(o)
     m["condition"]=maxi(70,m["condition"])
    if not materials_available(o["recipe"]): o["stage"]="waiting_stock"; w["task"]={}; return
    _consume(o["recipe"],o)
    o["consumed"]=true
+  for j in batch:
+   var member=order(int(j))
+   if int(j)!=int(t["order"]) and not member["consumed"]:
+    _consume(member["recipe"],member);member["consumed"]=true
+   member["production_machine"]=t["machine"];member["route_machine"]=t["machine"]
+   member["production_skill"]=w["skill"]
   o["production_machine"]=t["machine"]
   if float(o["started_at"])<0: o["started_at"]=now()
   o["stage"]="production"
@@ -850,6 +1087,11 @@ func task_duration(w:Dictionary) -> float:
  for phase in _phases(w): duration+=float(phase[1])
  var kind=state["machines"][w["task"]["machine"]]["kind"]
  if kind=="dtf" and state["upgrades"]["auto_feeder"]: duration*=0.7
+ var o=order(int(w["task"]["order"]))
+ if w["task"]["stage"]=="queued" and o.has("batch_members"):
+  var quantity=0
+  for j in o["batch_members"]: quantity+=int(order(int(j))["quantity"])
+  duration*=maxf(1.0,float(quantity)/maxf(1,float(o["quantity"])))
  return duration / float(w["skill"])
 
 func machine_progress(id:String) -> float:
@@ -857,6 +1099,30 @@ func machine_progress(id:String) -> float:
   if not w["task"].is_empty() and w["task"]["machine"]==id and w["task"]["working"]:
    return clampf(state["machines"][id]["elapsed"]/maxf(1.0,task_duration(w)),0,1)
  return 0.0
+
+func station_activity(id:String) -> Dictionary:
+ var target="dtf2" if id=="shaker2" else ("dtf" if id=="shaker" else id)
+ for w in state["workers"]:
+  var task=w["task"]
+  if task.is_empty() or task["machine"]!=target: continue
+  var m=state["machines"][target]
+  return {"phase":m["phase"] if task["working"] else "Operator approaching","operator":w["name"],"elapsed":float(m["elapsed"]),"working":bool(task["working"]),"progress":machine_progress(target),"order":int(task["order"])}
+ return {"phase":"Idle","operator":"No active operator","elapsed":0.0,"working":false,"progress":0.0,"order":-1}
+
+func worker_status(w:Dictionary) -> String:
+ if not w["task"].is_empty(): return ("Operating " if w["task"]["working"] else "Walking to ")+w["task"]["machine"]
+ if w["id"]=="owner" and w["manual"]: return "Auto Assist off: manual control"
+ for i in active_orders():
+  var o=order(i)
+  if o["stage"] not in ["queued","waiting_stock","press","qc","pack","ready","preflight"]: continue
+  var id=machine_for(o)
+  if not role_matches(w,id): continue
+  if state["machines"][id]["worker"] not in ["auto",w["id"]]: continue
+  if state["machines"][id]["active"]>=0: return "Waiting for a busy station"
+  if o["stage"]=="ready" and not customer_ready_for_handoff(o): return "Customer returning for pickup"
+  if o["stage"] in ["queued","waiting_stock"] and not materials_available(dispatch_recipe(o)): return "Waiting for supplies"
+  return "Ready for dispatch"
+ return "No suitable queued work at assigned stations"
 
 func _finish_task(w:Dictionary) -> void:
  var t=w["task"]
@@ -877,8 +1143,11 @@ func _finish_task(w:Dictionary) -> void:
   "queued":
    m["condition"]=maxi(20,m["condition"]-3)
    if m["kind"]=="dtf": state["machines"]["shaker2" if t["machine"]=="dtf2" else "shaker"]["condition"]-=2
-   o["issue"]=_quality_issue(o,m)
-   o["stage"]="press" if o["type"]=="apparel" and not o.get("press_done",false) else "qc"
+   for j in o.get("batch_members",[t["order"]]):
+    var member=order(int(j))
+    member["output_machine"]=t["machine"]
+    member["issue"]=_quality_issue(member,m)
+    member["stage"]="press" if member["type"]=="apparel" and not member.get("press_done",false) else "qc"
    notice("%s produced. %s next." % [o["product"],"Heat press" if o["stage"]=="press" else "Inspection"])
   "press":
    o["press_done"]=true
@@ -906,6 +1175,11 @@ func _quality_issue(o:Dictionary, m:Dictionary) -> String:
  if o["type"]=="sticker" and not o["settings"]["registration"]: return "Sticker misregistration: marks were not aligned"
  if o["type"]=="banner" and m["condition"]<65: return "Media skew: roll-feed calibration is low"
  if o["type"]=="cnc" and m["condition"]<65: return "Rough cut edge: cutter tool needs maintenance"
+ if o.has("rules_at_accept"):
+  var roll=float(o.get("fault_roll",1))
+  if int(o["reprints"])>0: roll=float(absi((o["id"]+":retry:"+str(int(o["reprints"]))).hash())%10000)/10000.0
+  var risk=.02*float(o["rules_at_accept"]["faults"])/maxf(.5,float(o.get("production_skill",1)))
+  if roll<risk: return "Recoverable alignment defect: inspect, recalibrate and reprint"
  return ""
 
 func recover(i:int, reprint:bool) -> bool:
@@ -919,7 +1193,7 @@ func recover(i:int, reprint:bool) -> bool:
  var m_id=o.get("production_machine",o["route_machine"])
  if m_id in ["finish","pack","heat"]: m_id={"transfer":"dtf","apparel":"dtf","sticker":"sticker","banner":"banner","cnc":"cnc"}[o["type"]]
  if state["stock"]["maintenance"]<=0: notice("A maintenance kit is required to fix the cause before reprinting."); return false
- state["stock"]["maintenance"]-=1
+ _consume({"maintenance":1},o)
  state["machines"][m_id]["condition"]=100
  if m_id in ["dtf","dtf2"]: state["machines"]["shaker2" if m_id=="dtf2" else "shaker"]["condition"]=100
  o["settings"]["white"]="standard"
@@ -930,6 +1204,7 @@ func recover(i:int, reprint:bool) -> bool:
  o["press_done"]=false
  if o["type"]=="apparel": o["garments_consumed"]=false
  o["reprints"]+=1
+ for key in ["batch_recipe","batch_members","batch_leader","batch_slots"]: o.erase(key)
  o["recipe"]=C.recipe(o)
  o["stage"]="queued"
  notice("Cause corrected. Reprint consumes new film / ink / media and adds production time.")
@@ -993,7 +1268,7 @@ func tick(delta:float) -> void:
  if state["paused"]: return
  _update_visits()
  var dt=minf(delta,0.1)*float(state["speed"])
- state["clock"]=minf(17.0,float(state["clock"])+dt*0.009)
+ state["clock"]=minf(17.0,float(state["clock"])+dt*SHOP_HOURS_PER_SECOND)
  _update_customer_actors(dt)
  for d in state["deliveries"].duplicate():
   if now()>=d["eta"]:
@@ -1007,7 +1282,7 @@ func tick(delta:float) -> void:
  for i in active_orders():
   var o=order(i)
   if o["stage"]=="revision" and now()>=o["revision_eta"]: o["art_ready"]=true; o["stage"]="plan"; notice("Customer's corrected artwork arrived.")
-  if o["stage"]=="waiting_stock" and materials_available(o["recipe"]): o["stage"]="queued"
+  if o["stage"]=="waiting_stock" and materials_available(dispatch_recipe(o)): o["stage"]="queued"
  var own=owner()
  if manual_input.length_squared()>0.01:
   if not own["task"].is_empty() or not own["path"].is_empty(): interrupt_owner()
@@ -1024,11 +1299,13 @@ func tick(delta:float) -> void:
   own["manual"]=true
  _auto_dispatch()
  for w in state["workers"]:
+  w["shift_seconds"]=float(w.get("shift_seconds",0))+dt
   if w["id"]=="owner" and manual_input.length_squared()>0.01: continue
   _walk(w,dt)
   if w["task"].is_empty() or not w["path"].is_empty(): continue
   if not w["task"]["working"]: _begin_task(w)
   if w["task"].is_empty(): continue
+  w["work_seconds"]=float(w.get("work_seconds",0))+dt
   var m=state["machines"][w["task"]["machine"]]
   m["elapsed"]+=dt
   var duration=task_duration(w)
@@ -1052,19 +1329,23 @@ func restock(items:Dictionary={}) -> bool:
  cost=ceilf(cost)
  if state["cash"]<cost: notice("This delivery needs $%d." % int(cost)); return false
  state["cash"]-=int(cost)
- state["deliveries"].append({"items":items.duplicate(true),"eta":now()+0.45,"cost":cost})
- notice("Supplies ordered for $%d. Arrival in 27 shop minutes." % int(cost))
+ state["stats"]["supply_purchases"]=state["stats"].get("supply_purchases",0)+int(cost)
+ Strategy.ensure(self)
+ state["deliveries"].append({"items":items.duplicate(true),"eta":now()+0.45*float(state["rules"]["supply"]),"cost":cost})
+ notice("Supplies ordered for $%d. Arrival in %d shop minutes." % [int(cost),roundi(27*float(state["rules"]["supply"]))])
  return true
 
 func hire(role_index:int) -> bool:
  if role_index<0 or role_index>=C.ROLES.size() or state["workers"].size()>=9: return false
  var cost=C.HIRE_COST[role_index]
  if state["cash"]<cost: notice("Hiring needs $%d." % cost); return false
+ if not hiring_buffer(role_index): notice("Hiring would leave less than the next daily bills, including this worker's $45 wage. Build a cash buffer first.");return false
  state["cash"]-=cost
+ state["stats"]["hiring"]=state["stats"].get("hiring",0)+cost
  var id="staff%d" % int(state["next_worker"])
  state["next_worker"]+=1
  var point=nearest_floor(entrance()+Vector2i(1,state["workers"].size()%2))
- state["workers"].append({"id":id,"name":C.NAMES[role_index],"role":C.ROLES[role_index],"pos":[float(point.x),float(point.y)],"path":[],"task":{},"manual":false,"face":1,"step":0.0,"walking":false,"skill":1.25 if state["upgrades"]["training"] else 1.0,"wage":45})
+ state["workers"].append({"id":id,"name":C.NAMES[role_index]+" #"+str(int(state["next_worker"])),"role":C.ROLES[role_index],"pos":[float(point.x),float(point.y)],"path":[],"task":{},"manual":false,"face":1,"step":0.0,"walking":false,"skill":1.25 if state["upgrades"]["training"] else 1.0,"wage":45})
  notice("%s joined as %s. They automatically take suitable prepared work." % [C.NAMES[role_index],C.ROLES[role_index]])
  return true
 
@@ -1073,6 +1354,7 @@ func buy_upgrade(key:String) -> bool:
  if not costs.has(key) or state["upgrades"].get(key,false): return false
  if state["cash"]<costs[key]: notice("Upgrade needs $%d." % costs[key]); return false
  state["cash"]-=costs[key]
+ state["stats"]["upgrades"]=state["stats"].get("upgrades",0)+costs[key]
  state["upgrades"][key]=true
  if key=="training":
   for w in state["workers"]: w["skill"]=1.25
@@ -1112,6 +1394,8 @@ func garage_progress() -> Dictionary:
  return {"cash":state["cash"],"trust":state["reputation"],"orders":count,"quality":quality,"on_time":on_time,"ready":state["cash"]>=1500 and state["reputation"]>=60 and count>=3 and on_time>=75 and quality>=85}
 
 func move_garage() -> bool:
+ Strategy.ensure(self)
+ if int(state["rules"]["version"])>0: return expand_premises()
  if state["location"]==2: return false
  if not garage_progress()["ready"]: notice("Garage goals are not met yet."); return false
  for w in state["workers"]:
@@ -1139,9 +1423,15 @@ func end_day() -> Dictionary:
  state["paused"]=true
  var s=state["stats"].duplicate(true)
  for w in state["workers"]: s["wages"]+=w["wage"]
- s["overhead"]=125 if state["location"]==1 else 200
- var net=s["sales"]-s["materials"]-s["art_fees"]-s.get("marketing",0)-s["wages"]-s["overhead"]
+ Strategy.ensure(self)
+ s["overhead"]=roundi((125 if state["location"]==1 else 200)*float(state["rules"]["overhead"]))
+ s["loan_payment"]=mini(50,int(state.get("loan_remaining",0)))
+ var net=s["sales"]+s.get("recovery",0)-s["materials"]-s["art_fees"]-s.get("marketing",0)-s["wages"]-s["overhead"]
  state["report"]={"stats":s,"net":net,"day":state["day"],"open":active_orders().size()}
+ state["report"]["cash_before_bills"]=state["cash"]
+ state["report"]["cash_after_bills"]=state["cash"]-s["wages"]-s["overhead"]-s["loan_payment"]
+ if state.has("day_open_cash"):
+  state["report"]["cash_bridge"]={"opening":state["day_open_cash"],"receipts":s["sales"],"recovery":s.get("recovery",0),"loan_in":s.get("loan_in",0),"supplies":s.get("supply_purchases",0),"capital":s.get("capex",0),"hiring":s.get("hiring",0),"upgrades":s.get("upgrades",0),"art":s["art_fees"],"marketing":s.get("marketing",0)}
  state["best_profit"]=maxf(state["best_profit"],net)
  save_game()
  return state["report"]
@@ -1149,13 +1439,17 @@ func end_day() -> Dictionary:
 func next_day() -> void:
  var report=end_day()
  if not state["report_applied"]:
-  state["cash"]-=report["stats"]["wages"]+report["stats"]["overhead"]
+  var payment=int(report["stats"].get("loan_payment",0))
+  state["cash"]-=report["stats"]["wages"]+report["stats"]["overhead"]+payment
+  state["loan_remaining"]=maxi(0,int(state.get("loan_remaining",0))-payment)
  state["day"]+=1
  state["clock"]=8.0
  state["paused"]=false
  state["report"]={}
  state["report_applied"]=false
  state["stats"]=C.day_stats()
+ state["day_open_cash"]=state["cash"]
+ for w in state["workers"]: w["shift_seconds"]=0.0;w["work_seconds"]=0.0
  var types=["transfer","sticker","apparel"] if state["location"]==1 else ["transfer","sticker","apparel","banner","cnc"]
  if state.get("customer_flow",false):
   var available=[]
@@ -1167,6 +1461,9 @@ func next_day() -> void:
  for n in types.size():
   if count>=6: break
   var type=types[(n+int(state["day"]))%types.size()]
+  if int(state["rules"]["version"])>0 and state["specialty"]!="General" and n==0:
+   for favorite in Strategy.SPECIALTIES[state["specialty"]]:
+    if types.has(favorite): type=favorite;break
   var q={"transfer":12,"sticker":60,"apparel":12,"banner":2,"cnc":6}[type]
   q+=(int(state["day"])%3)*({"transfer":6,"sticker":20,"apparel":0,"banner":0,"cnc":1}[type])
   var customer=C.CUSTOMERS[(n+int(state["day"]))%C.CUSTOMERS.size()]
@@ -1199,7 +1496,7 @@ func forecast() -> Dictionary:
 func save_game() -> bool:
  last_save_error=""
  if not save_enabled: return true
- var wrapper={"format":"PrintShopTycoonNative","schema":3,"state":state}
+ var wrapper={"format":"PrintShopTycoonNative","schema":int(state.get("schema",3)),"state":state}
  var temp=save_path+".tmp"
  var f=FileAccess.open(temp,FileAccess.WRITE)
  if f==null: return _save_failed("The local save folder is not writable.")
@@ -1229,6 +1526,41 @@ func _save_failed(reason:String) -> bool:
 func has_save() -> bool:
  return FileAccess.file_exists(save_path) or FileAccess.file_exists(save_path+".bak")
 
+func backup_before_new_shop() -> bool:
+ if not save_enabled or not has_save(): return true
+ var source=save_path if FileAccess.file_exists(save_path) else save_path+".bak"
+ var archive=save_path+".before-new-"+str(int(Time.get_unix_time_from_system()))+"-"+str(Time.get_ticks_usec())+".json"
+ if DirAccess.copy_absolute(source,archive)!=OK: return _save_failed("Could not archive the previous shop. New game has not started.")
+ return true
+
+func _valid_save_state(loaded:Dictionary) -> bool:
+ for key in ["cash","clock","day","location"]:
+  if not loaded.get(key) is float and not loaded.get(key) is int: return false
+  if not is_finite(float(loaded[key])): return false
+ if not loaded.get("machines") is Dictionary or not loaded.get("workers") is Array or not loaded.get("orders") is Array or not loaded.get("stock") is Dictionary: return false
+ var ids={};var owner_count=0
+ for w in loaded["workers"]:
+  if not w is Dictionary: return false
+  for key in ["id","name","pos","path","task","manual","role","skill","wage"]:
+   if not w.has(key): return false
+  if not w["pos"] is Array or w["pos"].size()!=2 or not w["task"] is Dictionary or not w["path"] is Array: return false
+  if ids.has(w["id"]): return false
+  ids[w["id"]]=true
+  if w["id"]=="owner": owner_count+=1
+ if owner_count!=1: return false
+ for id in loaded["machines"]:
+  var m=loaded["machines"][id]
+  if not m is Dictionary: return false
+  for key in C.station("dtf",[0,0],[3,1],[0,1],"",0):
+   if not m.has(key): return false
+  if not m["pos"] is Array or m["pos"].size()!=2 or not m["size"] is Array or m["size"].size()!=2: return false
+ for o in loaded["orders"]:
+  if not o is Dictionary: return false
+  for key in C.make_order("","transfer",1,"",1,1):
+   if not o.has(key): return false
+  if not o["settings"] is Dictionary or not o["recipe"] is Dictionary or not o["gang"] is Array: return false
+ return true
+
 func load_game() -> bool:
  for file in [save_path,save_path+".bak"]:
   if not FileAccess.file_exists(file): continue
@@ -1239,12 +1571,13 @@ func load_game() -> bool:
   var parsed=parser.data
   if not parsed is Dictionary or parsed.get("format","")!="PrintShopTycoonNative" or not parsed.get("state") is Dictionary: continue
   var loaded=parsed["state"]
-  if not loaded.get("machines") is Dictionary or not loaded.get("workers") is Array or loaded["workers"].is_empty() or not loaded.get("orders") is Array: continue
+  if not _valid_save_state(loaded): continue
   state=loaded
   var fresh=C.fresh()
   for key in fresh:
    if not state.has(key): state[key]=fresh[key]
   _ensure_marketing()
+  Strategy.ensure(self)
   for o in state["orders"]: _ensure_visit(o)
   # Older saves could persist a delivery task after its payment was committed.
   for w in state["workers"]:

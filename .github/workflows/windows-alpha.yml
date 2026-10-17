@@ -1,7 +1,7 @@
 name: Package Windows alpha
 on:
   push:
-    branches: [main]
+    branches: [main, 'codex/**']
     paths: [.github/workflows/windows-alpha.yml, 'source/**', 'Build-Release.ps1', 'Run-QA.ps1']
   workflow_dispatch:
 permissions:
@@ -12,6 +12,8 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write
+    outputs:
+      version: ${{ steps.game.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -40,10 +42,20 @@ jobs:
           engine="$RUNNER_TEMP/godot/Godot_v4.5.1-stable_linux.x86_64"
           "$engine" --headless --path source --editor --import
           mkdir -p "$(realpath -m source/../../../work)"
-          for test in handoff_recovery acceptance customer_loop sales_growth session_reliability illustrated_equipment rotation_stability illustrated_ui ui_dtf_placement wall_visual_review shop_workspace window_controls; do
+          for test in strategy_growth native_release_walkthrough handoff_recovery acceptance customer_loop sales_growth customer_walking session_reliability illustrated_equipment rotation_stability illustrated_ui ui_dtf_placement wall_visual_review shop_workspace window_controls strategy_visual_review; do
             timeout 120 xvfb-run -a "$engine" --path source --rendering-method gl_compatibility --audio-driver Dummy --script "res://test/$test.gd" 2>&1 | tee "$RUNNER_TEMP/$test.log"
             if grep -E 'SCRIPT ERROR:|ERROR:|FAIL:' "$RUNNER_TEMP/$test.log"; then exit 1; fi
           done
+          timeout 240 "$engine" --headless --path source --script res://test/strategy_balance.gd 2>&1 | tee "$RUNNER_TEMP/strategy_balance.log"
+          if grep -E 'SCRIPT ERROR:|ERROR:|FAIL:' "$RUNNER_TEMP/strategy_balance.log"; then exit 1; fi
+      - name: Record task-linked motion at 1x, 4x and pause
+        shell: bash
+        run: |
+          set -euo pipefail
+          engine="$RUNNER_TEMP/godot/Godot_v4.5.1-stable_linux.x86_64"
+          timeout 240 xvfb-run -a "$engine" --path source --rendering-method gl_compatibility --audio-driver Dummy --disable-vsync --write-movie "$RUNNER_TEMP/production-motion.avi" --fixed-fps 20 --script res://test/animation_review.gd 2>&1 | tee "$RUNNER_TEMP/animation_review.log"
+          if grep -E 'SCRIPT ERROR:|ERROR:|FAIL:' "$RUNNER_TEMP/animation_review.log"; then exit 1; fi
+          ffmpeg -v error -i "$RUNNER_TEMP/production-motion.avi" -c:v libx264 -crf 26 -pix_fmt yuv420p captures/strategy-review/production-motion.mp4
       - name: Read game version
         id: game
         shell: bash
@@ -60,16 +72,81 @@ jobs:
           set -euo pipefail
           mkdir -p release/PrintShopTycoon/windows
           "$RUNNER_TEMP/godot/Godot_v4.5.1-stable_linux.x86_64" --headless --path source --export-release 'Windows Desktop' "$GITHUB_WORKSPACE/release/PrintShopTycoon/windows/Print Shop Tycoon.exe"
-          cp README.md README.txt RELEASE-NOTES.md GAME-AUDIT.md ART-SOURCES.txt release/PrintShopTycoon/
+          cp README.md README.txt RELEASE-NOTES.md GAME-AUDIT.md ART-SOURCES.txt ASSESSMENT-INTEGRATION.md release/PrintShopTycoon/
           printf 'Source commit: %s\nEngine: Godot 4.5.1\nWindows x86_64 alpha %s\nUnsigned community test build. Known issues: GAME-AUDIT.md\n' "$GITHUB_SHA" "$GAME_VERSION" > release/PrintShopTycoon/BUILD.txt
           cd release
           zip -qr "PrintShopTycoon-Windows-v${GAME_VERSION}.zip" PrintShopTycoon
           sha256sum "PrintShopTycoon-Windows-v${GAME_VERSION}.zip" > "PrintShopTycoon-Windows-v${GAME_VERSION}.zip.sha256"
-      - name: Publish Windows alpha download
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: tycoon-build-${{ github.sha }}
+          path: |
+            release/*.zip
+            release/*.sha256
+            captures/strategy-review/**
+            verification/strategy-balance.json
+          if-no-files-found: error
+  native_windows:
+    needs: windows
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: tycoon-build-${{ github.sha }}
+          path: build
+      - name: Walk all production routes using the packaged Windows executable
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $package = Get-ChildItem build/release/PrintShopTycoon-Windows-*.zip | Select-Object -First 1
+          $destination = Join-Path $env:RUNNER_TEMP 'tycoon-native'
+          Expand-Archive -LiteralPath $package.FullName -DestinationPath $destination
+          $executable = Join-Path $destination 'PrintShopTycoon/windows/Print Shop Tycoon.exe'
+          New-Item -ItemType Directory -Path native-validation -Force | Out-Null
+          $log = Join-Path $env:GITHUB_WORKSPACE 'native-validation/native_windows.log'
+          $arguments = @('--headless', '--log-file', ('"{0}"' -f $log), '--script', 'res://test/native_release_walkthrough.gd')
+          $process = Start-Process -FilePath $executable -ArgumentList $arguments -PassThru
+          if (!$process.WaitForExit(180000)) { $process.Kill(); throw 'Packaged Windows walkthrough timed out.' }
+          $process.WaitForExit()
+          Get-Content -LiteralPath $log
+          if ($process.ExitCode -ne 0) { throw "Packaged Windows walkthrough exited $($process.ExitCode)." }
+          if (Select-String -LiteralPath $log -Pattern 'SCRIPT ERROR:|ERROR:(?! Failed to read the root certificate store\.)|FAIL:' -Quiet) { throw 'Packaged Windows walkthrough failed.' }
+          if (!(Select-String -LiteralPath $log -Pattern 'NATIVE RELEASE WALKTHROUGH:.*0 failures / Windows' -Quiet)) { throw 'Missing Windows completion marker.' }
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: tycoon-native-${{ github.sha }}
+          path: native-validation/
+          if-no-files-found: error
+  publish:
+    if: github.ref == 'refs/heads/main'
+    needs: [windows, native_windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: tycoon-*-${{ github.sha }}
+          merge-multiple: true
+          path: build
+      - name: Package render matrix, balance runs and native Windows evidence
+        shell: bash
+        env:
+          GAME_VERSION: ${{ needs.windows.outputs.version }}
+        run: |
+          set -euo pipefail
+          cd build
+          zip -qr "release/PrintShopTycoon-QA-v${GAME_VERSION}.zip" captures verification native_windows.log
+          cd release
+          sha256sum "PrintShopTycoon-QA-v${GAME_VERSION}.zip" > "PrintShopTycoon-QA-v${GAME_VERSION}.zip.sha256"
+      - name: Publish validated Windows alpha download
         env:
           GH_TOKEN: ${{ github.token }}
-          GAME_VERSION: ${{ steps.game.outputs.version }}
+          GAME_VERSION: ${{ needs.windows.outputs.version }}
+          GH_REPO: ${{ github.repository }}
         shell: bash
         run: |
           set -euo pipefail
-          gh release create "v${GAME_VERSION}-windows-alpha" "release/PrintShopTycoon-Windows-v${GAME_VERSION}.zip" "release/PrintShopTycoon-Windows-v${GAME_VERSION}.zip.sha256" --target "$GITHUB_SHA" --title "Print Shop Tycoon ${GAME_VERSION} · Windows alpha" --prerelease --notes 'Windows x86_64 alpha built from the recorded source commit with Godot 4.5.1. Extract the ZIP and open windows/Print Shop Tycoon.exe. Changes and validation are in RELEASE-NOTES.md; the older audit remains in GAME-AUDIT.md. This build is unsigned. Simulation and rendered UI checks run before export; this workflow does not certify a native Windows playthrough.'
+          gh release create "v${GAME_VERSION}-windows-alpha" build/release/*.zip build/release/*.sha256 --target "$GITHUB_SHA" --title "Print Shop Tycoon ${GAME_VERSION} · Windows alpha" --prerelease --notes 'Windows x86_64 alpha built from the recorded source commit with Godot 4.5.1. Extract the Windows ZIP and open windows/Print Shop Tycoon.exe. Difficulty, forecasts, staged growth, repeat clients, shared DTF batches, accessibility controls and task-driven visual cues are described in RELEASE-NOTES.md. The separate QA ZIP includes the render matrix, 14-day balance runs and automated walkthrough of the actual packaged Windows executable. Manual Windows display scaling and assistive-technology acceptance remain unverified. This alpha is unsigned.'
