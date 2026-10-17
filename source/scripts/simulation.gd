@@ -20,6 +20,23 @@ func start_shop(preset:String="Standard",custom:Dictionary={}) -> void:
  Strategy.ensure(self)
  notice("%s shop. Starting cash $%d. Forecast commitments before accepting work." % [state["rules"]["preset"],state["cash"]])
 
+func start_demo() -> void:
+ state=C.fresh()
+ state["schema"]=4
+ state["rules"]=Strategy.rules("Relaxed")
+ state["demo"]=true
+ state["cash"]=5000
+ state["paused"]=false
+ state["tutorial"]=false
+ Strategy.ensure(self)
+ for role in [1,3,5]: hire(role)
+ state["cash"]=5000
+ state["day_open_cash"]=5000
+ owner()["manual"]=false
+ accept(0);preflight(0,"repair");auto_pack(0);queue_order(0)
+ state["cash"]=5000;state["stats"]=C.day_stats()
+ notice("Demo shop: equipment, team and $5,000 supplied. First job is queued. This demo has its own save.")
+
 func change_rules(preset:String,custom:Dictionary={}) -> bool:
  if not state["paused"]: notice("Pause the shop before changing difficulty.");return false
  Strategy.ensure(self)

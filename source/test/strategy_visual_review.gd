@@ -31,6 +31,10 @@ func capture(name:String) -> void:
  var outside=[]
  for button in game.buttons:
   if not Rect2(Vector2.ZERO,game.get_viewport_rect().size).encloses(button["rect"]): outside.append(button["action"])
+ for i in game.buttons.size():
+  for j in range(i+1,game.buttons.size()):
+   var a=game.buttons[i];var b=game.buttons[j]
+   check(not a["rect"].intersects(b["rect"]),"Controls do not overlap: "+name+" / "+a["action"]+" / "+b["action"])
  check(outside.is_empty(),"Input rectangles stay in viewport "+name+str(outside))
  check(game.accessible_buttons.size()>0,"Native accessible controls exist "+name)
  matrix.append({"screen":name,"size":[game.get_viewport_rect().size.x,game.get_viewport_rect().size.y],"buttons":game.buttons.size(),"outside":outside})
@@ -54,6 +58,11 @@ func run() -> void:
  game.sim.Strategy.ensure(game.sim)
  for size in [Vector2i(1280,720),Vector2i(1442,842),Vector2i(1920,1080),Vector2i(2560,1440)]:
   root.size=size;await process_frame;game.reset_camera()
+  game.screen="title";game.modal="";await capture("%dx%d-title-demo" % [size.x,size.y])
+  game.screen="shop";game.modal="";game.sim.start_shop("Standard");await capture("%dx%d-empty-shop" % [size.x,size.y])
+  game.sim.start_demo();await capture("%dx%d-playable-demo" % [size.x,size.y])
+  game.sim.state["orders"].append(C.make_order("EXTRA","sticker",20,"More inquiries",20,200))
+  await capture("%dx%d-full-sidebar" % [size.x,size.y])
   for panel in ["capacity","difficulty","move","roster","help","settings","order","accessibility","updates","staff","stock","customers","equipment","gang","report","marketing","dtf_views"]:
    game.sim.state=C.fresh();game.sim.Strategy.ensure(game.sim)
    game.forecast_preview={}
