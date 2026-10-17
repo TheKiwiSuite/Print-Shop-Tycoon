@@ -55,3 +55,5 @@ exit $LASTEXITCODE
     }
     Write-Host "PASS updater $scenario"
 }
+
+exit 0
