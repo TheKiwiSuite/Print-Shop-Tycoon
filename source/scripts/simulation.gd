@@ -30,6 +30,9 @@ func start_demo() -> void:
  state["tutorial"]=false
  Strategy.ensure(self)
  for role in [1,3,5]: hire(role)
+ var positions=[Vector2i(3,7),Vector2i(7,10),Vector2i(10,11)]
+ for i in positions.size():
+  var point=nearest_floor(positions[i]);state["workers"][i+1]["pos"]=[float(point.x),float(point.y)]
  state["cash"]=5000
  state["day_open_cash"]=5000
  owner()["manual"]=false

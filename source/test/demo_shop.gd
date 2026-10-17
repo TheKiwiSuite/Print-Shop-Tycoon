@@ -23,6 +23,9 @@ func run() -> void:
  check(game.sim.save_path==test_root+"/career.json.demo","Demo save is separate from career")
  check(game.sim.state["machines"].has("dtf") and game.sim.state["machines"].has("sticker") and game.sim.state["machines"].has("heat"),"Demo supplies all starter equipment")
  check(game.sim.state["workers"].size()==4 and game.sim.state["cash"]==5000,"Demo supplies team and disclosed play budget")
+ var occupied={}
+ for worker in game.sim.state["workers"]: occupied[str(worker["pos"])]=true
+ check(occupied.size()==game.sim.state["workers"].size(),"Demo team starts at separate walkable floor positions")
  check(not game.sim.state["paused"] and not game.sim.owner()["manual"],"Demo opens running with owner Auto Assist")
  check(not game.sim.state["settings"]["music"],"Demo uses application audio preferences")
  check(game.sim.order(0)["stage"]=="queued","First demo order is prepared using real workflow")
