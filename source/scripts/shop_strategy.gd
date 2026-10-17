@@ -72,6 +72,9 @@ static func board(s,include_inquiries:bool=false) -> Dictionary:
  # Seed availability with actual in-flight work so new quotes cannot skip it.
  for w in s.state["workers"]:
   var task=w["task"]
+  if w.has("service_job"):
+   var m=s.state["machines"].get(w["service_job"],{})
+   if m.has("service_work"):worker_free[w["id"]]=clock+(float(m["service_work"]["remaining"])+w["path"].size()/2.2)*s.SHOP_HOURS_PER_SECOND
   if task.is_empty(): continue
   var m=s.state["machines"].get(task["machine"],{})
   if m.is_empty(): continue
@@ -128,7 +131,10 @@ static func board(s,include_inquiries:bool=false) -> Dictionary:
    for id in candidates:
     if not s.state["machines"].has(id): continue
     var m=s.state["machines"][id]
+    if m.get("broken",false):reasons.append("Service required: "+id);continue
+    if m.has("service_work"):station_free[id]=maxf(float(station_free.get(id,clock)),clock+(float(m["service_work"]["remaining"])+8.0)*s.SHOP_HOURS_PER_SECOND)
     for w in s.state["workers"]:
+     if int(w.get("absent_until_day",0))>int(s.state["day"]):continue
      var assignment=m["worker"]
      if assignment!=w["id"] and (assignment!="auto" or not s.role_matches(w,id)): continue
      var own_task=w["task"]
@@ -136,6 +142,8 @@ static func board(s,include_inquiries:bool=false) -> Dictionary:
      var duration=0.0
      for phase in C.phases("deliver" if requested=="handoff" else m["kind"],p): duration+=float(phase[1])
      if m["kind"]=="dtf" and s.state["upgrades"]["auto_feeder"]: duration*=0.7
+     if s.state.has("operations") and m["condition"]<65:duration*=1.15
+     if o.get("intervention_bonus",false):duration*=.95
      duration/=maxf(.1,float(w["skill"]))
      if m["kind"]=="dtf" and o.has("batch_members"):
       var count=0
@@ -168,4 +176,6 @@ static func board(s,include_inquiries:bool=false) -> Dictionary:
  var receipts=0
  for row in rows:
   if row["finish"]>=0 and row["finish"]<=clock+17-float(s.state["clock"]): receipts+=row["payout"]
+ loan+=preload("res://scripts/shop_operations.gd").daily_debt(s)
+ overhead+=75 if s.state.get("production_annex",false) else 0
  return {"rows":rows,"required":reserved,"on_hand":original,"wages":wages,"overhead":overhead,"loan_payment":loan,"obligations":wages+overhead+loan,"receipts":receipts,"cash_after_bills":float(s.state["cash"])-wages-overhead-loan,"cash_if_collected":float(s.state["cash"])-wages-overhead-loan+receipts}

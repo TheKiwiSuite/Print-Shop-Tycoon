@@ -3,6 +3,7 @@ extends RefCounted
 const C = preload("res://scripts/catalog.gd")
 const Marketing = preload("res://scripts/marketing.gd")
 const Strategy = preload("res://scripts/shop_strategy.gd")
+const Ops=preload("res://scripts/shop_operations.gd")
 const SHOP_HOURS_PER_SECOND=0.009
 const SAVE = "user://native-shop-v3.json"
 var save_path=SAVE
@@ -18,6 +19,7 @@ func start_shop(preset:String="Standard",custom:Dictionary={}) -> void:
  state["cash"]=roundi(Strategy.BASE_CASH*state["rules"]["cash"])
  state["day_open_cash"]=state["cash"]
  Strategy.ensure(self)
+ Ops.ensure(self)
  notice("%s shop. Starting cash $%d. Forecast commitments before accepting work." % [state["rules"]["preset"],state["cash"]])
 
 func start_demo() -> void:
@@ -38,6 +40,7 @@ func start_demo() -> void:
  owner()["manual"]=false
  accept(0);preflight(0,"repair");auto_pack(0);queue_order(0)
  state["cash"]=5000;state["stats"]=C.day_stats()
+ Ops.ensure(self)
  notice("Demo shop: equipment, team and $5,000 supplied. First job is queued. This demo has its own save.")
 
 func change_rules(preset:String,custom:Dictionary={}) -> bool:
@@ -61,7 +64,7 @@ func missing_all(items:Dictionary) -> String:
 
 func daily_obligations(extra_wage:int=0) -> float:
  Strategy.ensure(self)
- var bills=roundi((125 if int(state["location"])==1 else 200)*float(state["rules"]["overhead"]))+extra_wage+mini(50,int(state.get("loan_remaining",0)))
+ var bills=(75 if state.get("production_annex",false) else 0)+Ops.daily_debt(self)+roundi((125 if int(state["location"])==1 else 200)*float(state["rules"]["overhead"]))+extra_wage+mini(50,int(state.get("loan_remaining",0)))
  for w in state["workers"]: bills+=int(w["wage"])
  return bills
 
@@ -261,6 +264,7 @@ func now() -> float:
  return (int(state["day"])-1)*9.0 + float(state["clock"])-8.0
 
 func bounds() -> Vector2i:
+ if state.get("production_annex",false):return Vector2i(22,16)
  return Vector2i(14,12) if state["location"] == 1 else Vector2i(18,14)
 
 func entrance() -> Vector2i:
@@ -382,6 +386,9 @@ func start_campaign(id:String) -> bool:
  return true
 
 func _update_visits() -> void:
+ if state.get("operations",{}).get("away",false) and state["operations"]["close_walkins"]:
+  for o in state["orders"]:
+   if o["stage"] in ["intake","scheduled"] and o.has("visit"):o["visit"]["patience_until"]=now()+2.0;o["visit"]["arrival_at"]=now()+1.0
  Strategy.ensure(self)
  for i in state["orders"].size():
   var o=order(i)
@@ -607,6 +614,8 @@ func footprint(id:String, machines:Dictionary={}) -> Array:
 func blocked(machines:Dictionary={}) -> Dictionary:
  var ms = state["machines"] if machines.is_empty() else machines
  var b = {}
+ for decor in state.get("style",{}).get("decor",[]):
+  for x in int(decor.get("width",1)):b[Vector2i(int(decor["pos"][0])+x,int(decor["pos"][1]))]=true
  for id in ms:
   for p in footprint(id,ms): b[p] = true
  for id in ["dtf","dtf2"]:
@@ -698,7 +707,7 @@ func configure_dtf(ms:Dictionary,id:String,pos:Vector2i,r:int) -> void:
 func install_feedback(id:String,pos:Vector2i,rotation:int=0,facing:int=-1,center:Vector2=Vector2(INF,INF)) -> Dictionary:
  if not C.EQUIPMENT_PRICES.has(id): return {"valid":false,"reason":"Unknown equipment."}
  if state["machines"].has(id): return {"valid":false,"reason":"This station is already installed."}
- if state["cash"]<C.EQUIPMENT_PRICES[id]: return {"valid":false,"reason":"Not enough cash for this station."}
+ if state["cash"]<Ops.equipment_cost(self,id): return {"valid":false,"reason":"Not enough cash for this station."}
  if id in ["banner","cnc","dock"] and state["location"]==1: return {"valid":false,"reason":"Expand to the industrial shop for this equipment."}
  Strategy.ensure(self)
  if id in ["banner","cnc","dock"] and int(state["rules"]["version"])>0 and not state["fit_out"]: return {"valid":false,"reason":"Complete the $350 industrial fit-out first."}
@@ -718,8 +727,10 @@ func install_equipment(id:String,pos:Vector2i,rotation:int=0,facing:int=-1,cente
  if not result["valid"]: return false
  state["machines"]=result["machines"]
  _reroute_customers()
- state["cash"]-=C.EQUIPMENT_PRICES[id]
- state["stats"]["capex"]=state["stats"].get("capex",0)+C.EQUIPMENT_PRICES[id]
+ var purchase_cost=Ops.equipment_cost(self,id)
+ state["cash"]-=purchase_cost
+ state["stats"]["capex"]=state["stats"].get("capex",0)+purchase_cost
+ Ops.commit_equipment(self,id)
  notice("Placed "+state["machines"][id]["title"]+". Add more stations or resume the clock when ready.")
  save_game()
  return true
@@ -731,7 +742,7 @@ func placement_feedback(id:String, pos:Vector2i, rotation:int=0,facing:int=-1,ce
  facing=posmod(facing,16)
  rotation=floori(float(facing)/4.0)
  var m = ms[id]
- if int(m["active"])>=0: return {"valid":false,"reason":"Finish the current job before moving equipment."}
+ if int(m["active"])>=0 or m.has("service_work"): return {"valid":false,"reason":"Finish the current job or service before moving equipment."}
  m["pos"]=[pos.x,pos.y]
  if rotation != int(m["rotation"]) and m["kind"]!="dtf":
   if m["kind"]=="shaker": return {"valid":false,"reason":"Rotate the complete DTF line by selecting its printer."}
@@ -763,6 +774,9 @@ func placement_feedback(id:String, pos:Vector2i, rotation:int=0,facing:int=-1,ce
    if not inside(p): return {"valid":false,"reason":"Equipment must fit inside this shop.","machines":ms}
    if occupied.has(p): return {"valid":false,"reason":"Equipment overlaps %s." % ms[occupied[p]]["title"],"machines":ms}
    occupied[p]=key
+ for decor in state.get("style",{}).get("decor",[]):
+  for dx in int(decor["width"]):
+   if occupied.has(cell(decor["pos"])+Vector2i(dx,0)):return {"valid":false,"reason":"Equipment overlaps decor.","machines":ms}
  for prop in room_props():
   if occupied.has(prop["pos"]): return {"valid":false,"reason":"Equipment overlaps a fixed shelf or plant.","machines":ms}
  for printer in ["dtf","dtf2"]:
@@ -938,6 +952,8 @@ func role_matches(w:Dictionary, m:String) -> bool:
  return kind in {"Prepress artist":["art"],"DTF operator":["dtf"],"Print / cut operator":["sticker","banner"],"Finisher":["heat","finish"],"CNC operator":["cnc"],"Packer":["pack","finish"],"Shipping worker":["dock","pack"]}.get(w["role"],[])
 
 func _dispatch(i:int, w:Dictionary, m:String) -> bool:
+ if w.has("service_job") or int(w.get("absent_until_day",0))>int(state["day"]):return false
+ if state["machines"].get(m,{}).has("service_work") or state["machines"].get(m,{}).get("broken",false):return false
  var o=order(i)
  if w.is_empty() or not w["task"].is_empty() or not state["machines"].has(m): return false
  if not role_matches(w,m): return false
@@ -1004,6 +1020,7 @@ func work_station(m:String) -> bool:
  return work_order(i,m)
 
 func interrupt_owner() -> void:
+ if owner().has("service_job"):notice("Sam is servicing equipment. Finish service before walking away.");return
  var w=owner()
  var t=w["task"]
  if not t.is_empty():
@@ -1019,6 +1036,7 @@ func interrupt_owner() -> void:
  w["manual"]=true
 
 func move_owner(target:Vector2i) -> bool:
+ if owner().has("service_job"):notice("Sam must finish the reserved equipment service first.");return false
  var b=blocked()
  if not inside(target) or b.has(target): notice("Click a clear floor tile. Machines have solid footprints."); return false
  var start=Vector2i(roundi(owner()["pos"][0]),roundi(owner()["pos"][1]))
@@ -1067,7 +1085,7 @@ func _begin_task(w:Dictionary) -> void:
  var t=w["task"]
  var o=order(t["order"])
  var m=state["machines"][t["machine"]]
- if o["stage"]!=t["stage"] or m["active"]>=0: w["task"]={}; return
+ if o["stage"]!=t["stage"] or m.has("service_work") or m.get("broken",false) or m["active"]>=0: w["task"]={}; return
  if t["stage"]=="preflight": o["stage"]="prepress"
  if t["stage"]=="queued":
   var batch=o.get("batch_members",[t["order"]])
@@ -1136,6 +1154,8 @@ func task_duration(w:Dictionary) -> float:
   var quantity=0
   for j in o["batch_members"]: quantity+=int(order(int(j))["quantity"])
   duration*=maxf(1.0,float(quantity)/maxf(1,float(o["quantity"])))
+ if state.has("operations") and state["machines"][w["task"]["machine"]]["condition"]<65:duration*=1.15
+ if o.get("intervention_bonus",false):duration*=.95
  return duration / float(w["skill"])
 
 func machine_progress(id:String) -> float:
@@ -1185,6 +1205,7 @@ func _finish_task(w:Dictionary) -> void:
    o["stage"]="plan"
    notice("Artist checked dimensions and repaired the artwork. Plan production next.")
   "queued":
+   m["service_uses"]=int(m.get("service_uses",0))+1
    m["condition"]=maxi(20,m["condition"]-3)
    if m["kind"]=="dtf": state["machines"]["shaker2" if t["machine"]=="dtf2" else "shaker"]["condition"]-=2
    for j in o.get("batch_members",[t["order"]]):
@@ -1276,7 +1297,7 @@ func _fulfill(o:Dictionary) -> void:
  state["completed"]+=1
  state["quality_total"]+=o["quality"]
  if punctual: state["on_time"]+=1; state["stats"]["on_time"]+=1
- state["reputation"]=clampi(state["reputation"]+(4 if punctual else -5)-(3 if o["quality_accepted"] else 0),0,100)
+ state["reputation"]=clampi(state["reputation"]+(2 if o.get("promotion",false) and punctual and o["quality"]>=85 else 0)+(4 if punctual else -5)-(3 if o["quality_accepted"] else 0),0,100)
  o["stage"]="completed"
  o["finished_at"]=now()
  state["customers"][o["customer"]]=state["customers"].get(o["customer"],0)+1
@@ -1310,6 +1331,8 @@ func _walk(w:Dictionary, delta:float) -> void:
 
 func tick(delta:float) -> void:
  if state["paused"]: return
+ if state.has("operations"): Ops.tick(self,minf(delta,.1)*float(state["speed"]))
+ if state["paused"]: return
  _update_visits()
  var dt=minf(delta,0.1)*float(state["speed"])
  state["clock"]=minf(17.0,float(state["clock"])+dt*SHOP_HOURS_PER_SECOND)
@@ -1328,7 +1351,7 @@ func tick(delta:float) -> void:
   if o["stage"]=="revision" and now()>=o["revision_eta"]: o["art_ready"]=true; o["stage"]="plan"; notice("Customer's corrected artwork arrived.")
   if o["stage"]=="waiting_stock" and materials_available(dispatch_recipe(o)): o["stage"]="queued"
  var own=owner()
- if manual_input.length_squared()>0.01:
+ if manual_input.length_squared()>0.01 and not own.has("service_job"):
   if not own["task"].is_empty() or not own["path"].is_empty(): interrupt_owner()
   var direction=manual_input.normalized()
   var pos=v(own["pos"])
@@ -1408,6 +1431,7 @@ func buy_upgrade(key:String) -> bool:
  return true
 
 func maintain(id:String) -> bool:
+ if state.has("operations"):return Ops.start_service(self,id)
  var m=state["machines"].get(id,{})
  if m.is_empty() or m["active"]>=0: notice("Finish the job before servicing this equipment."); return false
  if state["stock"]["maintenance"]<1: notice("Restock maintenance kits first."); return false
@@ -1468,12 +1492,13 @@ func end_day() -> Dictionary:
  var s=state["stats"].duplicate(true)
  for w in state["workers"]: s["wages"]+=w["wage"]
  Strategy.ensure(self)
- s["overhead"]=roundi((125 if state["location"]==1 else 200)*float(state["rules"]["overhead"]))
+ s["overhead"]=roundi((125 if state["location"]==1 else 200)*float(state["rules"]["overhead"]))+(75 if state.get("production_annex",false) else 0)
  s["loan_payment"]=mini(50,int(state.get("loan_remaining",0)))
- var net=s["sales"]+s.get("recovery",0)-s["materials"]-s["art_fees"]-s.get("marketing",0)-s["wages"]-s["overhead"]
+ s["equipment_finance"]=Ops.daily_debt(self)
+ var net=s["sales"]+s.get("recovery",0)-s["materials"]-s["art_fees"]-s.get("marketing",0)-s["wages"]-s["overhead"]-s.get("hurdles",0)
  state["report"]={"stats":s,"net":net,"day":state["day"],"open":active_orders().size()}
  state["report"]["cash_before_bills"]=state["cash"]
- state["report"]["cash_after_bills"]=state["cash"]-s["wages"]-s["overhead"]-s["loan_payment"]
+ state["report"]["cash_after_bills"]=state["cash"]-s["wages"]-s["overhead"]-s["loan_payment"]-s["equipment_finance"]
  if state.has("day_open_cash"):
   state["report"]["cash_bridge"]={"opening":state["day_open_cash"],"receipts":s["sales"],"recovery":s.get("recovery",0),"loan_in":s.get("loan_in",0),"supplies":s.get("supply_purchases",0),"capital":s.get("capex",0),"hiring":s.get("hiring",0),"upgrades":s.get("upgrades",0),"art":s["art_fees"],"marketing":s.get("marketing",0)}
  state["best_profit"]=maxf(state["best_profit"],net)
@@ -1486,6 +1511,7 @@ func next_day() -> void:
   var payment=int(report["stats"].get("loan_payment",0))
   state["cash"]-=report["stats"]["wages"]+report["stats"]["overhead"]+payment
   state["loan_remaining"]=maxi(0,int(state.get("loan_remaining",0))-payment)
+  Ops.pay_debts(self,int(state["day"]))
  state["day"]+=1
  state["clock"]=8.0
  state["paused"]=false
@@ -1634,6 +1660,12 @@ func load_game() -> bool:
    if not state.has(key): state[key]=fresh[key]
   _ensure_marketing()
   Strategy.ensure(self)
+  Ops.ensure(self)
+  state["operations"]["finance_intent"]=""
+  var intervention=state["operations"]["active_qte"]
+  if not intervention.is_empty():
+   var resume=intervention.get("resume_paused",true);Ops.qte_result(self,true);state["paused"]=resume
+  for m in state["machines"].values():m["unbox_remaining"]=0.0
   for o in state["orders"]: _ensure_visit(o)
   # Older saves could persist a delivery task after its payment was committed.
   for w in state["workers"]:

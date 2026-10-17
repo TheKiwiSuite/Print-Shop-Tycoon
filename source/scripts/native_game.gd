@@ -1,5 +1,23 @@
 extends Node2D
 
+const Ops=preload("res://scripts/shop_operations.gd")
+const Style=preload("res://scripts/shop_style.gd")
+const Workshop=preload("res://scripts/workshop_ui.gd")
+const Photo=preload("res://scripts/workshop_photo.gd")
+const Banner=preload("res://scripts/partner_banner.gd")
+var partner_banners=[]
+var world_labels=[]
+var workshop_page=0
+var style_worker="owner"
+var pending_decor=""
+var floor_texture:Texture2D
+var floor_texture_path=""
+var photo_render=false
+var photo_active=false
+var photo_busy=false
+var photo_imported=false
+var photo_previous={}
+var qte_previous_pause=false
 const Sim = preload("res://scripts/simulation.gd")
 const C = preload("res://scripts/catalog.gd")
 const Strategy = preload("res://scripts/shop_strategy.gd")
@@ -15,7 +33,9 @@ const YELLOW = Color("ffd52f")
 const GREEN = Color("32c981")
 const RED = Color("b52742")
 var SHOP_VIEW:Rect2:
- get:return Rect2(276,76,get_viewport_rect().size.x-288,get_viewport_rect().size.y-214)
+ get:
+  if photo_render or photo_active:return Rect2(Vector2.ZERO,get_viewport_rect().size)
+  return Rect2(276,76,get_viewport_rect().size.x-288,get_viewport_rect().size.y-214)
 var ui_offset=Vector2.ZERO
 const DOCK = Color("eef1e7")
 const CREAM = Color("fffdf5")
@@ -156,6 +176,9 @@ func _ready() -> void:
     build=true
   if "--capture" in capture_args: call_deferred("_capture")
   if "--smoke" in capture_args: get_tree().create_timer(3.0).timeout.connect(_quit_game)
+ if photo_render:
+  reset_camera();return
+ partner_banners=Banner.read_config()
  _load_music_preference()
  reset_camera()
  get_viewport().size_changed.connect(reset_camera)
@@ -195,6 +218,7 @@ func _quit_game() -> void:
 
 func _notification(what:int) -> void:
  if what==NOTIFICATION_WM_CLOSE_REQUEST:
+  if photo_active:_action("photo_close")
   _action("quit")
  if what==NOTIFICATION_APPLICATION_FOCUS_OUT: sim.manual_input=Vector2.ZERO; key_tap=Vector2.ZERO
 
@@ -202,6 +226,12 @@ func _process(delta:float) -> void:
  time+=delta
  _desktop_tick(delta)
  if screen=="shop":
+  Ops.cosmetic(sim,delta)
+  if modal=="intervention" and get_window().has_focus() and desktop_menu=="":
+   var q=sim.state.get("operations",{}).get("active_qte",{})
+   if not q.is_empty():q["elapsed"]+=delta
+  if photo_active:
+   sim.manual_input=Vector2.ZERO;queue_redraw();_sync_accessibility();return
   var input=Vector2.ZERO
   if modal=="" and desktop_menu=="" and not build and get_window().has_focus():
    var sx=float(_held(KEY_D) or _held(KEY_RIGHT))-float(_held(KEY_A) or _held(KEY_LEFT))
@@ -214,7 +244,7 @@ func _process(delta:float) -> void:
    sim.tick(delta)
   autosave+=delta
   if autosave>10:
-   sim.save_game(); autosave=0.0
+   _stamp_offline();sim.save_game(); autosave=0.0
   if not sim.state["report"].is_empty() and modal=="": modal="report"
  queue_redraw()
  _sync_accessibility()
@@ -259,6 +289,20 @@ func _zoom_shop(point:Vector2,amount:float) -> void:
  _clamp_camera()
 
 func _input(event:InputEvent) -> void:
+ if photo_active:
+  if event is InputEventKey and event.pressed:
+   if event.keycode==KEY_ESCAPE:_action("photo_close");return
+   if event.keycode==KEY_HOME:reset_camera();return
+   return
+  if event is InputEventMouseButton:
+   if event.button_index==MOUSE_BUTTON_LEFT and event.pressed:
+    for b in buttons:
+     if b["rect"].has_point(event.position):_action(b["action"]);return
+    return
+   if event.button_index in [MOUSE_BUTTON_WHEEL_UP,MOUSE_BUTTON_WHEEL_DOWN] and event.pressed:_zoom_shop(event.position,.08 if event.button_index==MOUSE_BUTTON_WHEEL_UP else -.08)
+   if event.button_index==MOUSE_BUTTON_MIDDLE:pan=event.pressed
+  if event is InputEventMouseMotion and pan:offset+=event.relative;_clamp_camera()
+  return
  if _desktop_input(event):return
  if event is InputEventKey:
   last_key={"physical":event.physical_keycode,"keycode":event.keycode,"unicode":event.unicode,"pressed":event.pressed}
@@ -285,7 +329,9 @@ func _input(event:InputEvent) -> void:
   match code:
    KEY_F11: _action("fullscreen")
    KEY_ESCAPE:
-    if modal!="" and modal!="report": _action("close")
+    if pending_decor!="":pending_decor="";return
+    if modal=="intervention":_action("qte_skip")
+    elif modal!="" and modal!="report": _action("close")
     elif pending_equipment!="" or moving_equipment!="" or dragging!="": _cancel_world_drag()
     elif build: build=false
     else: modal="settings"
@@ -322,6 +368,10 @@ func _input(event:InputEvent) -> void:
      if b["rect"].has_point(event.position): _action(b["action"]); return
     if modal=="gang": _gang_press(event.position-_modal_offset()); return
     if modal!="" or screen!="shop" or not SHOP_VIEW.has_point(event.position): return
+    if pending_decor!="":
+     var tile=uniso(event.position)
+     if Style.place(sim,pending_decor,Vector2i(roundi(tile.x),roundi(tile.y))):pending_decor=""
+     return
     if pending_equipment!="":
      var tile=uniso(event.position)
      var at=Vector2i(roundi(tile.x),roundi(tile.y))
@@ -431,9 +481,12 @@ func _relocating() -> bool:
  return dragging=="machine" or moving_equipment!=""
 
 func _cancel_world_drag() -> void:
+ pending_decor=""
+ if sim.state.has("operations"):sim.state["operations"]["finance_intent"]=""
  pending_equipment="";moving_equipment="";dragging="";drag_id="";drag_valid={};drag_offset=Vector2.ZERO;pan=false
 
 func _save_before(action:String) -> bool:
+ _stamp_offline()
  if sim.save_game():
   pending_save_action=""
   return true
@@ -462,7 +515,11 @@ func _interact_nearby() -> void:
 
 func _draw() -> void:
  buttons.clear(); world_hits.clear(); worker_hits.clear(); customer_hits.clear(); output_hits.clear()
+ world_labels.clear()
  _world()
+ if not (photo_render or photo_active):_draw_world_labels()
+ if photo_render:return
+ if photo_active:Photo.draw(self);return
  if screen=="title":
   _set_ui_offset(_modal_offset())
   _title()
@@ -501,7 +558,7 @@ func _desktop_items(menu:String) -> Array:
  var editable=shop and modal=="" and sim.state["report"].is_empty()
  var selected=editable and sim.state["machines"].has(selected_machine)
  match menu:
-  "File":return [["New game","new",modal!="save_error"],["Continue saved shop","continue",screen=="title" and sim.has_save()],["Save shop    F5","save",shop],["Save and return to title","title",shop],["Settings","settings",true],["Save and quit    Alt+F4","quit",true]]
+  "File":return [["Workshop: operations + style","workshop",shop],["Photo mode","photo_mode",shop],["Selected job intervention","intervene",shop and selected_order>=0],["Shop growth + fit-out","move",shop],["New game","new",modal!="save_error"],["Continue saved shop","continue",screen=="title" and sim.has_save()],["Save shop    F5","save",shop],["Save and return to title","title",shop],["Settings","settings",true],["Save and quit    Alt+F4","quit",true]]
   "Edit":return [["Arrange equipment    B","build",editable],["Move selected equipment","move_equipment",selected],["Rotate selected equipment    R","rotate_equipment",selected and build],["Cancel placement    Esc","cancel_placement",editable and (pending_equipment!="" or _relocating())]]
   "View":return [["Fit whole shop    Home","camera",shop],["Music: "+("On" if sim.state["settings"]["music"] else "Off"),"music",true],["Toggle fullscreen    F11","fullscreen",true]]
   "Window":return [["Minimize","window_minimize",true],["Windowed / restore","window_restore",true],["Maximize","window_maximize",true],["Fullscreen    F11","window_fullscreen",true]]
@@ -801,6 +858,13 @@ func _trim_texture(texture:Texture2D) -> Texture2D:
 
 func _world() -> void:
  draw_rect(Rect2(Vector2.ZERO,_screen_size()),Color("c5cfc1"))
+ var style=sim.state.get("style",{})
+ var image_path=style.get("floor_image","") if not (photo_render or photo_active) or photo_imported else ""
+ if floor_texture_path!=image_path:
+  floor_texture_path=image_path;floor_texture=null
+  if image_path.begins_with(OS.get_user_data_dir().path_join("custom-floors/")) and FileAccess.file_exists(image_path):
+   var image=Image.load_from_file(image_path)
+   if image!=null:floor_texture=ImageTexture.create_from_image(image)
  var size=sim.bounds()
  var high=155*zoom
  var a=iso(Vector2(-0.5,-0.5))
@@ -831,9 +895,12 @@ func _world() -> void:
   for y in size.y:
    var p=iso(Vector2(x,y))
    var color=Color("e6b574") if sim.state["location"]==1 else Color("aab2b7")
+   if Style.FLOORS.get(style.get("floor","Original"),"")!="":color=Color(Style.FLOORS[style["floor"]])
    color=color.lightened(float((x*13+y*7)%7)*0.013)
    _diamond(p,48*zoom,23*zoom,color,Color("c99b69") if sim.state["location"]==1 else Color("909ba3"))
-   if sim.state["location"]==1:
+   if floor_texture!=null:
+    draw_polygon(PackedVector2Array([p+Vector2(0,-23)*zoom,p+Vector2(48,0)*zoom,p+Vector2(0,23)*zoom,p+Vector2(-48,0)*zoom]),PackedColorArray([Color.WHITE]),PackedVector2Array([Vector2(0,0),Vector2(1,0),Vector2(1,1),Vector2(0,1)]),floor_texture)
+   if sim.state["location"]==1 and floor_texture==null:
     for k in 2:
      var line=p+Vector2(-25+k*20,3)*zoom
      draw_line(line,line+Vector2(28,13)*zoom,Color(0.63,0.36,0.14,0.12),1)
@@ -861,13 +928,17 @@ func _world() -> void:
  for prop in sim.room_props():
   var p=Vector2(prop["pos"])
   items.append({"kind":prop["kind"],"pos":p,"depth":p.x+p.y})
+ for decor in sim.state.get("style",{}).get("decor",[]):items.append({"kind":"decor","item":decor,"depth":decor["pos"][0]+decor["pos"][1]+.2})
  for w in sim.state["workers"]: items.append({"kind":"worker","id":w["id"],"depth":w["pos"][0]+w["pos"][1]+0.4})
  for actor in sim.visible_customers(): items.append({"kind":"customer","actor":actor,"depth":actor["pos"][0]+actor["pos"][1]+0.4})
  items.sort_custom(func(i,j): return i["depth"]<j["depth"])
- _film_paths()
+ if not (photo_render or photo_active):_film_paths()
  for item in items:
   match item["kind"]:
-   "machine": _machine(item["id"])
+   "machine":
+    _machine(item["id"])
+    _draw_unboxing(item["id"])
+   "decor": Style.draw_decor(self,item["item"])
    "worker": _worker(item["id"])
    "customer": _customer(item["actor"])
    "rack": _illustrated_prop("storage",iso(item["pos"]))
@@ -979,11 +1050,9 @@ func _machine(id:String) -> void:
  var anchor=Ground.texture_origin(m["kind"]) if anchored else Ground.atlas_origin(int(m["sprite"]),atlas_regions[int(m["sprite"])])
  var rect=Ground.rect_at(p,Vector2(width,height)*zoom,anchor,anchored)
  world_hits.append({"id":id,"rect":rect,"sprite":int(m["sprite"]),"flip":m["kind"] in ["dtf","shaker"]})
- if m["active"]>=0:
+ if not (photo_render or photo_active) and m["active"]>=0:
   var progress=sim.machine_progress(id)
-  _panel(Rect2(p+Vector2(-63,9)*zoom,Vector2(126,14)*zoom),NAVY,NAVY,6)
-  draw_rect(Rect2(p+Vector2(-59,13)*zoom,Vector2(118*progress,6)*zoom),GREEN)
-  _text(p+Vector2(-65,41)*zoom,m["phase"],int(12*zoom),INK)
+  world_labels.append({"at":p,"text":m["phase"],"progress":progress})
   var kind=m["kind"]
   if kind in ["dtf","sticker"]:
    var head=p+Vector2(lerpf(-47,47,(sin(time*3)+1)*0.5),-76 if kind!="cnc" else -83)*zoom
@@ -999,7 +1068,7 @@ func _machine(id:String) -> void:
    var roll=iso(sim.v(sim.state["machines"][shake]["pos"])+Vector2(1,1))+Vector2(-51,-14)*zoom
    draw_arc(roll,7*zoom,time*4,time*4+4.3,16,Color("8c9ca8"),2*zoom)
   if kind=="banner": _product("banner",p+Vector2(0,-30)*zoom,30*zoom)
- elif not build and m["kind"] not in ["shaker","storage"]:
+ elif not (photo_render or photo_active) and not build and m["kind"] not in ["shaker","storage"]:
   var waiting=-1
   for oi in sim.active_orders():
    var job=sim.order(oi)
@@ -1040,12 +1109,10 @@ func _approved_dtf_line(id:String) -> void:
  var rect=Ground.rect_at(p,size,anchor,flip)
  world_hits.append({"id":id,"printer":printer,"rect":rect,"sprite":12+rotation,"flip":flip})
  var active=sim.state["machines"][printer]
- if active["active"]>=0:
+ if not (photo_render or photo_active) and active["active"]>=0:
   var progress=sim.machine_progress(printer)
-  _panel(Rect2(p+Vector2(-63,9)*zoom,Vector2(126,14)*zoom),NAVY,NAVY,6)
-  draw_rect(Rect2(p+Vector2(-59,13)*zoom,Vector2(118*progress,6)*zoom),GREEN)
-  _text(p+Vector2(-80,41)*zoom,active["phase"],int(12*zoom),INK)
- elif not build:
+  world_labels.append({"at":p,"text":active["phase"],"progress":progress})
+ elif not (photo_render or photo_active) and not build:
   for oi in sim.active_orders():
    var job=sim.order(oi)
    if job.get("output_machine","")==printer and job["stage"] in ["press","qc","pack","ready"]:
@@ -1115,10 +1182,10 @@ func _worker(id:String) -> void:
   var hand=p+Vector2(18,-37)*zoom
   if w["task"]["stage"]=="ready": _panel(Rect2(hand-Vector2(11,8)*zoom,Vector2(22,17)*zoom),Color("d5a467"),NAVY,2)
   else: _product(sim.order(w["task"]["order"])["type"],hand,17*zoom)
- if id==selected_worker or dragging=="worker":
+ Style.draw_outfit(self,w,p)
+ if not (photo_render or photo_active) and (id==selected_worker or dragging=="worker"):
   var label=w["name"]+ (" • YOU" if id=="owner" else "")
-  _panel(Rect2(p+Vector2(-45,10)*zoom,Vector2(90,24)*zoom),NAVY)
-  _text(p+Vector2(-37,27)*zoom,label,int(12*zoom),CREAM)
+  world_labels.append({"at":p,"text":label,"progress":-1.0})
 
 func _customer(actor:Dictionary) -> void:
  var p=iso(sim.v(actor["pos"]))
@@ -1131,13 +1198,13 @@ func _customer(actor:Dictionary) -> void:
  var index=int(actor["order"])
  if sim.order(index).get("paid",false) and actor["purpose"]=="exit":
   _panel(Rect2(p+Vector2(11,-46)*zoom,Vector2(23,18)*zoom),Color("d5a467"),NAVY,2)
-  if sim.now()-float(sim.order(index).get("finished_at",-1))<.03:
+  if not (photo_render or photo_active) and sim.now()-float(sim.order(index).get("finished_at",-1))<.03:
    _text(p+Vector2(-24,-118)*zoom,"+$%d" % sim.order(index).get("payment",0),int(17*zoom),GREEN)
  customer_hits.append({"order":index,"rect":Rect2(p-Vector2(31,99)*zoom,Vector2(62,103)*zoom)})
- if actor["phase"]=="waiting":
+ if not (photo_render or photo_active) and actor["phase"]=="waiting":
   _oval(p+Vector2(24,-89)*zoom,Vector2(14,13)*zoom,CREAM)
   _text(p+Vector2(18,-84)*zoom,"?" if actor["purpose"]=="inquiry" else "✓",int(19*zoom),BLUE)
- if Rect2(p-Vector2(31,99)*zoom,Vector2(62,103)*zoom).has_point(get_global_mouse_position()) and modal=="" and not build:
+ if not (photo_render or photo_active) and Rect2(p-Vector2(31,99)*zoom,Vector2(62,103)*zoom).has_point(get_global_mouse_position()) and modal=="" and not build:
   var label=actor["name"]
   var width=font.get_string_size(label,HORIZONTAL_ALIGNMENT_LEFT,-1,13).x+18
   _panel(Rect2(p+Vector2(-width*.5,8)*zoom,Vector2(width,24)*zoom),NAVY)
@@ -1180,6 +1247,7 @@ func _title() -> void:
  _button(Rect2(811,600,245,52),"QUIT","quit",CREAM)
  _button(Rect2(545,670,510,48),"PLAY DEMO SHOP","demo",GREEN,true,23)
  _line(Vector2(549,742),status if status!="" else "Demo equipment and team included. Career save stays separate.",14,RED if status!="" else MUTED,510)
+ Banner.draw(self)
  if modal!="": _modal()
 
 func _ui_docks() -> void:
@@ -1191,7 +1259,7 @@ func _ui_docks() -> void:
  draw_line(Vector2(264,66),Vector2(screen_size.x,66),Color("a5b4b3"),2)
  draw_line(Vector2(264,768+extra.y),Vector2(screen_size.x,768+extra.y),Color("a5b4b3"),2)
  _logo(Vector2(7,9),.75)
- _text(Vector2(17,104),"SHOP DESK",19,BLUE,-1,true)
+ _button(Rect2(14,89,235,25),"WORKSHOP + STYLE","workshop",CYAN,true,13)
  var full=DisplayServer.window_get_mode()==DisplayServer.WINDOW_MODE_FULLSCREEN
  _button(Rect2(14,829+extra.y,235,35),"WINDOW MODE  F11" if full else "FULLSCREEN  F11","fullscreen",NAVY,true,14)
 
@@ -1246,11 +1314,12 @@ func _toolbar() -> void:
  var extra_width=_screen_size().x-1600
  var notice=status if status!="" else sim.state["notices"][0]
  var placing=pending_equipment!="" or _relocating()
+ if pending_decor!="":notice="Click clear floor to place "+pending_decor.replace("_"," ")+". Escape cancels. Shop paused."
  if placing:notice=("Click to place. " if dragging!="machine" else "Release to place. ")+drag_valid.get("reason","Choose clear floor.")
  draw_rect(Rect2(276,775,_screen_size().x-288,21),RED if placing and not drag_valid.get("valid",false) else NAVY)
  _text(Vector2(286,791),notice,14,CREAM,_screen_size().x-310)
  var entries=[[0,"DTF LINE","machine:dtf"],[2,"STICKER PRINT / CUT","machine:sticker"],[3,"HEAT PRESS","machine:heat"],[7,"ADD EQUIPMENT","equipment"],[9,"STAFF + UPGRADES","staff"],[6,"BUILD / ARRANGE","build"],[11,"EXPAND SHOP","move"]]
- if sim.state["location"]==2:entries[2]=[4,"ROLL-TO-ROLL","machine:banner"];entries[6]=[5,"CNC FLATBED","machine:cnc"]
+ if sim.state["location"]==2:entries[2]=[4,"ROLL-TO-ROLL","machine:banner"];entries[6]=[11,"SHOP GROWTH","move"]
  for i in entries.size():
   var entry=entries[i]
   if str(entry[2]).begins_with("machine:") and not sim.state["machines"].has(str(entry[2]).get_slice(":",1)):entry[2]="equipment"
@@ -1429,6 +1498,9 @@ func _modal() -> void:
  buttons.clear()
  draw_rect(Rect2(-ui_offset,_screen_size()),Color(0.015,0.055,0.14,0.42))
  match modal:
+  "cash_bridge":_cash_bridge_panel()
+  "workshop": Workshop.draw(self)
+  "intervention": _intervention_panel()
   "marketing": _marketing_panel()
   "capacity": _capacity_panel()
   "difficulty": _difficulty_panel()
@@ -1480,11 +1552,12 @@ func _order_panel() -> void:
  if o.is_empty(): modal=""; return
  _header("%d %s" % [o["quantity"],o["product"]],o["customer"]+(" • RETURNING CUSTOMER" if o.get("returning",false) else "")+(" • WHOLESALE" if o.get("wholesale",false) else ""))
  _product(o["type"],Vector2(1160,249),73)
- _text(Vector2(389,233),"$%d  •  Due %s  •  %s" % [roundi(o["reward"]*(0.76 if o.get("quality_accepted",false) else 1.0)),_due(o),o["fulfillment"].to_upper()] if o["stage"]!="scheduled" else "$%d  •  Deadline starts when the customer arrives" % o["reward"],22,INK)
+ _text(Vector2(389,233),("$%d  •  "+("Proposed" if o["stage"]=="intake" else "Committed")+" %s  •  %s") % [roundi(o["reward"]*(0.76 if o.get("quality_accepted",false) else 1.0)),_due(o),o["fulfillment"].to_upper()] if o["stage"]!="scheduled" else "$%d  •  Deadline starts when the customer arrives" % o["reward"],22,INK)
  _text(Vector2(389,266),_stage(o["stage"])+"  •  "+sim.customer_status(o),18,RED if o["stage"]=="fault" else BLUE,710,true)
  var routes={"transfer":"ART > GANG SHEET > CMYK + WHITE > POWDER > CURE > TAKE-UP > QC > PACK","apparel":"ART > DTF TRANSFER > GARMENT BLANKS > HEAT PRESS / PEEL > QC > PACK","sticker":"BLEED / CUT PATH > PRINT > LAMINATE > REGISTRATION > CONTOUR CUT > QC","banner":"MEDIA WIDTH > WIDE PRINT > TRIM / GROMMETS > INSPECT > PACK > SHIP","cnc":"TOOLPATH > PANEL / TOOL PRESET > LOAD > GANTRY CUT > UNLOAD > QC"}
  _panel(Rect2(385,287,823,53),Color("edf5ff"),Color("d0e1f6"),6)
  _text(Vector2(400,309),routes[o["type"]],15,INK,790)
+ if o["type"] in ["sticker","apparel"] and o["stage"] in ["plan","queued","press"]:_button(Rect2(1015,348,192,29),"OPTIONAL TIMING","intervene",CYAN,true,12)
  _text(Vector2(389,375),"Artwork: %s  •  Physical design: %.1f x %.1f in" % ["ready" if o["art_ready"] else "needs a fix",o["art_w"],o["art_h"]],18,INK)
  var recipe=C.recipe(o)
  var used=[]
@@ -1609,7 +1682,7 @@ func _equipment_panel() -> void:
   var installed=sim.state["machines"].has(id)
   Strategy.ensure(sim)
   var locked=id in ["banner","cnc","dock"] and (sim.state["location"]==1 or (int(sim.state["rules"]["version"])>0 and not sim.state["fit_out"]))
-  _button(Rect2(989,y-9,218,49),"INSTALLED" if installed else ("EXPAND FIRST" if locked else "PLACE"),"place:"+id,GREEN,not installed and not locked and sim.state["cash"]>=price,16)
+  _button(Rect2(989,y-9,218,49),"INSTALLED" if installed else (("PREMISES REQUIRED" if sim.state["location"]==1 else "FIT-OUT  $350") if locked else "PLACE"),"move" if locked else "place:"+id,CYAN if locked else GREEN,not installed and (locked or sim.state["cash"]>=sim.Ops.equipment_cost(sim,id)),15)
  _button(Rect2(389,710,397,43),"BACK TO SHOP","close",NAVY)
  _button(Rect2(801,710,406,43),"MORE EQUIPMENT" if equipment_page==0 else "STARTER EQUIPMENT","equipment_page",CYAN)
 
@@ -1747,10 +1820,11 @@ func _report_panel() -> void:
   _text(Vector2(1000,y),"$%.0f" % rows[i][1],24,GREEN if rows[i][1]>=0 else RED,-1,i==6)
  var ontime=100.0 if s["delivered"]==0 else s["on_time"]*100.0/s["delivered"]
  var quality=100.0 if s["delivered"]==0 else float(s["quality"])/s["delivered"]
+ _button(Rect2(389,548,818,28),"CASH BRIDGE / PURCHASES / DEBT PAYMENTS","cash_bridge",CREAM,true,13)
  _text(Vector2(389,597),"Delivered %d • On time %.0f%% • Quality %.0f%% • Open jobs %d" % [s["delivered"],ontime,quality,report["open"]],19,INK)
- _text(Vector2(389,633),"Waste $%.0f / recovery income $%d / loan repayment $%d" % [s["waste"],s.get("recovery",0),s.get("loan_payment",0)],17,MUTED,810)
+ _text(Vector2(389,633),"Waste $%.0f / recovery $%d / loan $%d / equipment payment $%d" % [s["waste"],s.get("recovery",0),s.get("loan_payment",0),s.get("equipment_finance",0)],17,MUTED,810)
  _text(Vector2(389,668),"Cash now $%.0f / after daily bills $%.0f. Inventory use is not charged twice." % [report.get("cash_before_bills",sim.state["cash"]),report.get("cash_after_bills",sim.state["cash"])],17,BLUE,810)
- _button(Rect2(389,703,397,48),"SAVE + TITLE","title",NAVY)
+ _button(Rect2(389,703,397,48),"SAVE + HOME","title",NAVY)
  _button(Rect2(801,703,406,48),"START NEXT DAY","next_day",YELLOW)
 
 func _settings_panel() -> void:
@@ -1762,12 +1836,12 @@ func _settings_panel() -> void:
  _button(Rect2(801,301,406,51),"REPLAY TUTORIAL","tutorial",CYAN,screen=="shop")
  _button(Rect2(389,359,396,36),"DIFFICULTY + RULES","difficulty",CYAN,true,16)
  _button(Rect2(801,359,406,36),"REDUCE MOTION: "+("ON" if settings.get("reduce_motion",false) else "OFF"),"reduce_motion",CREAM,true,16)
- _text(Vector2(389,430),"Tab selects a control; Enter activates it. Q opens capacity forecasts.\nSpace pauses live panels. Arrow keys place equipment; Enter confirms.\nOpen Help for all keyboard and mouse controls.",18,INK,818)
- _button(Rect2(389,489,818,31),"ACCESSIBILITY + REMAP MOVEMENT","accessibility",CREAM,true,15)
- _text(Vector2(389,530),("Demo uses a separate save. " if sim.state.get("demo",false) else "Save folder: ")+OS.get_user_data_dir(),16,MUTED,810)
+ _text(Vector2(389,421),"Tab selects controls; Enter activates. Q opens capacity forecasts.\nSpace pauses live panels. Arrows place equipment; Enter confirms.",17,INK,818)
+ _button(Rect2(389,476,818,31),"ACCESSIBILITY + REMAP MOVEMENT","accessibility",CREAM,true,15)
+ _line(Vector2(389,531),"Demo save is separate from career." if sim.state.get("demo",false) else "Local saves stay on this computer. Updates include backups.",16,MUTED,810)
  if sim.state.get("demo",false) and screen=="shop": _button(Rect2(389,544,818,27),"RESET DEMO / CAREER STAYS SEPARATE","reset_demo",CREAM,true,14)
  _button(Rect2(389,581,396,51),"SAVE DEMO" if sim.state.get("demo",false) else "SAVE SHOP","save",GREEN,screen=="shop")
- _button(Rect2(801,581,406,51),"SAVE + TITLE","title",NAVY,screen=="shop")
+ _button(Rect2(801,581,406,51),"SAVE + HOME","title",NAVY,screen=="shop")
  _button(Rect2(389,648,818,37),"GAME UPDATES + SAVE BACKUPS","updates",CREAM,true,16)
  _button(Rect2(389,703,397,48),"BACK","close",CYAN)
  _button(Rect2(801,703,406,48),"SAVE + QUIT","quit",CREAM)
@@ -1775,9 +1849,9 @@ func _settings_panel() -> void:
 func _help_panel() -> void:
  _header("HOW TO PLAY","Hands-on workshop play with a growing tycoon business")
  var lines=["1. Add a printer, inspection and pickup benches to your empty shop.","2. Launch a marketing campaign to bring equipment-matched inquiries.","3. Open the shop clock. Accept customer inquiries before they leave.","4. Walk with WASD / arrows, click floor, or use owner Auto Assist.","5. Check artwork. Transfers need a gang sheet; stickers use presets.","6. Queue the job and choose Work as Sam or enable Auto Assist.","7. Print, inspect and pack. Correct faults or accept reduced payment.","8. Shirts also need garment blanks and the heat press.","9. Complete pickup to get paid. Find receipts in the Customer Desk.","10. Marketing costs appear in the daily profit report.","11. Restock supplies, hire staff and improve your shop as sales grow.","12. Complete garage goals to unlock banners, CNC signs and shipping."]
- for i in lines.size(): _text(Vector2(389,222+i*36),lines[i],17,INK,810)
- _text(Vector2(389,657),"Tab / Shift+Tab selects controls; Enter activates. Arrow keys place equipment; Enter confirms. Q opens forecasts.",16,BLUE,810)
- _text(Vector2(389,682),"Every saved shop stays on this Windows computer. Closing the game autosaves.",17,MUTED)
+ for i in lines.size(): _text(Vector2(389,222+i*33),lines[i],16,INK,810)
+ _text(Vector2(389,635),"Tab / Shift+Tab: select. Enter: activate / confirm placement.\nArrow keys: place equipment. Q: capacity. Space: pause.",16,BLUE,810)
+ _text(Vector2(389,689),"Every saved shop stays on this Windows computer. Closing the game autosaves.",15,MUTED)
  _button(Rect2(389,718,818,43),"LET'S PRINT","close",YELLOW)
 
 func _new_panel() -> void:
@@ -1843,6 +1917,7 @@ func _growth_panel() -> void:
  var names=["General","Stickers","Apparel","Signs"]
  for i in names.size(): _button(Rect2(389+i*207,526,197,47),names[i],"specialty:"+names[i],CYAN if names[i]==sim.state["specialty"] else CREAM,true,17)
  _text(Vector2(389,610),"Your focus favors the next day's first inquiry when its equipment is installed. Diversify whenever useful. No accepted order changes.",19,INK,810)
+ _button(Rect2(389,661,818,34),"PRODUCTION ANNEX  $2,200 / +$75 DAILY","annex",CREAM,sim.state["location"]==2 and sim.state["fit_out"] and not sim.state.get("production_annex",false),15)
  _button(Rect2(389,710,818,43),"BACK TO SHOP","close",NAVY)
 
 func _roster_panel() -> void:
@@ -1856,6 +1931,15 @@ func _roster_panel() -> void:
  _button(Rect2(389,710,818,43),"BACK TO STAFF","staff",NAVY)
 
 func _action(action:String) -> void:
+ if modal=="intervention" and action not in ["qte_hit","qte_skip","close"]:
+  Ops.qte_result(sim,true);sim.state["paused"]=qte_previous_pause;modal="order"
+ if action.begins_with("partner:"):
+  var index=int(action.get_slice(":",1))
+  if index>=0 and index<partner_banners.size():OS.shell_open(partner_banners[index]["url"])
+  return
+ if action=="cash_bridge":modal="cash_bridge";return
+ if action=="annex":Ops.annex(sim);reset_camera();return
+ if _workshop_action(action):return
  status=""
  forecast_preview={}
  var parts=action.split(":")
@@ -1907,6 +1991,7 @@ func _action(action:String) -> void:
     if not sim.load_game():
      sim=career_sim;career_sim=null;status="Demo save could not be restored. Career is unchanged.";return
    else: sim.start_demo()
+   Ops.settle_offline(sim)
    screen="shop";modal="report" if not sim.state["report"].is_empty() else "";build=false;_cancel_world_drag();order_page=0;customer_page=0;reset_camera();_load_music_preference();_start_music()
   "reset_demo": modal="confirm_demo"
   "reset_demo_confirm":
@@ -1920,8 +2005,10 @@ func _action(action:String) -> void:
    if not sim.backup_before_new_shop(): status=sim.last_save_error;return
    sim.start_shop(draft_rules["preset"],draft_rules); screen="shop"; modal="";build=false;pending_equipment="";moving_equipment="";dragging="";drag_valid={};order_page=0;customer_page=0;reset_camera(); _load_music_preference();sim.save_game(); _start_music()
   "continue":
-   if sim.load_game(): screen="shop"; modal="report" if not sim.state["report"].is_empty() else ""; reset_camera(); _load_music_preference();_start_music()
-  "close": modal=""; status="";pending_save_action="";binding_action=""
+   if sim.load_game(): Ops.settle_offline(sim); screen="shop"; modal="report" if not sim.state["report"].is_empty() else ""; reset_camera(); _load_music_preference();_start_music()
+  "close":
+   if modal=="intervention":_action("qte_skip");return
+   modal=""; status="";pending_save_action="";binding_action=""
   "dtf_views": dtf_view_index=0; modal="dtf_views"
   "back_machine": modal="machine"
   "equipment":
@@ -1954,6 +2041,7 @@ func _action(action:String) -> void:
   "quit":
    if screen=="shop" and not _save_before("quit"): return
    _quit_game()
+  "report":modal="report"
   "settings","help","stock","move","marketing": _cancel_world_drag();modal=action
   "capacity": board_page=0;modal="capacity"
   "board_page": board_page+=1
@@ -2227,11 +2315,9 @@ func _illustrated_machine(id:String) -> void:
  if sim.state["machines"].has(target): _station_work_animation(target,p)
  world_hits.append({"id":target,"printer":target if kind=="dtf" else "","rect":rect,"sprite":kind+":"+str(frame),"flip":false,"illustrated":true,"facing":facing})
  var activity=sim.station_activity(target) if sim.state["machines"].has(target) else {"working":false}
- if activity["working"]:
-  _panel(Rect2(p+Vector2(-63,9)*zoom,Vector2(126,14)*zoom),NAVY,NAVY,6)
-  draw_rect(Rect2(p+Vector2(-59,13)*zoom,Vector2(118*sim.machine_progress(target),6)*zoom),GREEN)
-  _text(p+Vector2(-80,41)*zoom,activity["phase"],int(12*zoom),INK)
- elif not build and sim.state["machines"].has(target):
+ if not (photo_render or photo_active) and activity["working"]:
+  world_labels.append({"at":p,"text":activity["phase"],"progress":sim.machine_progress(target)})
+ elif not (photo_render or photo_active) and not build and sim.state["machines"].has(target):
   for oi in sim.active_orders():
    var job=sim.order(oi)
    if job.get("output_machine","")==target and job["stage"] in ["press","qc","pack","ready"]:
@@ -2275,3 +2361,119 @@ func _station_work_animation(id:String,p:Vector2) -> void:
    _panel(Rect2(center+Vector2(-24,-12)*zoom,Vector2(48,31)*zoom),Color("d5a467"),NAVY,2)
    draw_line(center+Vector2(0,-12)*zoom,center+Vector2(0,19)*zoom,YELLOW,5*zoom)
    draw_line(center+Vector2(-24,1)*zoom,center+Vector2(lerpf(-24,24,progress),1)*zoom,CREAM,3*zoom)
+
+func _stamp_offline() -> void:
+ var ops=sim.state.get("operations",{})
+ if ops.get("away",false) and ops.get("offline_enabled",false):ops["offline_anchor"]=int(Time.get_unix_time_from_system())
+
+func _workshop_action(action:String) -> bool:
+ var p=action.split(":")
+ if p[0] not in ["workshop","worktab","promotion","service","finance","decor","decor_remove","floor_next","floor_import","outfit_worker","outfit_next","away_toggle","offline_toggle","offline_settle","auto_service","qte_toggle","assist_toggle","events_toggle","event","intervene","jam","qte_hit","qte_skip","photo_mode","photo_close","photo_export","photo_imported"]:return false
+ Ops.ensure(sim);Style.ensure(sim)
+ var ops=sim.state["operations"];var style=sim.state["style"]
+ match p[0]:
+  "workshop":_cancel_world_drag();workshop_page=0;modal="workshop"
+  "worktab":workshop_page=int(p[1]);modal="workshop"
+  "promotion":Ops.promo(sim)
+  "service":Ops.start_service(sim,p[1]);modal="";sim.state["paused"]=false
+  "finance":
+   if Ops.finance(sim,p[1]):_action("place:"+p[1])
+  "decor":_cancel_world_drag();pending_decor=p[1];modal="";build=false;sim.state["paused"]=true
+  "decor_remove":Style.remove(sim)
+  "floor_next":
+   var floors=Style.FLOORS.keys();style["floor"]=floors[(floors.find(style["floor"])+1)%floors.size()];style["floor_image"]=""
+  "floor_import":
+   var dialog=FileDialog.new();dialog.access=FileDialog.ACCESS_FILESYSTEM;dialog.file_mode=FileDialog.FILE_MODE_OPEN_FILE
+   dialog.filters=PackedStringArray(["*.png ; PNG floor image (local)"]);dialog.title="Choose a local floor PNG / maximum 8 MB and 2048 x 2048"
+   dialog.use_native_dialog=true;add_child(dialog)
+   dialog.file_selected.connect(func(path):Style.import_png(sim,path);dialog.queue_free())
+   dialog.canceled.connect(dialog.queue_free);dialog.popup_centered_ratio(.75)
+  "outfit_worker":
+   var ids=[]
+   for w in sim.state["workers"]:ids.append(w["id"])
+   style_worker=ids[(ids.find(style_worker)+1)%ids.size()]
+  "outfit_next":
+   var current=style["outfits"].get(style_worker,"Workshop")
+   Style.set_outfit(sim,style_worker,Style.OUTFITS[(Style.OUTFITS.find(current)+1)%Style.OUTFITS.size()])
+  "away_toggle":Ops.away(sim,not ops["away"]);modal="workshop" if not ops["away"] else ""
+  "offline_toggle":ops["offline_enabled"]=not ops["offline_enabled"];_stamp_offline()
+  "offline_settle":Ops.settle_offline(sim)
+  "auto_service":ops["auto_service"]=not ops["auto_service"]
+  "qte_toggle":ops["qte_enabled"]=not ops["qte_enabled"]
+  "assist_toggle":ops["assist"]=not ops["assist"]
+  "events_toggle":ops["event_enabled"]=not ops["event_enabled"]
+  "event":Ops.resolve_event(sim,p[1])
+  "intervene":
+   var o=sim.order(selected_order);var kind="registration" if o.get("type","")=="sticker" else "press"
+   if Ops.begin_qte(sim,selected_order,kind):qte_previous_pause=sim.state["paused"];sim.state["paused"]=true;modal="intervention"
+   else:sim.notice("This job has no available intervention at its current stage, or today's limit is reached.")
+  "jam":
+   if Ops.begin_jam(sim,p[1]):qte_previous_pause=sim.state["paused"];sim.state["paused"]=true;modal="intervention"
+  "qte_hit","qte_skip":
+   if Ops.qte_result(sim,p[0]=="qte_skip"):sim.state["paused"]=qte_previous_pause;modal="order";sim.save_game()
+  "photo_mode":
+   if screen!="shop":return true
+   _cancel_world_drag();photo_previous={"paused":sim.state["paused"],"zoom":zoom,"offset":offset,"origin":origin,"modal":modal,"build":build}
+   photo_active=true;sim.state["paused"]=true;modal="";build=false;reset_camera();status="";return true
+  "photo_close":
+   if photo_busy:return true
+   photo_active=false;sim.state["paused"]=photo_previous.get("paused",true);zoom=photo_previous.get("zoom",zoom);offset=photo_previous.get("offset",offset);origin=photo_previous.get("origin",origin);modal=photo_previous.get("modal","");build=photo_previous.get("build",false)
+  "photo_export":Photo.export_png(self,int(p[1]));return true
+  "photo_imported":photo_imported=not photo_imported;return true
+ if not photo_active:sim.save_game()
+ return true
+
+func _intervention_panel() -> void:
+ var q=sim.state["operations"]["active_qte"]
+ _header("OPTIONAL SHOP INTERVENTION","Shop time is held. Your timing is independent of shop speed. Skipping retains ordinary production.")
+ if q.is_empty():return
+ _text(Vector2(389,284),str(q["kind"]).to_upper()+ (" / STEP %d OF 3" % (int(q["step"])+1) if q["kind"]=="jam" else "")+ (" / FIRST PRACTICE" if q["practice"] else ""),27,BLUE)
+ _text(Vector2(389,340),"Press when the marker is in the green zone. Timing Assist accepts any press.\nAn accurate intervention gives this job a 5% task-time benefit, with no cash reward.\nFocus loss holds this timer. There is no automatic timeout or reaction penalty.",19,INK,810)
+ draw_rect(Rect2(389,448,818,36),NAVY);draw_rect(Rect2(593,448,410,36),GREEN)
+ var x=389+fmod(float(q["elapsed"]),2.0)/2.0*818
+ draw_rect(Rect2(x-4,439,8,54),YELLOW)
+ _button(Rect2(389,542,818,57),"REGISTER / PRESS","qte_hit",CYAN)
+ _button(Rect2(389,633,818,48),"SKIP / ORDINARY AUTOMATIC PRODUCTION","qte_skip",CREAM,true,18)
+
+func _draw_unboxing(id:String) -> void:
+ if photo_render or photo_active or sim.state["settings"].get("reduce_motion",false):return
+ var m=sim.state["machines"].get(id,{})
+ if m.get("unbox_remaining",0)<=0:return
+ var p=iso(sim.equipment_center(id,sim.state["machines"]))
+ var z=zoom;var size=Vector2(95,57)*z
+ _poly([p+Vector2(-55,4)*z,p+Vector2(8,32)*z,p+Vector2(60,7)*z,p+Vector2(-3,-20)*z],Color("8a6546"),NAVY,1)
+ _panel(Rect2(p-Vector2(47,64)*z,size),Color("bc915e"),Color("795533"),2)
+ draw_line(p+Vector2(0,-64)*z,p+Vector2(0,-7)*z,Color("f2dfac"),8*z)
+ _line(p+Vector2(-39,-25)*z,"UNPACKING",maxi(10,int(12*z)),NAVY,80*z,true)
+
+func _draw_world_labels() -> void:
+ var used=[]
+ for label in world_labels:
+  var at=label["at"];var height=38 if label["progress"]>=0 else 24
+  var size=Vector2(156,height);var rect=Rect2(at+Vector2(-78,22),size);var found=false
+  for n in 24:
+   var candidate=Rect2(at+Vector2(-78+(n%3-1)*170,20+floori(n/3.0)*43),size)
+   if not SHOP_VIEW.encloses(candidate):continue
+   var blocked=false
+   for hit in worker_hits:
+    if candidate.intersects(hit["rect"].grow(3)):blocked=true;break
+   for r in used:
+    if candidate.intersects(r.grow(3)):blocked=true;break
+   if not blocked:rect=candidate;found=true;break
+  if not found:continue
+  used.append(rect)
+  draw_line(at,rect.get_center(),Color(.1,.2,.3,.3),1)
+  _panel(rect,NAVY,NAVY,4)
+  _line(rect.position+Vector2(7,17),label["text"],12,CREAM,142)
+  if label["progress"]>=0:draw_rect(Rect2(rect.position+Vector2(7,27),Vector2(142*label["progress"],5)),GREEN)
+
+func _cash_bridge_panel() -> void:
+ var report=sim.end_day();var stats=report["stats"];var bridge=report.get("cash_bridge",{})
+ _header("DAILY CASH BRIDGE","Operating profit and cash balance differ when you buy stock, equipment or premises, or repay debt.")
+ var rows=[["Opening cash",bridge.get("opening",0)],["Sales collected + recovery + loan receipts",stats["sales"]+stats.get("recovery",0)+stats.get("loan_in",0)],["Supply purchases (not stock consumed)",-stats.get("supply_purchases",0)],["Premises / equipment / decor",-stats.get("capex",0)],["Hiring / upgrades",-stats.get("hiring",0)-stats.get("upgrades",0)],["Artwork / marketing / event costs",-stats["art_fees"]-stats.get("marketing",0)-stats.get("hurdles",0)],["Current cash before closing bills",report.get("cash_before_bills",sim.state["cash"])],["Daily wages / overhead",-stats["wages"]-stats["overhead"]],["Loan / equipment repayments",-stats.get("loan_payment",0)-stats.get("equipment_finance",0)],["Cash after closing bills",report.get("cash_after_bills",sim.state["cash"])]]
+ for i in rows.size():
+  var y=238+i*40
+  _text(Vector2(389,y),rows[i][0],18,BLUE if i in [0,6,9] else INK)
+  _text(Vector2(1060,y),"$%.0f" % rows[i][1],18,BLUE)
+ _text(Vector2(389,669),"Stock consumption is already paid through inventory purchases; it is not charged twice.",16,MUTED,810)
+ _button(Rect2(389,715,818,40),"BACK TO DAY REPORT","report",NAVY)

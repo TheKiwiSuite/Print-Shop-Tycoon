@@ -55,7 +55,7 @@ jobs:
           engine="$RUNNER_TEMP/godot/Godot_v4.5.1-stable_linux.x86_64"
           "$engine" --headless --path source --editor --import
           mkdir -p "$(realpath -m source/../../../work)"
-          for test in demo_shop strategy_visual_review updater_security strategy_growth native_release_walkthrough handoff_recovery acceptance customer_loop sales_growth customer_walking session_reliability illustrated_equipment rotation_stability illustrated_ui ui_dtf_placement wall_visual_review shop_workspace window_controls; do
+          for test in workshop_operations workshop_visual_review demo_shop strategy_visual_review updater_security strategy_growth native_release_walkthrough handoff_recovery acceptance customer_loop sales_growth customer_walking session_reliability illustrated_equipment rotation_stability illustrated_ui ui_dtf_placement wall_visual_review shop_workspace window_controls; do
             timeout 120 xvfb-run -a "$engine" --path source --rendering-method gl_compatibility --audio-driver Dummy --script "res://test/$test.gd" 2>&1 | tee "$RUNNER_TEMP/$test.log"
             if grep -E 'SCRIPT ERROR:|ERROR:|FAIL:' "$RUNNER_TEMP/$test.log"; then exit 1; fi
           done
@@ -91,9 +91,11 @@ jobs:
           mkdir -p release/PrintShopTycoon/windows
           "$RUNNER_TEMP/godot/Godot_v4.5.1-stable_linux.x86_64" --headless --path source --export-release 'Windows Desktop' "$GITHUB_WORKSPACE/release/PrintShopTycoon/windows/Print Shop Tycoon.exe"
           cp updater/Update-Game.ps1 release/PrintShopTycoon/windows/
-          cp PLAYER-UPDATES.md README.md README.txt RELEASE-NOTES.md GAME-AUDIT.md ART-SOURCES.txt ASSESSMENT-INTEGRATION.md STRATEGY-UPGRADE.md UPDATING.md release/PrintShopTycoon/
+          cp PLAYER-UPDATES.md README.md README.txt RELEASE-NOTES.md GAME-AUDIT.md ART-SOURCES.txt ASSESSMENT-INTEGRATION.md STRATEGY-UPGRADE.md UPDATING.md WORKSHOP-UPGRADE.md release/PrintShopTycoon/
           printf 'Source commit: %s\nEngine: Godot 4.5.1\nWindows x86_64 alpha %s\nUnsigned community test build. Known issues: GAME-AUDIT.md\n' "$GITHUB_SHA" "$GAME_VERSION" > release/PrintShopTycoon/BUILD.txt
+          git archive --format=zip --output="release/PrintShopTycoon-Editable-Source-v${GAME_VERSION}.zip" "$GITHUB_SHA"
           cd release
+          sha256sum "PrintShopTycoon-Editable-Source-v${GAME_VERSION}.zip" > "PrintShopTycoon-Editable-Source-v${GAME_VERSION}.zip.sha256"
           zip -qr "PrintShopTycoon-Windows-v${GAME_VERSION}.zip" PrintShopTycoon
           sha256sum "PrintShopTycoon-Windows-v${GAME_VERSION}.zip" > "PrintShopTycoon-Windows-v${GAME_VERSION}.zip.sha256"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

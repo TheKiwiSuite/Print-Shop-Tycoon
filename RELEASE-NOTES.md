@@ -1,3 +1,9 @@
+# v0.4.0 — Your workshop
+
+Permanent industrial Growth / fit-out route; safer Help and Settings spacing; separated world labels; community sale trust recovery; equipment agreements and cash bridge; scheduled maintenance, neglect recovery, optional timing and daily decisions; capped Away/offline work; shirt and transfer displays, floor presets and local PNG imports; worker clothing and earned suits; purchase unboxing; local landscape, square and portrait photos; configurable title-screen partner links (blank by default).
+
+Existing career and playable demo saves migrate separately. Read [WORKSHOP-UPGRADE.md](WORKSHOP-UPGRADE.md) for costs, controls, security boundaries and remaining polish. The editable source is supplied separately alongside the Windows and QA ZIPs.
+
 # Native Windows v0.3.3
 
 ## Version 0.3.3 — playable demo and clear shop controls
