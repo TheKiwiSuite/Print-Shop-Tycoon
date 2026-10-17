@@ -60,7 +60,7 @@ jobs:
             sudo apt-get install -y --no-install-recommends ffmpeg
           fi
           engine="$RUNNER_TEMP/godot/Godot_v4.5.1-stable_linux.x86_64"
-          timeout 240 xvfb-run -a "$engine" --path source --windowed --resolution 1280x720 --rendering-method gl_compatibility --audio-driver Dummy --disable-vsync --write-movie "$RUNNER_TEMP/production-motion.avi" --fixed-fps 20 --script res://test/animation_review.gd 2>&1 | tee "$RUNNER_TEMP/animation_review.log"
+          timeout 240 xvfb-run -a -s '-screen 0 1280x720x24' "$engine" --path source --windowed --resolution 1280x720 --rendering-method gl_compatibility --audio-driver Dummy --disable-vsync --write-movie "$RUNNER_TEMP/production-motion.avi" --fixed-fps 20 --script res://test/animation_review.gd 2>&1 | tee "$RUNNER_TEMP/animation_review.log"
           if grep -E 'SCRIPT ERROR:|ERROR:|FAIL:' "$RUNNER_TEMP/animation_review.log"; then exit 1; fi
           ffmpeg -v error -i "$RUNNER_TEMP/production-motion.avi" -c:v libx264 -crf 26 -pix_fmt yuv420p captures/strategy-review/production-motion.mp4
           [[ "$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 captures/strategy-review/production-motion.mp4)" == "1280,720" ]]
