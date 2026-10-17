@@ -3,6 +3,8 @@ extends Node2D
 const Sim = preload("res://scripts/simulation.gd")
 const C = preload("res://scripts/catalog.gd")
 const Strategy = preload("res://scripts/shop_strategy.gd")
+const Updates = preload("res://scripts/game_updates.gd")
+var update_service
 const Ground = preload("res://scripts/grounding.gd")
 const NAVY = Color("09234b")
 const BLUE = Color("103bb5")
@@ -165,6 +167,11 @@ func _ready() -> void:
  accessible_summary.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
  accessible_summary.clip_text=true
  add_child(accessible_summary)
+ update_service=Updates.new();add_child(update_service)
+ if "--update-health" in OS.get_cmdline_user_args():
+  var probe=Sim.new();probe.save_enabled=false
+  if probe.has_save() and not probe.load_game():return
+  Updates.acknowledge_startup()
 
 func _capture() -> void:
  await get_tree().create_timer(1.2).timeout
@@ -497,7 +504,7 @@ func _desktop_items(menu:String) -> Array:
   "Edit":return [["Arrange equipment    B","build",editable],["Move selected equipment","move_equipment",selected],["Rotate selected equipment    R","rotate_equipment",selected and build],["Cancel placement    Esc","cancel_placement",editable and (pending_equipment!="" or _relocating())]]
   "View":return [["Fit whole shop    Home","camera",shop],["Music: "+("On" if sim.state["settings"]["music"] else "Off"),"music",true],["Toggle fullscreen    F11","fullscreen",true]]
   "Window":return [["Minimize","window_minimize",true],["Windowed / restore","window_restore",true],["Maximize","window_maximize",true],["Fullscreen    F11","window_fullscreen",true]]
-  "Help":return [["Check for updates","check_updates",true],["How to play","help",true],["Settings and keyboard controls","settings",true]]
+  "Help":return [["Check for updates","updates",true],["Separate-folder updater (fallback)","check_updates",true],["How to play","help",true],["Settings and keyboard controls","settings",true]]
  return []
 
 func _desktop_heading_rect(index:int) -> Rect2:
@@ -1421,6 +1428,7 @@ func _modal() -> void:
   "difficulty": _difficulty_panel()
   "roster": _roster_panel()
   "accessibility": _accessibility_panel()
+  "updates": _updates_panel()
   "customers": _customers_panel()
   "order": _order_panel()
   "machine": _machine_panel()
@@ -1748,6 +1756,7 @@ func _settings_panel() -> void:
  _text(Vector2(389,530),"Save folder: "+OS.get_user_data_dir(),16,MUTED,810)
  _button(Rect2(389,581,396,51),"SAVE SHOP","save",GREEN,screen=="shop")
  _button(Rect2(801,581,406,51),"SAVE + TITLE","title",NAVY,screen=="shop")
+ _button(Rect2(389,648,818,37),"GAME UPDATES + SAVE BACKUPS","updates",CREAM,true,16)
  _button(Rect2(389,703,397,48),"BACK","close",CYAN)
  _button(Rect2(801,703,406,48),"SAVE + QUIT","quit",CREAM)
 
@@ -1838,7 +1847,7 @@ func _action(action:String) -> void:
  status=""
  forecast_preview={}
  var parts=action.split(":")
- if action in ["settings","help","stock","move","marketing","staff","customers","dtf_views","gang","capacity","difficulty","roster"] or parts[0] in ["order","machine"]:
+ if action in ["settings","help","stock","move","marketing","staff","customers","dtf_views","gang","capacity","difficulty","roster","updates"] or parts[0] in ["order","machine"]:
   _cancel_world_drag()
  if parts.size()>1:
   match parts[0]:
@@ -1874,7 +1883,7 @@ func _action(action:String) -> void:
    var updater=OS.get_executable_path().get_base_dir().path_join("Update-Game.ps1")
    if not FileAccess.file_exists(updater):
     status="Updater missing. Download the next release from the official GitHub page.";return
-   var result=OS.create_process("powershell.exe",PackedStringArray(["-NoProfile","-File",updater,"-CurrentVersion",str(ProjectSettings.get_setting("application/config/version"))]),true)
+   var result=OS.create_process(OS.get_environment("SystemRoot").path_join("System32/WindowsPowerShell/v1.0/powershell.exe"),PackedStringArray(["-NoProfile","-File",updater,"-CurrentVersion",str(ProjectSettings.get_setting("application/config/version"))]),true)
    status="Save and close the game, then confirm UPDATE in the updater window." if result>0 else "Could not open updater. Run Update-Game.ps1 from the game folder."
   "new":
    draft_rules=Strategy.rules("Standard");modal="confirm_new"
@@ -1921,6 +1930,13 @@ func _action(action:String) -> void:
   "board_sort": board_sort="Margin" if board_sort=="Due" else "Due"
   "roster": modal="roster"
   "accessibility": modal="accessibility"
+  "updates": modal="updates"
+  "update_check": await update_service.check(str(ProjectSettings.get_setting("application/config/version")))
+  "update_download": await update_service.download()
+  "update_install":
+   if screen=="shop" and not _save_before("update_install"):return
+   if update_service.restart():_quit_game()
+  "update_folder": OS.shell_open(OS.get_user_data_dir().path_join("updates"))
   "reset_bindings": movement_bindings={"left":KEY_A,"right":KEY_D,"up":KEY_W,"down":KEY_S};binding_action="";_save_audio_preferences()
   "difficulty": Strategy.ensure(sim);draft_rules=sim.state["rules"].duplicate(true);modal="difficulty"
   "apply_rules": sim.state["paused"]=true;sim.change_rules(draft_rules["preset"],draft_rules);modal="settings"
@@ -2063,6 +2079,19 @@ func _save_window_preference() -> void:
  var preferences=ConfigFile.new();preferences.load(sim.save_path+".preferences.cfg")
  preferences.set_value("display","mode",DisplayServer.window_get_mode())
  if preferences.save(sim.save_path+".preferences.cfg")!=OK: sim.notice("Display changed; preference could not be saved.")
+
+func _updates_panel() -> void:
+ _header("GAME UPDATES + SAVE BACKUPS","Installed v"+str(ProjectSettings.get_setting("application/config/version"))+" / Official Windows alpha channel")
+ _text(Vector2(389,243),update_service.status,20,BLUE,810)
+ if update_service.request!=null:
+  _text(Vector2(389,312),"Downloaded %.1f MB" % (float(update_service.request.get_downloaded_bytes())/1000000),18,INK)
+ var supported=OS.get_name()=="Windows" and not OS.has_feature("editor")
+ _button(Rect2(389,346,818,49),"CHECK FOR UPDATES","update_check",CYAN,supported and not update_service.busy)
+ _button(Rect2(389,412,818,49),"DOWNLOAD VERIFIED UPDATE","update_download",CREAM,supported and not update_service.busy and not update_service.available.is_empty())
+ _button(Rect2(389,478,818,49),"SAVE, BACK UP + RESTART TO INSTALL","update_install",YELLOW,supported and not update_service.busy and update_service.staged!="",18)
+ _text(Vector2(389,571),"Downloads use the official GitHub release and its recorded SHA-256 digest.\nInstallation waits for this game to close. Saves stay in AppData, with an\nextra backup. Failed startup restores the previous executable.\nNo administrator access, account or background update service is needed.",17,INK,810)
+ _button(Rect2(389,675,818,31),"OPEN UPDATE LOGS + SAVE BACKUPS","update_folder",CREAM,true,14)
+ _button(Rect2(389,723,818,37),"BACK TO SETTINGS","settings",NAVY)
 
 func _accessibility_panel() -> void:
  _header("KEYBOARD + ACCESSIBILITY","Native focusable controls expose names to assistive software. Tab / Shift+Tab navigates; Enter activates.")

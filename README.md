@@ -1,6 +1,6 @@
 # Print Shop Tycoon
 
-Native Windows print-shop game built with Godot. This repository contains the editable Godot project, game scripts and tests, approved art assets, Blender and Krita source files, and release/QA scripts for **v0.3.0**.
+Native Windows print-shop game built with Godot. This repository contains the editable Godot project, game scripts and tests, approved art assets, Blender and Krita source files, and release/QA scripts for **v0.3.2**.
 
 Version 0.3.0 adds Relaxed / Standard / Expert / Custom shop rules, commitment and cash forecasts (Q), separate premises/fit-out/equipment investments, client focus and repeat inquiries, compatible mixed-client DTF sheets, named staff tasks and utilization, keyboard placement/remapping, native focusable controls, and task-linked production/carrying cues. New shops use save schema 4; older shops retain their existing economy until a deliberate rules change. See [the upgrade record](STRATEGY-UPGRADE.md) for rules, validation and limitations. A release is published only after rendered checks and the actual packaged Windows executable complete their gates.
 

@@ -1,5 +1,11 @@
 PRINT SHOP TYCOON — NATIVE WINDOWS PLAYABLE BUILD
 
+VERSION 0.3.2 — GAME UPDATES AND SAVE CONTINUITY
+Settings > Game updates + save backups checks the official release channel,
+downloads a verified update, then saves, backs up and restarts on your command.
+Older builds need one manual download to gain this updater. Choose Continue;
+existing AppData saves are kept. Read UPDATING.md for instructions and recovery.
+
 VERSION 0.3.0 — PLANNING AND STAGED GROWTH
 Choose Relaxed, Standard, Expert or Custom when starting a new shop. Existing
 shops retain their previous economy until you explicitly apply new rules in
