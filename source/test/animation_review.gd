@@ -6,8 +6,8 @@ var events=[]
 var failures=0
 func _initialize() -> void: call_deferred("run")
 func run() -> void:
- DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
- root.size=Vector2i(960,540)
+ # Movie dimensions are fixed at startup by the workflow's --resolution option.
+ # Resizing after the writer starts corrupts the recorded aspect ratio.
  game=load("res://main.tscn").instantiate()
  game.sim.save_enabled=false;game.sim.save_path="user://animation-review-qa.json"
  root.add_child(game);game.set_process(false);game.screen="shop";game.music.stop()

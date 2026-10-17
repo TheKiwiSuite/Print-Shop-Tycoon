@@ -6,6 +6,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: tycoon-windows-alpha-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   windows:
     runs-on: ubuntu-latest
@@ -57,9 +60,10 @@ jobs:
             sudo apt-get install -y --no-install-recommends ffmpeg
           fi
           engine="$RUNNER_TEMP/godot/Godot_v4.5.1-stable_linux.x86_64"
-          timeout 240 xvfb-run -a "$engine" --path source --rendering-method gl_compatibility --audio-driver Dummy --disable-vsync --write-movie "$RUNNER_TEMP/production-motion.avi" --fixed-fps 20 --script res://test/animation_review.gd 2>&1 | tee "$RUNNER_TEMP/animation_review.log"
+          timeout 240 xvfb-run -a "$engine" --path source --windowed --resolution 1280x720 --rendering-method gl_compatibility --audio-driver Dummy --disable-vsync --write-movie "$RUNNER_TEMP/production-motion.avi" --fixed-fps 20 --script res://test/animation_review.gd 2>&1 | tee "$RUNNER_TEMP/animation_review.log"
           if grep -E 'SCRIPT ERROR:|ERROR:|FAIL:' "$RUNNER_TEMP/animation_review.log"; then exit 1; fi
           ffmpeg -v error -i "$RUNNER_TEMP/production-motion.avi" -c:v libx264 -crf 26 -pix_fmt yuv420p captures/strategy-review/production-motion.mp4
+          [[ "$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 captures/strategy-review/production-motion.mp4)" == "1280,720" ]]
       - name: Read game version
         id: game
         shell: bash
@@ -154,4 +158,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh release create "v${GAME_VERSION}-windows-alpha" build/release/*.zip build/release/*.sha256 --target "$GITHUB_SHA" --title "Print Shop Tycoon ${GAME_VERSION} · Windows alpha" --prerelease --notes 'Windows x86_64 alpha built from the recorded source commit with Godot 4.5.1. Extract the Windows ZIP and open windows/Print Shop Tycoon.exe. Difficulty, forecasts, staged growth, repeat clients, shared DTF batches, accessibility controls and task-driven visual cues are described in RELEASE-NOTES.md. The separate QA ZIP includes the render matrix, 14-day balance runs and automated walkthrough of the actual packaged Windows executable. Manual Windows display scaling and assistive-technology acceptance remain unverified. This alpha is unsigned.'
+          [[ "$(gh api "repos/$GH_REPO/commits/main" --jq .sha)" == "$GITHUB_SHA" ]]
+          tag="v${GAME_VERSION}-windows-alpha"
+          notes='Windows x86_64 alpha built from the recorded source commit with Godot 4.5.1. Extract the Windows ZIP and open windows/Print Shop Tycoon.exe. Difficulty, forecasts, staged growth, repeat clients, shared DTF batches, accessibility controls and task-driven visual cues are described in RELEASE-NOTES.md. The separate QA ZIP includes the render matrix, 14-day balance runs and automated walkthrough of the actual packaged Windows executable. Manual Windows display scaling and assistive-technology acceptance remain unverified. This alpha is unsigned.'
+          if gh release view "$tag" >/dev/null 2>&1; then
+            [[ "$(gh release view "$tag" --json isPrerelease --jq .isPrerelease)" == true ]]
+            previous="$(gh api "repos/$GH_REPO/git/ref/tags/$tag" --jq .object.sha)"
+            relation="$(gh api "repos/$GH_REPO/compare/$previous...$GITHUB_SHA" --jq .status)"
+            [[ "$relation" == ahead || "$relation" == identical ]]
+            gh release upload "$tag" build/release/*.zip build/release/*.sha256 --clobber
+            gh api --method PATCH "repos/$GH_REPO/git/refs/tags/$tag" -f sha="$GITHUB_SHA" -F force=false
+            gh release edit "$tag" --target "$GITHUB_SHA" --notes "$notes"
+          else
+            gh release create "$tag" build/release/*.zip build/release/*.sha256 --target "$GITHUB_SHA" --title "Print Shop Tycoon ${GAME_VERSION} · Windows alpha" --prerelease --notes "$notes"
+          fi
