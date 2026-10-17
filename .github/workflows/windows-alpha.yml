@@ -10,6 +10,16 @@ concurrency:
   group: tycoon-windows-alpha-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  updater_tests:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Verify updater recovery and rejection cases
+        shell: powershell
+        run: ./updater/Test-Updater.ps1
   windows:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -97,16 +107,13 @@ jobs:
             verification/strategy-balance.json
           if-no-files-found: error
   native_windows:
-    needs: windows
+    needs: [windows, updater_tests]
     runs-on: windows-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - name: Verify updater recovery and rejection cases
-        shell: powershell
-        run: ./updater/Test-Updater.ps1
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: tycoon-build-${{ github.sha }}

@@ -38,6 +38,7 @@ Remove-Item Function:Invoke-WebRequest
 function Invoke-WebRequest { param([switch]$UseBasicParsing, $Uri, $OutFile, $Headers, $TimeoutSec) Copy-Item -LiteralPath (Join-Path $Case 'fixture.zip') -Destination $OutFile }
 $version = if ($Scenario -eq 'older') { '10.0.0' } else { '0.3.0' }
 & $Updater -CurrentVersion $version
+exit $LASTEXITCODE
 '@ | Set-Content -LiteralPath $wrapper
     $log = Join-Path $case 'out.txt'
     & powershell.exe -NoProfile -File $wrapper $case $scriptPath $scenario *> $log
