@@ -27,7 +27,9 @@ jobs:
           $ErrorActionPreference = 'Stop'
           gh run download $env:BUILD_RUN --pattern 'tycoon-build-*' --dir build
           if ($LASTEXITCODE -ne 0) { throw 'Build artifact retrieval failed.' }
-          $package = Get-ChildItem build/release/PrintShopTycoon-Windows-*.zip | Select-Object -First 1
+          $packages = @(Get-ChildItem -LiteralPath build -Recurse -File -Filter 'PrintShopTycoon-Windows-*.zip')
+          if ($packages.Count -ne 1) { throw 'Expected exactly one packaged Windows game.' }
+          $package = $packages[0]
           Expand-Archive -LiteralPath $package.FullName -DestinationPath game
       - name: Check HTTPS metadata and verify a real release download inside the game
         shell: pwsh
