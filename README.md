@@ -1,6 +1,8 @@
 # Print Shop Tycoon
 
-Native Windows print-shop game built with Godot. This repository contains the editable Godot project, game scripts and tests, approved art assets, Blender and Krita source files, and release/QA scripts for the current **v0.2.16** build.
+Native Windows print-shop game built with Godot. This repository contains the editable Godot project, game scripts and tests, approved art assets, Blender and Krita source files, and release/QA scripts for the current **v0.2.17** build.
+
+Version 0.2.17 reserves separate docks for the HUD, shop desk, orders and equipment controls. They no longer cover the shop floor. The camera fits both shop sizes into the clear play area, and Fit Whole Shop / Home restores this view after zooming. The game opens fullscreen and adapts to the display without letterboxing or stretching the artwork; Window Mode / F11 returns to a maximized window. Warehouse pendant lights now have a ceiling beam, mounting plates, short cords, shaped metal shades and warm interiors. A main Music On/Off button controls playback immediately and stores the preference separately from the shop save, including on the title screen after restart. Drops onto UI docks cancel safely.
 
 Version 0.2.16 redraws both wall signs with centered, fitted, stacked lettering and the reference slogans (PRINT MORE GROW BIGGER / GOOD PRINTS HAPPIER PEOPLE). Their frames and lettering follow the wall perspective. Both locations now have three wider windows separated by solid wall, with the entrance door kept at the customer entrance. Pendant lights are spaced clear of the signs. `wall_visual_review.gd` captures both locations and minimum zoom for visual review.
 

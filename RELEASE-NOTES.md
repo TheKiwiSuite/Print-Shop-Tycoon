@@ -1,4 +1,15 @@
-# Native Windows v0.2.16
+# Native Windows v0.2.17
+
+## Version 0.2.17 — clear workspace and audio controls
+
+- Docked HUD, customer/setup cards, order list and build controls outside the play area. The bottom equipment bar and placement feedback also stay in their own dock.
+- Fit Whole Shop / Home frames every floor corner and wall top in both locations. Zoom and pan remain available inside the shop view. Blank dock clicks cannot move the owner, and dropping equipment on a dock cancels the move.
+- The game starts fullscreen. The adaptive canvas fills the display without black bars or distortion; dialogs and their input regions stay centered. Window Mode / F11 returns to a maximized window.
+- Rebuilt hanging warehouse fixtures with ceiling support, mounting plates, short suspension cords, shaped dark metal shades and warm bulbs.
+- Added a main Music On/Off button. Playback changes immediately; a separate preference file retains the choice across Continue and restart. QA tests use separate preference files.
+- `shop_workspace` passed 155 checks covering dock separation, room visibility, dock input, camera reset, fullscreen sizing, centered dialog/gang-sheet input and real audio playback/preference persistence. Existing DTF input, rotation, save/retry and illustrated UI suites passed after the layout change. Native UI was reviewed during verification.
+
+## Previous release: v0.2.16
 
 October 16, 2026. The fixed desktop shortcut and installed Windows executable use this version. Open `source/project.godot` to edit the matching game source.
 
