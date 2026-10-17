@@ -1,4 +1,10 @@
-# Native Windows v0.2.20
+# Native Windows v0.2.21
+
+## Version 0.2.21 — supplied logo-only Windows icon
+
+- Removed the rejected square badge and adopted the owner-supplied `Print-Shop-Tycoon-Windows-Icon-1024.png`. The runtime PNG is an exact copy; the multi-resolution ICO preserves its transparency and proportions.
+- Updated the desktop shortcut to a new logo-only icon filename to avoid the cached badge.
+- Updated branding instructions to prohibit adding backgrounds, frames or decorations. The title/shop logo stays the previously approved wide source.
 
 ## Version 0.2.20 — full-size Windows icon
 

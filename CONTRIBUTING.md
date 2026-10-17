@@ -21,3 +21,5 @@ Preserve the approved DTF equipment views and official logo in `art/branding/Tra
 The owner controls the installed Windows release and version sequence. Do not replace the normal player's save or create competing desktop shortcuts as part of a contribution.
 
 The repository is public, and the owner has not selected a top-level project license. Discuss broader reuse/redistribution terms with the owner. The bundled font retains its separate SIL Open Font License.
+
+Windows icon: use `art/branding/Print-Shop-Tycoon-Windows-Icon-1024.png` exactly. The owner rejected the square badge. Do not add backgrounds, frames or other decorations to the logo.

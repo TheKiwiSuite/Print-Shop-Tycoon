@@ -122,7 +122,7 @@ try {
     $shortcut.WorkingDirectory = Split-Path -Parent $installedExe
     $shortcut.Arguments = ''
     $shortcut.Description = "Print Shop Tycoon - latest installed build v$Version"
-    $officialIcon = Join-Path $releaseRoot 'icon/PrintShopTycoon-Square.ico'
+    $officialIcon = Join-Path $releaseRoot 'icon/PrintShopTycoon-LogoOnly.ico'
     $shortcut.IconLocation = if (Test-Path -LiteralPath $officialIcon) { "$officialIcon,0" } else { "$installedExe,0" }
     $shortcut.Save()
     Write-Output "Installed v$Version. Desktop shortcut: $shortcutPath"

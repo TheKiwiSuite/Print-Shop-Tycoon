@@ -72,3 +72,8 @@ October 16, 2026 - full-size Windows icon (v0.2.20):
 The same approved wordmark is packaged on a rounded navy square badge with
 a blue edge. The logo artwork is not stretched or redrawn. The title/shop
 PNG remains unchanged. Reproducible icon packaging: art/branding/build_windows_icon.py.
+
+October 16, 2026 - supplied logo-only Windows icon (v0.2.21):
+The owner rejected the square badge and supplied Print-Shop-Tycoon-Windows-Icon-1024.png.
+Runtime game-icon.png is an unchanged copy. The ICO is a transparent format conversion.
+No background, badge or frame is added. The earlier badge entry is historical and rejected.
