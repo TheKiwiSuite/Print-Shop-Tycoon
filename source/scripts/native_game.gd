@@ -1179,7 +1179,7 @@ func _title() -> void:
  _button(Rect2(545,600,245,52),"SETTINGS","settings",CYAN)
  _button(Rect2(811,600,245,52),"QUIT","quit",CREAM)
  _button(Rect2(545,670,510,48),"PLAY DEMO SHOP","demo",GREEN,true,23)
- _text(Vector2(549,742),"Demo equipment and team included. Career save stays separate.",14,MUTED)
+ _line(Vector2(549,742),status if status!="" else "Demo equipment and team included. Career save stays separate.",14,RED if status!="" else MUTED,510)
  if modal!="": _modal()
 
 func _ui_docks() -> void:
