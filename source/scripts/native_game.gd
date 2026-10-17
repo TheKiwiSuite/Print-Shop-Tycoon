@@ -5,6 +5,7 @@ const C = preload("res://scripts/catalog.gd")
 const Strategy = preload("res://scripts/shop_strategy.gd")
 const Updates = preload("res://scripts/game_updates.gd")
 var update_service
+var career_sim
 const Ground = preload("res://scripts/grounding.gd")
 const NAVY = Color("09234b")
 const BLUE = Color("103bb5")
@@ -12,14 +13,14 @@ const CYAN = Color("00bce8")
 const MAGENTA = Color("ef1f8e")
 const YELLOW = Color("ffd52f")
 const GREEN = Color("32c981")
-const RED = Color("df4059")
+const RED = Color("b52742")
 var SHOP_VIEW:Rect2:
  get:return Rect2(276,76,get_viewport_rect().size.x-288,get_viewport_rect().size.y-214)
 var ui_offset=Vector2.ZERO
 const DOCK = Color("eef1e7")
 const CREAM = Color("fffdf5")
 const INK = Color("17324e")
-const MUTED = Color("637d91")
+const MUTED = Color("4a6477")
 var sim = Sim.new()
 var screen = "title"
 var modal = ""
@@ -650,6 +651,7 @@ func _version_badge() -> void:
  # A reserved footer keeps the release visible without covering any controls.
  draw_rect(Rect2(0,_screen_size().y-22,_screen_size().x,22),NAVY)
  var label="v%s  |  WINDOWS PLAYTEST" % ProjectSettings.get_setting("application/config/version")
+ if sim.state.get("demo",false): label+="  |  DEMO / SEPARATE SAVE"
  if qa_ui: label+="  |  TEST PROFILE"
  _text(Vector2(18,_screen_size().y-6),label,16,CREAM)
 
@@ -667,12 +669,14 @@ func _panel(r:Rect2, color:Color=CREAM, border:Color=NAVY, radius:int=13) -> voi
 func _text(p:Vector2, text:String, size:int=19, color:Color=INK, width:float=-1, heavy:bool=false) -> void:
  if record_modal_text: modal_accessible_text.append(text)
  var f=bold if heavy else font
+ if color==GREEN: color=Color("137a47")
  if width>0: draw_multiline_string(f,p,text,HORIZONTAL_ALIGNMENT_LEFT,width,size,-1,color)
  else: draw_string(f,p,text,HORIZONTAL_ALIGNMENT_LEFT,-1,size,color)
 
 func _line(p:Vector2,text:String,size:int,color:Color,width:float,heavy:bool=false) -> void:
  if record_modal_text: modal_accessible_text.append(text)
  var f=bold if heavy else font
+ if color==GREEN: color=Color("137a47")
  var shown=text.replace("\n"," / ")
  if f.get_string_size(shown,HORIZONTAL_ALIGNMENT_LEFT,-1,size).x>width:
   var low=0;var high=shown.length()
@@ -687,8 +691,9 @@ func _button(r:Rect2, title:String, action:String, color:Color=CYAN, enabled:boo
  var hovered=enabled and r.has_point(get_global_mouse_position()-ui_offset)
  _panel(r,color.lightened(0.12) if hovered else (color if enabled else Color("ccd4db")))
  var text_color=CREAM if color in [NAVY,BLUE,RED] else INK
+ while size>11 and font.get_string_size(title,HORIZONTAL_ALIGNMENT_LEFT,-1,size).x>r.size.x-12: size-=1
  var w=font.get_string_size(title,HORIZONTAL_ALIGNMENT_LEFT,-1,size).x
- _text(r.position+Vector2((r.size.x-w)*0.5,r.size.y*0.5+size*0.36),title,size,text_color if enabled else MUTED)
+ _line(r.position+Vector2(maxf(6,(r.size.x-w)*0.5),r.size.y*0.5+size*0.36),title,size,text_color if enabled else INK,r.size.x-12)
  if enabled:
   buttons.append({"rect":Rect2(r.position+ui_offset,r.size),"action":action,"label":title})
   if accessible_buttons.has(action) and accessible_buttons[action].has_focus():
@@ -1173,7 +1178,8 @@ func _title() -> void:
  _button(Rect2(811,525,245,55),"HOW TO PLAY","help",NAVY,true,22)
  _button(Rect2(545,600,245,52),"SETTINGS","settings",CYAN)
  _button(Rect2(811,600,245,52),"QUIT","quit",CREAM)
- _text(Vector2(575,707),"WINDOWS EDITION  •  OFFLINE PLAY  •  LOCAL SAVE",17,MUTED)
+ _button(Rect2(545,670,510,48),"PLAY DEMO SHOP","demo",GREEN,true,23)
+ _text(Vector2(549,742),"Demo equipment and team included. Career save stays separate.",14,MUTED)
  if modal!="": _modal()
 
 func _ui_docks() -> void:
@@ -1192,7 +1198,7 @@ func _ui_docks() -> void:
 func _hud() -> void:
  var extra=_screen_size().x-1600
  _panel(Rect2(278,7,258,49),NAVY,NAVY,8)
- _text(Vector2(292,25),"NEIGHBORHOOD SHOP" if sim.state["location"]==1 else "INDUSTRIAL PRINT SHOP",14,CYAN,-1,true)
+ _text(Vector2(292,25),"PAUSED / SPACE TO RESUME" if sim.state["paused"] else ("DEMO SHOP / SEPARATE SAVE" if sim.state.get("demo",false) else ("NEIGHBORHOOD SHOP" if sim.state["location"]==1 else "INDUSTRIAL PRINT SHOP")),14,CYAN,-1,true)
  _text(Vector2(292,47),"DAY %d  %s" % [sim.state["day"],_clock(sim.state["clock"])],20,CREAM)
  _panel(Rect2(546,7,166,49),NAVY,NAVY,8)
  draw_circle(Vector2(568,31),11,YELLOW)
@@ -1217,12 +1223,12 @@ func _orders() -> void:
  var pages=maxi(1,ceili(rows.size()/3.0))
  order_page=order_page%pages
  _text(Vector2(17,464),"ACTIVE ORDERS",19,BLUE,-1,true)
- _button(Rect2(14,817,235,27),"CAPACITY + CASH  [Q]","capacity",CYAN,true,13)
+ _button(Rect2(14,790+_screen_size().y-900,235,27),"CAPACITY + CASH  [Q]","capacity",CYAN,true,13)
  if rows.is_empty():_text(Vector2(17,489),"New inquiries appear here.",14,MUTED,230)
  for n in 3:
   var j=order_page*3+n
   if j>=rows.size():break
-  var i=rows[j];var o=sim.order(i);var r=Rect2(13,477+n*101,237,92)
+  var i=rows[j];var o=sim.order(i);var r=Rect2(13,477+n*94,237,86)
   _panel(r,CREAM,Color("c3d0d5"),8)
   _product(o["type"],r.position+Vector2(27,26),30)
   _text(r.position+Vector2(50,22),"%d %s" % [o["quantity"],{"transfer":"Transfers","sticker":"Stickers","apparel":"Shirts","banner":"Banners","cnc":"Signs"}[o["type"]]],21,BLUE,-1,true)
@@ -1233,7 +1239,7 @@ func _orders() -> void:
   draw_rect(Rect2(r.position+Vector2(12,80),Vector2(212,5)),Color("c4d9f2"))
   draw_rect(Rect2(r.position+Vector2(12,80),Vector2(212*_route_progress(o),5)),CYAN)
   buttons.append({"rect":r,"action":"order:%d" % i})
- if pages>1:_button(Rect2(14,785,235,30),"MORE ORDERS  >","more_orders",NAVY,true,14)
+ if pages>1:_button(Rect2(14,757+_screen_size().y-900,235,27),"MORE ORDERS  >","more_orders",NAVY,true,14)
 
 func _toolbar() -> void:
  _set_ui_offset(Vector2(0,_screen_size().y-900))
@@ -1257,7 +1263,7 @@ func _toolbar() -> void:
    var texture:Texture2D=atlas_tiles[entry[0]]
    var icon_size=texture.get_size();icon_size*=minf(83/icon_size.x,44/icon_size.y)
    draw_texture_rect(texture,Rect2(r.position+Vector2(62,24)-icon_size*.5,icon_size),false)
-  _text(r.position+Vector2(6,59),entry[1],13,BLUE,-1,true)
+  _line(r.position+Vector2(6,59),entry[1],13,BLUE,r.size.x-12,true)
   buttons.append({"rect":Rect2(r.position+ui_offset,r.size),"action":entry[2]})
  _button(Rect2(1214+extra_width,803,180,29),"SAM: MANUAL" if sim.owner()["manual"] else "SAM: AUTO ASSIST","assist",CYAN,true,13)
  _button(Rect2(1406+extra_width,803,182,29),"END DAY","end_day",YELLOW,true,15)
@@ -1269,17 +1275,17 @@ func _setup_card() -> void:
  _panel(Rect2(13,119,237,152),CREAM,Color("c3d0d5"),8)
  if sim.state["machines"].is_empty():
   _text(Vector2(25,146),"YOUR EMPTY SHOP",23,BLUE,-1,true)
-  _text(Vector2(25,173),"Choose your first equipment.\nPlace it anywhere on clear floor.\nThe setup clock stays paused.",14,INK,211)
+  _text(Vector2(25,173),"Choose your first station.\nPlace it on clear floor.\nPaused: Space to walk.",14,INK,211)
   _button(Rect2(24,233,213,27),"ADD YOUR FIRST STATION","equipment",CYAN,true,12)
  elif sim.state["paused"] and _setup_pending():
   _text(Vector2(25,146),"READY TO OPEN?",23,BLUE,-1,true)
-  _text(Vector2(25,173),"Printer, inspection and pickup.\nAdd the free starter benches.\nThen open your shop.",14,INK,211)
+  _text(Vector2(25,173),"Add free inspection and\npickup benches. Space runs\nthe clock and lets Sam walk.",14,INK,211)
   _button(Rect2(24,233,104,27),"EQUIPMENT","equipment",CYAN,true,12)
   _button(Rect2(138,233,100,27),"OPEN SHOP","pause",GREEN,true,12)
  elif sim.state["tutorial"] and _tutorial_index()>=0:
   var i=_tutorial_index()
   _text(Vector2(25,146),"FIRST PRINT JOB",23,BLUE,-1,true)
-  _text(Vector2(25,173),_tutorial_hint(sim.order(i)),14,INK,211)
+  _text(Vector2(25,173),_tutorial_hint(sim.order(i)),13,INK,211)
   _button(Rect2(24,233,104,27),"OPEN JOB","order:%d" % i,CYAN,true,12)
   _button(Rect2(138,233,100,27),"SKIP TUTORIAL","skip",CREAM,true,11)
  else:
@@ -1442,6 +1448,11 @@ func _modal() -> void:
   "settings": _settings_panel()
   "help": _help_panel()
   "confirm_new": _new_panel()
+  "confirm_demo":
+   _header("RESET THE DEMO SHOP?","Your current demo will be archived. Your career is unchanged.")
+   _text(Vector2(389,284),"Start the supplied demo shop again with equipment, staff and $5,000.\nThis resets demo progress only.",21,INK,810)
+   _button(Rect2(389,425,818,54),"RESET DEMO SHOP","reset_demo_confirm",YELLOW)
+   _button(Rect2(389,505,818,48),"KEEP PLAYING","close",NAVY)
   "save_error": _save_error_panel()
  record_modal_text=false
 
@@ -1753,8 +1764,9 @@ func _settings_panel() -> void:
  _button(Rect2(801,359,406,36),"REDUCE MOTION: "+("ON" if settings.get("reduce_motion",false) else "OFF"),"reduce_motion",CREAM,true,16)
  _text(Vector2(389,430),"Tab selects a control; Enter activates it. Q opens capacity forecasts.\nSpace pauses live panels. Arrow keys place equipment; Enter confirms.\nOpen Help for all keyboard and mouse controls.",18,INK,818)
  _button(Rect2(389,489,818,31),"ACCESSIBILITY + REMAP MOVEMENT","accessibility",CREAM,true,15)
- _text(Vector2(389,530),"Save folder: "+OS.get_user_data_dir(),16,MUTED,810)
- _button(Rect2(389,581,396,51),"SAVE SHOP","save",GREEN,screen=="shop")
+ _text(Vector2(389,530),("Demo uses a separate save. " if sim.state.get("demo",false) else "Save folder: ")+OS.get_user_data_dir(),16,MUTED,810)
+ if sim.state.get("demo",false) and screen=="shop": _button(Rect2(389,544,818,27),"RESET DEMO / CAREER STAYS SEPARATE","reset_demo",CREAM,true,14)
+ _button(Rect2(389,581,396,51),"SAVE DEMO" if sim.state.get("demo",false) else "SAVE SHOP","save",GREEN,screen=="shop")
  _button(Rect2(801,581,406,51),"SAVE + TITLE","title",NAVY,screen=="shop")
  _button(Rect2(389,648,818,37),"GAME UPDATES + SAVE BACKUPS","updates",CREAM,true,16)
  _button(Rect2(389,703,397,48),"BACK","close",CYAN)
@@ -1887,7 +1899,24 @@ func _action(action:String) -> void:
    status="Save and close the game, then confirm UPDATE in the updater window." if result>0 else "Could not open updater. Run Update-Game.ps1 from the game folder."
   "new":
    draft_rules=Strategy.rules("Standard");modal="confirm_new"
+  "demo":
+   if screen!="title":return
+   career_sim=sim
+   sim=Sim.new();sim.save_path=career_sim.save_path+".demo";sim.save_enabled=career_sim.save_enabled
+   if sim.has_save():
+    if not sim.load_game():
+     sim=career_sim;career_sim=null;status="Demo save could not be restored. Career is unchanged.";return
+   else: sim.start_demo()
+   screen="shop";modal="report" if not sim.state["report"].is_empty() else "";build=false;_cancel_world_drag();order_page=0;customer_page=0;reset_camera();_load_music_preference();_start_music()
+  "reset_demo": modal="confirm_demo"
+  "reset_demo_confirm":
+   if not sim.state.get("demo",false):return
+   if not sim.backup_before_new_shop():status=sim.last_save_error;return
+   sim.start_demo();modal="";build=false;_cancel_world_drag();order_page=0;customer_page=0;reset_camera();_load_music_preference();_start_music();sim.save_game()
   "new_confirm":
+   if career_sim!=null:
+    if not _save_before("new_confirm"):return
+    sim=career_sim;career_sim=null
    if not sim.backup_before_new_shop(): status=sim.last_save_error;return
    sim.start_shop(draft_rules["preset"],draft_rules); screen="shop"; modal="";build=false;pending_equipment="";moving_equipment="";dragging="";drag_valid={};order_page=0;customer_page=0;reset_camera(); _load_music_preference();sim.save_game(); _start_music()
   "continue":
@@ -1920,6 +1949,7 @@ func _action(action:String) -> void:
    if pending_save_action!="": _action(pending_save_action)
   "title":
    if _save_before("title"):
+    if career_sim!=null: sim=career_sim;career_sim=null;_load_music_preference()
     screen="title";modal="";build=false;_cancel_world_drag()
   "quit":
    if screen=="shop" and not _save_before("quit"): return
@@ -2056,17 +2086,20 @@ func _sfx() -> void:
   bytes.encode_s16(i*2,int(sample))
  stream.data=bytes; audio.stream=stream; audio.play()
 
+func _preference_save_path() -> String:
+ return career_sim.save_path if career_sim!=null else sim.save_path
+
 func _save_audio_preferences() -> void:
  var preferences=ConfigFile.new()
- preferences.load(sim.save_path+".preferences.cfg")
+ preferences.load(_preference_save_path()+".preferences.cfg")
  for key in ["music","sound"]: preferences.set_value("audio",key,sim.state["settings"][key])
  preferences.set_value("display","reduce_motion",sim.state["settings"].get("reduce_motion",false))
  for key in movement_bindings: preferences.set_value("input",key,movement_bindings[key])
- if preferences.save(sim.save_path+".preferences.cfg")!=OK: sim.notice("Audio changed; preference could not be saved.")
+ if preferences.save(_preference_save_path()+".preferences.cfg")!=OK: sim.notice("Audio changed; preference could not be saved.")
 
 func _load_music_preference() -> void:
  var preferences=ConfigFile.new()
- if preferences.load(sim.save_path+".preferences.cfg")==OK:
+ if preferences.load(_preference_save_path()+".preferences.cfg")==OK:
   for key in ["music","sound"]:
    sim.state["settings"][key]=bool(preferences.get_value("audio",key,sim.state["settings"][key]))
   sim.state["settings"]["reduce_motion"]=bool(preferences.get_value("display","reduce_motion",false))
@@ -2076,9 +2109,9 @@ func _load_music_preference() -> void:
  sim.state["settings"]["fullscreen"]=DisplayServer.window_get_mode()==DisplayServer.WINDOW_MODE_FULLSCREEN
 
 func _save_window_preference() -> void:
- var preferences=ConfigFile.new();preferences.load(sim.save_path+".preferences.cfg")
+ var preferences=ConfigFile.new();preferences.load(_preference_save_path()+".preferences.cfg")
  preferences.set_value("display","mode",DisplayServer.window_get_mode())
- if preferences.save(sim.save_path+".preferences.cfg")!=OK: sim.notice("Display changed; preference could not be saved.")
+ if preferences.save(_preference_save_path()+".preferences.cfg")!=OK: sim.notice("Display changed; preference could not be saved.")
 
 func _updates_panel() -> void:
  _header("GAME UPDATES + SAVE BACKUPS","Installed v"+str(ProjectSettings.get_setting("application/config/version"))+" / Official Windows alpha channel")

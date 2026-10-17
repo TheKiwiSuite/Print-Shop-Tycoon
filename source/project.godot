@@ -2,7 +2,7 @@ config_version=5
 [application]
 config/name="Print Shop Tycoon"
 config/icon="res://assets/game-icon.png"
-config/version="0.3.2"
+config/version="0.3.3"
 config/use_custom_user_dir=true
 config/custom_user_dir_name="PrintShopTycoonNative"
 run/main_scene="res://main.tscn"

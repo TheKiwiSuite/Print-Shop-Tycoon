@@ -1,3 +1,13 @@
+# Native Windows v0.3.3
+
+## Version 0.3.3 — playable demo and clear shop controls
+
+- Added Play Demo Shop to the title screen. Equipment, a four-person team and $5,000 are supplied, with a prepared first order and owner Auto Assist. Ordinary production, inputs, wages and payment rules still apply.
+- Demo progress saves separately from the career. Save and Title restores the career slot; Continue restores the career. Settings offers a confirmed demo-only reset with an archive.
+- Separated Capacity, More Orders and Fullscreen controls. Shortened setup text so it clears the equipment button. Added an explicit paused-clock heading and Space-to-resume guidance.
+- Improved muted/error/success text contrast and bounded long button/toolbar labels. Approved equipment and character artwork are unchanged.
+- Added career-isolation, demo save/resume/reset, real owner movement and control-overlap checks across the existing render matrix.
+
 # Native Windows v0.3.2
 
 ## Version 0.3.2 — player updates and save continuity
