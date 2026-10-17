@@ -1,4 +1,10 @@
-# Native Windows v0.2.19
+# Native Windows v0.2.20
+
+## Version 0.2.20 — full-size Windows icon
+
+- Placed the approved logo, without stretching or changing its lettering, on a full-size rounded navy badge with a blue edge. The square silhouette fills normal Windows icon bounds instead of leaving most of the height transparent.
+- Updated multi-resolution shortcut ICO and Godot runtime PNG. A new shortcut icon filename avoids stale Windows icon-cache entries.
+- Title/shop logo PNGs remain the exact approved originals. Editable packaging script and preview are in `art/branding`.
 
 ## Version 0.2.19 — new official transparent logo
 

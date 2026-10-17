@@ -67,3 +67,8 @@ The owner supplied Transparent Print Shop Tycoon Logo.png as the official logo
 going forward. The runtime logo and icon/Official-Logo.png are unchanged copies.
 Transparent proportional Windows/Godot icon conversions use the same artwork.
 The earlier Kiwi Suite badge logo is archived under art/branding, not active.
+
+October 16, 2026 - full-size Windows icon (v0.2.20):
+The same approved wordmark is packaged on a rounded navy square badge with
+a blue edge. The logo artwork is not stretched or redrawn. The title/shop
+PNG remains unchanged. Reproducible icon packaging: art/branding/build_windows_icon.py.
