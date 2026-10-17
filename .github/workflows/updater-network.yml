@@ -1,0 +1,68 @@
+name: Verify published updater download
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/updater-network.yml]
+  workflow_run:
+    workflows: [Package Windows alpha]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  verified_download:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: windows-latest
+    timeout-minutes: 6
+    steps:
+      - name: Retrieve the exact packaged Windows executable
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BUILD_RUN: ${{ github.event.workflow_run.id || '39040965248' }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          gh run download $env:BUILD_RUN --pattern 'tycoon-build-*' --dir build
+          if ($LASTEXITCODE -ne 0) { throw 'Build artifact retrieval failed.' }
+          $package = Get-ChildItem build/release/PrintShopTycoon-Windows-*.zip | Select-Object -First 1
+          Expand-Archive -LiteralPath $package.FullName -DestinationPath game
+      - name: Check HTTPS metadata and verify a real release download inside the game
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $scriptPath = Join-Path $env:RUNNER_TEMP 'updater-network.gd'
+          @'
+          extends SceneTree
+          const U=preload("res://scripts/game_updates.gd")
+          func _initialize() -> void:call_deferred("run")
+          func run() -> void:
+           var service=U.new();root.add_child(service)
+           await service.check("0.0.0")
+           if service.available.is_empty():
+            push_error(service.status);quit(1);return
+           var metadata=service.available.duplicate(true)
+           await service.download()
+           if service.staged=="" or not U.verify_archive(service.staged,metadata):
+            push_error(service.status);quit(1);return
+           var bad=metadata.duplicate(true);bad["digest"]="0".repeat(64)
+           if U.verify_archive(service.staged,bad):
+            push_error("Tampered digest was accepted");quit(1);return
+           print("UPDATER NETWORK: official HTTPS metadata and verified release download passed / ",OS.get_name()," / ",metadata["version"])
+           quit()
+          '@ | Set-Content -LiteralPath $scriptPath -Encoding utf8
+          $executable = (Resolve-Path 'game/PrintShopTycoon/windows/Print Shop Tycoon.exe').Path
+          $log = Join-Path $env:GITHUB_WORKSPACE 'updater-network.log'
+          $process = Start-Process -FilePath $executable -ArgumentList @('--headless', '--script', ('"{0}"' -f $scriptPath), '--log-file', ('"{0}"' -f $log)) -PassThru
+          if (!$process.WaitForExit(240000)) { $process.Kill(); throw 'Native updater network check timed out.' }
+          $process.WaitForExit()
+          Get-Content -LiteralPath $log
+          if ($process.ExitCode -ne 0 -or !(Select-String -LiteralPath $log -Pattern 'UPDATER NETWORK:.*passed / Windows' -Quiet)) { throw 'Native updater network check failed.' }
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: updater-network-${{ github.run_id }}
+          path: updater-network.log
+          if-no-files-found: warn
