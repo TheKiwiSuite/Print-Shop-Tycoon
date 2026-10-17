@@ -2,7 +2,7 @@ name: Package Windows alpha
 on:
   push:
     branches: [main, 'codex/**']
-    paths: [.github/workflows/windows-alpha.yml, 'source/**', 'Build-Release.ps1', 'Run-QA.ps1']
+    paths: [.github/workflows/windows-alpha.yml, 'source/**', 'Build-Release.ps1', 'Run-QA.ps1', 'updater/**']
   workflow_dispatch:
 permissions:
   contents: read
@@ -10,6 +10,16 @@ concurrency:
   group: tycoon-windows-alpha-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  updater_tests:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Verify updater recovery and rejection cases
+        shell: powershell
+        run: ./updater/Test-Updater.ps1
   windows:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -80,7 +90,8 @@ jobs:
           set -euo pipefail
           mkdir -p release/PrintShopTycoon/windows
           "$RUNNER_TEMP/godot/Godot_v4.5.1-stable_linux.x86_64" --headless --path source --export-release 'Windows Desktop' "$GITHUB_WORKSPACE/release/PrintShopTycoon/windows/Print Shop Tycoon.exe"
-          cp README.md README.txt RELEASE-NOTES.md GAME-AUDIT.md ART-SOURCES.txt ASSESSMENT-INTEGRATION.md STRATEGY-UPGRADE.md release/PrintShopTycoon/
+          cp updater/Update-Game.ps1 release/PrintShopTycoon/windows/
+          cp PLAYER-UPDATES.md README.md README.txt RELEASE-NOTES.md GAME-AUDIT.md ART-SOURCES.txt ASSESSMENT-INTEGRATION.md STRATEGY-UPGRADE.md release/PrintShopTycoon/
           printf 'Source commit: %s\nEngine: Godot 4.5.1\nWindows x86_64 alpha %s\nUnsigned community test build. Known issues: GAME-AUDIT.md\n' "$GITHUB_SHA" "$GAME_VERSION" > release/PrintShopTycoon/BUILD.txt
           cd release
           zip -qr "PrintShopTycoon-Windows-v${GAME_VERSION}.zip" PrintShopTycoon
@@ -96,10 +107,13 @@ jobs:
             verification/strategy-balance.json
           if-no-files-found: error
   native_windows:
-    needs: windows
+    needs: [windows, updater_tests]
     runs-on: windows-latest
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: tycoon-build-${{ github.sha }}

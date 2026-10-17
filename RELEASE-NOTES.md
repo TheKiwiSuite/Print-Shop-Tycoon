@@ -1,3 +1,12 @@
+# Native Windows v0.3.1
+
+## Version 0.3.1 — preserve player saves during updates
+
+- Help > Check for updates launches the packaged Windows updater with explicit player confirmation.
+- Newer official Windows alpha downloads require the GitHub API SHA-256 digest and safe archive validation.
+- Profile backups are verified before a separate version folder becomes available; old binaries and saves remain intact.
+- Existing players need one manual download to acquire the updater. See PLAYER-UPDATES.md for steps, rollback and unsigned-alpha trust limits.
+
 # Native Windows v0.3.0
 
 ## Version 0.3.0 — planning and staged growth

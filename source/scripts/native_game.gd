@@ -497,7 +497,7 @@ func _desktop_items(menu:String) -> Array:
   "Edit":return [["Arrange equipment    B","build",editable],["Move selected equipment","move_equipment",selected],["Rotate selected equipment    R","rotate_equipment",selected and build],["Cancel placement    Esc","cancel_placement",editable and (pending_equipment!="" or _relocating())]]
   "View":return [["Fit whole shop    Home","camera",shop],["Music: "+("On" if sim.state["settings"]["music"] else "Off"),"music",true],["Toggle fullscreen    F11","fullscreen",true]]
   "Window":return [["Minimize","window_minimize",true],["Windowed / restore","window_restore",true],["Maximize","window_maximize",true],["Fullscreen    F11","window_fullscreen",true]]
-  "Help":return [["How to play","help",true],["Settings and keyboard controls","settings",true]]
+  "Help":return [["Check for updates","check_updates",true],["How to play","help",true],["Settings and keyboard controls","settings",true]]
  return []
 
 func _desktop_heading_rect(index:int) -> Rect2:
@@ -1868,6 +1868,14 @@ func _action(action:String) -> void:
   _sfx(); return
  var o=sim.order(selected_order)
  match action:
+  "check_updates":
+   if OS.get_name()!="Windows" or OS.has_feature("editor"):
+    status="Updates are available in the Windows download.";return
+   var updater=OS.get_executable_path().get_base_dir().path_join("Update-Game.ps1")
+   if not FileAccess.file_exists(updater):
+    status="Updater missing. Download the next release from the official GitHub page.";return
+   var result=OS.create_process("powershell.exe",PackedStringArray(["-NoProfile","-File",updater,"-CurrentVersion",str(ProjectSettings.get_setting("application/config/version"))]),true)
+   status="Save and close the game, then confirm UPDATE in the updater window." if result>0 else "Could not open updater. Run Update-Game.ps1 from the game folder."
   "new":
    draft_rules=Strategy.rules("Standard");modal="confirm_new"
   "new_confirm":

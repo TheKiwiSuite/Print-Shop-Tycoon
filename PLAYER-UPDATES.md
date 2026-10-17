@@ -1,0 +1,15 @@
+# Player updates
+
+Older downloads cannot acquire a new updater by themselves. Save and close the game, download the next official Windows ZIP once, extract into a new folder and run its executable. Continue uses the existing shop under `%APPDATA%\PrintShopTycoonNative`; do not delete that directory. Before the first manual upgrade, copy this entire directory to a dated backup.
+
+Version 0.3.1 adds Help > Check for updates (F10 reveals Help). It opens the packaged Windows updater. Save and close the game, then type UPDATE in its window. It refuses installation while a game process is running. A successful download opens the new version folder; run windows/Print Shop Tycoon.exe, then Continue. Keep the new folder and point any existing shortcut at that executable. Old shortcuts are not silently redirected.
+
+The updater accepts only the official repository's Windows alpha channel, newer numeric versions, an exact asset name and HTTPS release URL. It verifies size and the SHA-256 digest returned by GitHub's HTTPS API, rejects missing digests, traversal paths, archive symlinks, duplicate paths and excessive expansion, and publishes a fully extracted package via a same-volume directory move. A per-user lock prevents concurrent updater runs. No elevation, execution-policy bypass, downloaded script execution or automatic executable launch is used. If Windows policy blocks PowerShell, use the manual ZIP method; do not disable security settings.
+
+The full persistent profile is copied and hash-verified before publication. Downloads and new binaries live separately under `%LOCALAPPDATA%\PrintShopTycoonUpdates`. The previous installation and original saves are never replaced by the updater. Network, integrity, extraction and backup errors stop publication. Incomplete staging folders may remain after an error; they are not playable installations.
+
+Trust boundary: release authenticity depends on HTTPS and control of the official GitHub repository. These alpha executables are not Authenticode signed; this is not an independent publisher-signature guarantee. Independent code signing and protected immutable releases remain release-hardening work.
+
+Rollback: close every game instance. Copy the current profile elsewhere for recovery, then restore the complete pre-update `save-backup-*` profile into `%APPDATA%\PrintShopTycoonNative` before launching an older executable. Never let an older build overwrite a save created by a newer schema. Schema 3 shops retain legacy economy rules; conversion is explicit. The updater never changes schema or shop rules itself.
+
+Validation: Windows CI runs inert ZIP fixtures for success, corrupt hash, missing digest, path traversal, running game and downgrade rejection, with original-save checks and verified-backup checks. The game regression and packaged executable walkthrough remain publication gates. Physical Windows security-policy prompts, DPI scaling, assistive technology and long-term human balance acceptance remain manual checks.
