@@ -107,6 +107,9 @@ func run() -> void:
  cash=s.state["cash"];check(Ops.resolve_event(s,"keep"),"Hurdle has a no-cost keep / decline option")
  check(not Ops.resolve_event(s,"keep") and s.state["cash"]==cash,"Resolved hurdles cannot replay")
  Ops.tick(s,.1);check(s.state["operations"]["event"].is_empty(),"Same-day event cannot reroll")
+ s=fixture();s.state["location"]=2;s.state["fit_out"]=true;s.state["operations"]["event"]={"id":"rare-commission","kind":"opportunity"};cash=s.state["cash"]
+ check(Ops.resolve_event(s,"opportunity") and s.order(0)["type"]=="banner" and s.order(0)["stage"]=="intake" and s.order(0)["reward"]==1400,"Rare industrial project proposes a lucrative job requiring an equipment decision")
+ check(s.state["cash"]==cash and not s.state["machines"].has("banner"),"Rare quote neither buys equipment nor commits the player")
  s=fixture();s.state["operations"]["offline_enabled"]=true;s.state["operations"]["event_enabled"]=false
  check(Ops.away(s,true) and not s.owner()["manual"],"Away selects real owner Auto Assist")
  s.state["operations"]["offline_anchor"]=10000

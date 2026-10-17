@@ -37,8 +37,13 @@ func run() -> void:
   game.modal="equipment";game.equipment_page=1;await capture("%dx%d-equipment-prerequisites" % [size.x,size.y])
   game.sim.state["location"]=1;game.sim.start_demo();Style.ensure(game.sim);game.modal="";game.reset_camera()
  game.sim.state["cash"]=10000;game.sim.state["completed"]=5;game.sim.state["best_profit"]=100
- var points=[Vector2i(1,1),Vector2i(7,1),Vector2i(11,7),Vector2i(10,10),Vector2i(1,5)]
- for i in Style.DECOR.size():Style.place(game.sim,Style.DECOR.keys()[i],points[i])
+ for id in Style.DECOR:
+  var placed=false
+  for x in game.sim.bounds().x:
+   for y in game.sim.bounds().y:
+    if Style.place(game.sim,id,Vector2i(x,y)):placed=true;break
+   if placed:break
+  check(placed,"Real, accessible decor placement for "+id)
  Style.set_outfit(game.sim,"owner","Executive suit");Style.set_outfit(game.sim,"staff1","Red apron")
  game.sim.state["style"]["floor"]="Blue tile";game.modal="";game.reset_camera()
  await capture("decor-clothing-floor")

@@ -939,6 +939,9 @@ func _world() -> void:
    "machine":
     _machine(item["id"])
     _draw_unboxing(item["id"])
+    var machine=sim.state["machines"].get(item["id"],{})
+    if machine.has("service_work"):
+     world_labels.append({"at":iso(sim.equipment_center(item["id"],sim.state["machines"])),"text":"Service / "+str(machine["phase"]),"progress":1.0-float(machine["service_work"]["remaining"])/12.0})
    "decor": Style.draw_decor(self,item["item"])
    "worker": _worker(item["id"])
    "customer": _customer(item["actor"])
@@ -1171,7 +1174,8 @@ func _worker(id:String) -> void:
  # Cell feet are at 97% of height; use the real sole baseline as the ground anchor.
  var rect=Rect2(p-Vector2(size.x*0.5,size.y*0.965),size)
  var color=Color.WHITE if id=="owner" else [Color("ffe1f2"),Color("dbeaff"),Color("e7ffda")][int(id.trim_prefix("staff"))%3]
- draw_texture_rect_region(owner_sheet,rect,region,color)
+ var outfit=sim.state.get("style",{}).get("outfits",{}).get(id,"Workshop")
+ draw_texture_rect_region(Style.texture_for(owner_sheet,outfit),rect,region,color)
  worker_hits.append({"id":id,"rect":Rect2(p-Vector2(35,107)*zoom,Vector2(70,112)*zoom)})
  if not w["task"].is_empty() and w["task"]["working"]:
   var hand=p+Vector2(18,-37)*zoom
@@ -2430,7 +2434,8 @@ func _intervention_panel() -> void:
  _header("OPTIONAL SHOP INTERVENTION","Shop time is held. Your timing is independent of shop speed. Skipping retains ordinary production.")
  if q.is_empty():return
  _text(Vector2(389,284),str(q["kind"]).to_upper()+ (" / STEP %d OF 3" % (int(q["step"])+1) if q["kind"]=="jam" else "")+ (" / FIRST PRACTICE" if q["practice"] else ""),27,BLUE)
- _text(Vector2(389,340),"Press when the marker is in the green zone. Timing Assist accepts any press.\nAn accurate intervention gives this job a 5% task-time benefit, with no cash reward.\nFocus loss holds this timer. There is no automatic timeout or reaction penalty.",19,INK,810)
+ var benefit="Three accurate steps clear the fault using one kit; skipping leaves normal service available." if q["kind"]=="jam" else "An accurate intervention gives this job a 5% task-time benefit, with no cash reward."
+ _text(Vector2(389,340),"Press when the marker is in the green zone. Timing Assist accepts any press.\n"+benefit+"\nFocus loss holds this timer. There is no automatic timeout or reaction penalty.",18,INK,810)
  draw_rect(Rect2(389,448,818,36),NAVY);draw_rect(Rect2(593,448,410,36),GREEN)
  var x=389+fmod(float(q["elapsed"]),2.0)/2.0*818
  draw_rect(Rect2(x-4,439,8,54),YELLOW)

@@ -134,8 +134,11 @@ static func resolve_event(s,choice:String) -> bool:
  elif choice=="opportunity":
   if s.active_orders().size()>=6:return false
   var type="sticker" if s.state["machines"].has("sticker") else "transfer"
-  if not s.state["machines"].has("sticker" if type=="sticker" else "dtf"):return false
-  var o=C.make_order("OPP-"+event["id"],type,20,"Local event opportunity",s.now()+7,200);o["art_ready"]=true;o["opportunity"]=true
+  if int(s.state["location"])==2 and s.state.get("fit_out",false):type="banner" if not s.state["machines"].has("banner") else "cnc"
+  if type in ["sticker","transfer"] and not s.state["machines"].has("sticker" if type=="sticker" else "dtf"):return false
+  var quantity=2 if type in ["banner","cnc"] else 20
+  var reward={"sticker":200,"transfer":600,"banner":1400,"cnc":1800}[type]
+  var o=C.make_order("OPP-"+event["id"],type,quantity,"Rare local event commission",s.now()+7,reward);o["art_ready"]=true;o["opportunity"]=true
   s.state["orders"].append(o);s._ensure_visit(o)
  elif choice=="cover":
   if event["kind"]!="absence" or s.state["cash"]<45:return false

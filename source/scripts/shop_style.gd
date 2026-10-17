@@ -86,13 +86,31 @@ static func draw_decor(g,item:Dictionary) -> void:
   g._panel(box,Color("fff5df"),g.NAVY,3)
   g.draw_circle(box.get_center(),15*z,g.CYAN)
   g._line(box.position+Vector2(5,55)*z,"PRINTED HERE",maxi(9,int(9*z)),g.BLUE,box.size.x-10*z)
+static var palette_cache={}
+static func texture_for(sheet:Texture2D,outfit:String) -> Texture2D:
+ if outfit=="Workshop":return sheet
+ if palette_cache.has(outfit):return palette_cache[outfit]
+ var image=sheet.get_image();var cell=Vector2i(image.get_width()/4,image.get_height()/4)
+ # Recolour existing cloth pixels in every original pose. Faces, hats, skin,
+ # silhouettes and animation frames remain unchanged; no floating costume slab.
+ for row in 4:
+  for col in 4:
+   var top=.43 if outfit=="Executive suit" else .52
+   var bottom=.88 if outfit=="Executive suit" else .73
+   for y in range(int(cell.y*top),int(cell.y*bottom)):
+    for x in range(int(cell.x*.28),int(cell.x*.78)):
+     var at=Vector2i(col*cell.x+x,row*cell.y+y);var pixel=image.get_pixelv(at)
+     if pixel.a<.2 or pixel.h<.50 or pixel.h>.68 or pixel.s<.18:continue
+     var color=pixel
+     if outfit=="Executive suit":color=Color.from_hsv(.59,.20,clampf(pixel.v*.65+.04,.05,.6),pixel.a)
+     elif outfit=="Red apron":color=Color.from_hsv(.965,.72,clampf(pixel.v*1.45,0,1),pixel.a)
+     else:color=Color.from_hsv(.58,.80,clampf(pixel.v*1.12,0,1),pixel.a)
+     image.set_pixelv(at,color)
+ var texture=ImageTexture.create_from_image(image);palette_cache[outfit]=texture;return texture
 static func draw_outfit(g,w:Dictionary,p:Vector2) -> void:
  var outfit=g.sim.state.get("style",{}).get("outfits",{}).get(w["id"],"Workshop")
- if outfit=="Workshop":return
- var z=g.zoom;var at=p+Vector2(0,-43)*z
- var color=Color("174f80") if outfit=="Blue apron" else Color("a92e49")
- if outfit=="Executive suit":
-  g._poly([at+Vector2(-13,-13)*z,at+Vector2(13,-13)*z,at+Vector2(12,18)*z,at+Vector2(-12,18)*z],Color("243444"),g.NAVY,1)
-  g._poly([at+Vector2(-6,-13)*z,at+Vector2(6,-13)*z,at+Vector2(0,4)*z],Color("f8f1e3"),Color.TRANSPARENT,0)
-  g.draw_line(at+Vector2(0,-9)*z,at+Vector2(0,9)*z,Color("be344b"),3*z)
- else:g._poly([at+Vector2(-8,-13)*z,at+Vector2(8,-13)*z,at+Vector2(12,19)*z,at+Vector2(-12,19)*z],color,g.NAVY,1)
+ if outfit!="Executive suit" or int(w["face"])>=2:return
+ var z=g.zoom;var at=p+Vector2(8,-47)*z
+ g._poly([at+Vector2(-6,-10)*z,at+Vector2(0,-5)*z,at+Vector2(-2,7)*z],Color("e9e6df"),Color.TRANSPARENT,0)
+ g._poly([at+Vector2(6,-10)*z,at+Vector2(0,-5)*z,at+Vector2(2,7)*z],Color("d7dce0"),Color.TRANSPARENT,0)
+ g._poly([at+Vector2(0,-6)*z,at+Vector2(2,-3)*z,at+Vector2(1,8)*z,at+Vector2(-2,7)*z,at+Vector2(-1,-3)*z],Color("ab294b"),Color.TRANSPARENT,0)

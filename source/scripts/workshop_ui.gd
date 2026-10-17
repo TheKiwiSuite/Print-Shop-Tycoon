@@ -43,7 +43,7 @@ static func draw(g) -> void:
    var ids=["dtf","sticker","heat","banner","cnc","dock"]
    for i in ids.size():
     var id=ids[i];var price=C.EQUIPMENT_PRICES[id];var y=396+i*42
-    g._line(Vector2(389,y+4),id.to_upper()+" / $%d deposit / $%d daily / $%d total" % [ceili(price*.2),ceili(price*.9/10),ceili(price*1.1)],16,g.INK,600)
+    g._line(Vector2(389,y+4),id.to_upper()+" / $%d deposit / $%d daily / $%d total" % [ceili(price*.2),ceili(price*.9/10),price+ceili(price/10.0)],16,g.INK,600)
     g._button(Rect2(1015,y-19,192,33),"SELECT FINANCE","finance:"+id,g.CYAN,not s.state["machines"].has(id),13)
    g._text(Vector2(389,675),"Active daily payments: $%d. Equipment prerequisites and clear access still apply." % Ops.daily_debt(s),17,g.BLUE,810)
   4:
@@ -69,7 +69,7 @@ static func draw(g) -> void:
    g._text(Vector2(389,475),"SHOP DECISION: "+str(event.get("kind","None waiting")),22,g.BLUE)
    if not event.is_empty():
     var kind=event["kind"]
-    var choices={"supplier":[["Expedite supplies $25","expedite"],["Accept 15 shop-minute delay","delay"]],"artwork":[["Keep accepted artwork and terms","keep"]],"absence":[["Pay $45 for shift cover","cover"],["Accept one worker absence today","absence"]],"opportunity":[["Create optional print inquiry","opportunity"],["Decline with no trust penalty","keep"]]}
+    var choices={"supplier":[["Expedite supplies $25","expedite"],["Accept 15 shop-minute delay","delay"]],"artwork":[["Keep accepted artwork and terms","keep"]],"absence":[["Pay $45 for shift cover","cover"],["Accept one worker absence today","absence"]],"opportunity":[["Review rare project / equipment may be required","opportunity"],["Decline with no trust penalty","keep"]]}
     for i in choices[kind].size():g._button(Rect2(389,508+i*53,818,42),choices[kind][i][0],"event:"+choices[kind][i][1],g.YELLOW,true,17)
    g._button(Rect2(389,654,818,39),"DAILY HURDLES: "+("ON" if o["event_enabled"] else "OFF"),"events_toggle",g.CREAM,true,16)
  g._line(Vector2(389,729),str(s.state["notices"][0]),14,g.BLUE,810)
