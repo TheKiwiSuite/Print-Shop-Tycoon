@@ -40,7 +40,7 @@ jobs:
           engine="$RUNNER_TEMP/godot/Godot_v4.5.1-stable_linux.x86_64"
           "$engine" --headless --path source --editor --import
           mkdir -p "$(realpath -m source/../../../work)"
-          for test in acceptance customer_loop sales_growth session_reliability illustrated_equipment rotation_stability illustrated_ui ui_dtf_placement wall_visual_review shop_workspace; do
+          for test in acceptance customer_loop sales_growth session_reliability illustrated_equipment rotation_stability illustrated_ui ui_dtf_placement wall_visual_review shop_workspace window_controls; do
             timeout 120 xvfb-run -a "$engine" --path source --rendering-method gl_compatibility --audio-driver Dummy --script "res://test/$test.gd" 2>&1 | tee "$RUNNER_TEMP/$test.log"
             if grep -E 'SCRIPT ERROR:|ERROR:|FAIL:' "$RUNNER_TEMP/$test.log"; then exit 1; fi
           done

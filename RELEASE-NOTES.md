@@ -1,4 +1,12 @@
-# Native Windows v0.2.17
+# Native Windows v0.2.18
+
+## Version 0.2.18 — accessible desktop window controls
+
+- Move to the top edge or press F10 to reveal File, Edit, View, Window and Help menus plus minimize, window/fullscreen and Close controls. The bar hides when the pointer leaves; F10 can pin or dismiss it. It stays above dialogs and uses the existing HUD dock.
+- Window offers Minimize, Windowed / Restore, Maximize and Fullscreen. F11 remains available. Restored windows retain native Windows caption controls.
+- File connects to New Game, Continue, Save, Save and Title, Settings and guarded Save and Quit. Edit connects to arrangement, selected equipment movement/rotation and placement cancellation. View controls framing, music and fullscreen; Help opens game instructions and keyboard controls. Unavailable actions are disabled.
+- Open menus block walking, hidden equipment input and click-through. Opening a menu cancels held placement safely. Arrow keys navigate menus, Enter activates and Escape dismisses.
+- `window_controls` passed 43 Windows checks, including real window modes and minimize/restore, isolated saving, disabled commands, menu hit regions, music playback and failed-save protection for the Close button. Workspace (155), save reliability (49) and DTF input/placement (63) checks also passed. Native UI was reviewed. The automated public CI includes the new suite; native minimize checks run on Windows only.
 
 ## Version 0.2.17 — clear workspace and audio controls
 

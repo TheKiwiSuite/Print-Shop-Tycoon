@@ -17,6 +17,10 @@ are included at no charge, but you choose their positions. Resume the clock
 after setup. Continue preserves the equipment in your existing save.
 
 CONTROLS
+Move the pointer to the top edge or press F10 for File, Edit, View, Window,
+and Help menus and minimize / window-fullscreen / close buttons. Window also
+offers restore and maximize. Escape dismisses menus; F11 toggles fullscreen.
+Close saves before quitting and stays open if saving fails.
 WASD or arrows: walk Sam. Clicking clear floor: walk there around equipment.
 E: open the nearest station. Click a machine or order card to inspect it.
 Work This Job as Sam: walk to and operate the next station.

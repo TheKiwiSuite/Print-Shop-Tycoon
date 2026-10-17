@@ -82,6 +82,15 @@ var last_key={}
 var key_tap=Vector2.ZERO
 var closing=false
 var pending_save_action=""
+var desktop_bar=false
+var desktop_pinned=false
+var desktop_menu=""
+var desktop_timeout=0.0
+var desktop_buttons=[]
+var desktop_mouse_down=false
+var desktop_choice=-1
+const DESKTOP_MENUS=["File","Edit","View","Window","Help"]
+const DESKTOP_HEIGHT=40.0
 const GANG_POS = Vector2(460,218)
 const GANG_SCALE = 9.0
 
@@ -162,16 +171,17 @@ func _notification(what:int) -> void:
 
 func _process(delta:float) -> void:
  time+=delta
+ _desktop_tick(delta)
  if screen=="shop":
   var input=Vector2.ZERO
-  if modal=="" and not build and get_window().has_focus():
+  if modal=="" and desktop_menu=="" and not build and get_window().has_focus():
    var sx=float(_held(KEY_D) or _held(KEY_RIGHT))-float(_held(KEY_A) or _held(KEY_LEFT))
    var sy=float(_held(KEY_S) or _held(KEY_DOWN))-float(_held(KEY_W) or _held(KEY_UP))
    input=Vector2(sx+sy,sy-sx)
    if input==Vector2.ZERO: input=key_tap
   key_tap=Vector2.ZERO
   sim.manual_input=input
-  if modal in ["","order","machine","staff"] and not build:
+  if modal in ["","order","machine","staff"] and desktop_menu=="" and not build:
    sim.tick(delta)
   autosave+=delta
   if autosave>10:
@@ -180,7 +190,7 @@ func _process(delta:float) -> void:
  queue_redraw()
  if qa_ui:
   var qa=FileAccess.open("user://ui-acceptance-state.json",FileAccess.WRITE)
-  if qa!=null: qa.store_string(JSON.stringify({"screen":screen,"modal":modal,"owner":sim.owner(),"orders":sim.state["orders"],"cash":sim.state["cash"],"build":build,"speed":sim.state["speed"],"paused":sim.state["paused"],"last_key":last_key}))
+  if qa!=null: qa.store_string(JSON.stringify({"screen":screen,"modal":modal,"owner":sim.owner(),"orders":sim.state["orders"],"cash":sim.state["cash"],"build":build,"speed":sim.state["speed"],"paused":sim.state["paused"],"last_key":last_key,"window_mode":DisplayServer.window_get_mode()}))
 
 func iso(p:Vector2) -> Vector2:
  return origin+offset+Vector2((p.x-p.y)*48,(p.x+p.y)*23)*zoom
@@ -217,6 +227,7 @@ func _zoom_shop(point:Vector2,amount:float) -> void:
  _clamp_camera()
 
 func _input(event:InputEvent) -> void:
+ if _desktop_input(event):return
  if event is InputEventKey:
   last_key={"physical":event.physical_keycode,"keycode":event.keycode,"unicode":event.unicode,"pressed":event.pressed}
  if event is InputEventKey and event.pressed and not event.echo:
@@ -409,6 +420,7 @@ func _draw() -> void:
   _title()
   _set_ui_offset(Vector2.ZERO)
   _version_badge()
+  _desktop_draw()
   return
  _ui_docks()
  _hud()
@@ -425,6 +437,156 @@ func _draw() -> void:
  if modal!="":
   _set_ui_offset(_modal_offset());_modal();_set_ui_offset(Vector2.ZERO)
  _version_badge()
+ _desktop_draw()
+
+func _desktop_tick(delta:float) -> void:
+ if not desktop_bar:return
+ var mouse=get_global_mouse_position()
+ if desktop_pinned or desktop_menu!="" or mouse.y<=DESKTOP_HEIGHT:
+  desktop_timeout=.7
+ else:
+  desktop_timeout-=delta
+  if desktop_timeout<=0:desktop_bar=false
+
+func _desktop_items(menu:String) -> Array:
+ var shop=screen=="shop"
+ var editable=shop and modal=="" and sim.state["report"].is_empty()
+ var selected=editable and sim.state["machines"].has(selected_machine)
+ match menu:
+  "File":return [["New game","new",modal!="save_error"],["Continue saved shop","continue",screen=="title" and sim.has_save()],["Save shop    F5","save",shop],["Save and return to title","title",shop],["Settings","settings",true],["Save and quit    Alt+F4","quit",true]]
+  "Edit":return [["Arrange equipment    B","build",editable],["Move selected equipment","move_equipment",selected],["Rotate selected equipment    R","rotate_equipment",selected and build],["Cancel placement    Esc","cancel_placement",editable and (pending_equipment!="" or _relocating())]]
+  "View":return [["Fit whole shop    Home","camera",shop],["Music: "+("On" if sim.state["settings"]["music"] else "Off"),"music",true],["Toggle fullscreen    F11","fullscreen",true]]
+  "Window":return [["Minimize","window_minimize",true],["Windowed / restore","window_restore",true],["Maximize","window_maximize",true],["Fullscreen    F11","window_fullscreen",true]]
+  "Help":return [["How to play","help",true],["Settings and keyboard controls","settings",true]]
+ return []
+
+func _desktop_heading_rect(index:int) -> Rect2:
+ return Rect2(220+index*70+(24 if index>3 else 0),0,94 if index==3 else 70,DESKTOP_HEIGHT)
+
+func _desktop_menu_rect() -> Rect2:
+ var index=DESKTOP_MENUS.find(desktop_menu)
+ return Rect2(_desktop_heading_rect(index).position.x,DESKTOP_HEIGHT,316,_desktop_items(desktop_menu).size()*36+8)
+
+func _desktop_cell(rect:Rect2,label:String,action:String,enabled:bool=true,active:bool=false) -> void:
+ var hover=rect.has_point(get_global_mouse_position())
+ if active or (hover and enabled):draw_rect(rect,RED if action=="quit" else BLUE)
+ var color=CREAM if enabled else Color("7d91ab")
+ var x=(rect.size.x-font.get_string_size(label,HORIZONTAL_ALIGNMENT_LEFT,-1,17).x)*.5 if rect.size.x==60 else 12.0
+ _text(rect.position+Vector2(x,rect.size.y*.5+6),label,17,color)
+
+func _desktop_targets() -> Array:
+ var result=[]
+ for i in DESKTOP_MENUS.size():
+  result.append({"rect":_desktop_heading_rect(i),"action":"desktop_menu:"+DESKTOP_MENUS[i],"enabled":true})
+ var full=DisplayServer.window_get_mode()==DisplayServer.WINDOW_MODE_FULLSCREEN
+ result.append({"rect":Rect2(_screen_size().x-180,0,60,DESKTOP_HEIGHT),"action":"window_minimize","enabled":true})
+ result.append({"rect":Rect2(_screen_size().x-120,0,60,DESKTOP_HEIGHT),"action":"window_restore" if full else "window_fullscreen","enabled":true})
+ result.append({"rect":Rect2(_screen_size().x-60,0,60,DESKTOP_HEIGHT),"action":"quit","enabled":true})
+ if desktop_menu!="":
+  var box=_desktop_menu_rect()
+  for i in _desktop_items(desktop_menu).size():
+   var row=_desktop_items(desktop_menu)[i]
+   result.append({"rect":Rect2(box.position+Vector2(4,4+i*36),Vector2(box.size.x-8,36)),"action":row[1],"enabled":row[2]})
+ return result
+
+func _desktop_draw() -> void:
+ desktop_buttons.clear()
+ # This transient bar occupies the HUD dock, never the shop floor.
+ if not desktop_bar:
+  draw_rect(Rect2(_screen_size().x*.35,0,_screen_size().x*.3,3),CYAN)
+  return
+ desktop_buttons=_desktop_targets()
+ draw_rect(Rect2(0,0,_screen_size().x,DESKTOP_HEIGHT),NAVY)
+ _text(Vector2(13,26),"PRINT SHOP TYCOON",19,CREAM,-1,true)
+ for i in DESKTOP_MENUS.size():
+  _desktop_cell(_desktop_heading_rect(i),DESKTOP_MENUS[i],"desktop_menu:"+DESKTOP_MENUS[i],true,desktop_menu==DESKTOP_MENUS[i])
+ _text(Vector2(_screen_size().x-365,25),"F10  /  F11",15,Color("9cb9d1"))
+ _desktop_cell(Rect2(_screen_size().x-180,0,60,DESKTOP_HEIGHT),"—","window_minimize")
+ var full=DisplayServer.window_get_mode()==DisplayServer.WINDOW_MODE_FULLSCREEN
+ _desktop_cell(Rect2(_screen_size().x-120,0,60,DESKTOP_HEIGHT),"□","window_restore" if full else "window_fullscreen")
+ _desktop_cell(Rect2(_screen_size().x-60,0,60,DESKTOP_HEIGHT),"X","quit")
+ if desktop_menu=="":return
+ var box=_desktop_menu_rect()
+ _panel(box,NAVY,Color("607b9a"),3)
+ var items=_desktop_items(desktop_menu)
+ for i in items.size():
+  var row=items[i]
+  _desktop_cell(Rect2(box.position+Vector2(4,4+i*36),Vector2(box.size.x-8,36)),row[0],row[1],row[2],desktop_choice==i)
+
+func _desktop_dismiss() -> void:
+ desktop_menu="";desktop_pinned=false;desktop_bar=false;desktop_choice=-1
+ key_tap=Vector2.ZERO;pan=false
+
+func _desktop_run(action:String) -> void:
+ _desktop_dismiss()
+ match action:
+  "window_minimize":DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MINIMIZED)
+  "window_restore":
+   DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+   sim.state["settings"]["fullscreen"]=false
+  "window_maximize":
+   DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MAXIMIZED)
+   sim.state["settings"]["fullscreen"]=false
+  "window_fullscreen":
+   DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+   sim.state["settings"]["fullscreen"]=true
+  "cancel_placement":_cancel_world_drag()
+  _: _action(action)
+
+func _desktop_input(event:InputEvent) -> bool:
+ if event is InputEventMouseMotion:
+  if event.position.y<=6 and dragging=="" and gang_drag<0 and not pan:
+   desktop_bar=true;desktop_timeout=.7
+  if desktop_menu!="" and event.position.y<DESKTOP_HEIGHT:
+   for i in DESKTOP_MENUS.size():
+    if _desktop_heading_rect(i).has_point(event.position):
+     desktop_menu=DESKTOP_MENUS[i];desktop_choice=-1
+  return desktop_bar and (event.position.y<DESKTOP_HEIGHT or desktop_menu!="")
+ if event is InputEventKey and event.pressed and not event.echo:
+  var code=event.keycode if event.keycode!=0 else event.physical_keycode
+  if code==KEY_F10:
+   if desktop_bar and desktop_pinned:_desktop_dismiss()
+   else:desktop_bar=true;desktop_pinned=true;desktop_timeout=.7
+   return true
+  if code==KEY_ESCAPE and desktop_bar:_desktop_dismiss();return true
+  if desktop_menu!="":
+   var items=_desktop_items(desktop_menu)
+   if code in [KEY_LEFT,KEY_RIGHT]:
+    desktop_menu=DESKTOP_MENUS[posmod(DESKTOP_MENUS.find(desktop_menu)+(1 if code==KEY_RIGHT else -1),DESKTOP_MENUS.size())];desktop_choice=-1
+   elif code in [KEY_DOWN,KEY_UP]:
+    var step=1 if code==KEY_DOWN else -1
+    for attempt in items.size():
+     desktop_choice=posmod(desktop_choice+step,items.size())
+     if items[desktop_choice][2]:break
+   elif code in [KEY_ENTER,KEY_KP_ENTER] and desktop_choice>=0:
+    if items[desktop_choice][2]:_desktop_run(items[desktop_choice][1])
+   elif code==KEY_F11:_desktop_run("fullscreen")
+   return true
+  if desktop_pinned and code in [KEY_DOWN,KEY_ENTER,KEY_KP_ENTER]:
+   desktop_menu="File";desktop_choice=-1;return true
+ if event is InputEventMouseButton:
+  if event.button_index==MOUSE_BUTTON_LEFT and not event.pressed and desktop_mouse_down:
+   desktop_mouse_down=false;return true
+  if desktop_bar:
+   var in_bar=event.position.y<DESKTOP_HEIGHT
+   var menu_open=desktop_menu!=""
+   if event.pressed and event.button_index==MOUSE_BUTTON_LEFT and (in_bar or menu_open):
+    desktop_mouse_down=true
+    # Use current geometry even when the mouse revealed the bar this frame.
+    desktop_buttons=_desktop_targets()
+    for button in desktop_buttons:
+     if button["rect"].has_point(event.position):
+      if button["enabled"]:
+       var action=button["action"]
+       if action.begins_with("desktop_menu:"):
+        var name=action.get_slice(":",1)
+        desktop_menu="" if desktop_menu==name else name
+        desktop_choice=-1;desktop_pinned=false;_cancel_world_drag();pan=false
+       else:_desktop_run(action)
+      return true
+    _desktop_dismiss();return true
+   if in_bar or menu_open:return true
+ return false
 
 func _screen_size() -> Vector2:
  return get_viewport_rect().size
