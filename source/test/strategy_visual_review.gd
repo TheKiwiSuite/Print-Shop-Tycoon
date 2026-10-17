@@ -54,7 +54,7 @@ func run() -> void:
  game.sim.Strategy.ensure(game.sim)
  for size in [Vector2i(1280,720),Vector2i(1442,842),Vector2i(1920,1080),Vector2i(2560,1440)]:
   root.size=size;await process_frame;game.reset_camera()
-  for panel in ["capacity","difficulty","move","roster","help","settings","order","accessibility","staff","stock","customers","equipment","gang","report","marketing","dtf_views"]:
+  for panel in ["capacity","difficulty","move","roster","help","settings","order","accessibility","updates","staff","stock","customers","equipment","gang","report","marketing","dtf_views"]:
    game.sim.state=C.fresh();game.sim.Strategy.ensure(game.sim)
    game.forecast_preview={}
    game.modal=panel;game.selected_order=0

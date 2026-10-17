@@ -1,4 +1,14 @@
-# Native Windows v0.3.0
+# Native Windows v0.3.1
+
+## Version 0.3.1 — player updates and save continuity
+
+- Added Settings → Game updates + save backups: optional check, verified download, then explicit save/back up/restart.
+- Fixed official GitHub release channel, numeric upgrade-only versions, HTTPS, GitHub asset size/SHA-256 verification and fresh helper revalidation. No downloaded script is executed.
+- Existing saves and preferences stay in AppData and receive an additional byte-for-byte backup. The helper waits for the old process to exit and uses Windows atomic replacement with a retained previous executable.
+- Startup/save validation failure triggers rollback. Read-only folders, low disk space, interrupted downloads and hash mismatches fail safely. No elevation, service, installation dependency or execution-policy change.
+- Players with older builds need one manual download to gain the updater. See `UPDATING.md` for steps, trust boundaries and recovery. The alpha is still unsigned; GitHub digest verification is not an independent publisher signature.
+- Added security/integrity/save-backup checks and actual packaged Windows atomic replacement, failed-install preservation, rollback and startup-confirmation checks.
+
 
 ## Version 0.3.0 — planning and staged growth
 
