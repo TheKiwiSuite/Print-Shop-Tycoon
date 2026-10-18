@@ -158,6 +158,7 @@ jobs:
           $folder = Join-Path $destination 'PrintShopTycoon/windows'
           # CI-only software graphics runtime from the official CEF distribution.
           # Verify the pinned archive before extracting; these DLLs are never shipped.
+          $ProgressPreference = 'SilentlyContinue'
           $archive = Join-Path $env:RUNNER_TEMP 'cef-angle.tar.bz2'
           Invoke-WebRequest -UseBasicParsing -Uri 'https://cef-builds.spotifycdn.com/cef_binary_131.4.1%2Bg437feba%2Bchromium-131.0.6778.265_windows64_minimal.tar.bz2' -OutFile $archive
           if ((Get-FileHash $archive -Algorithm SHA256).Hash -ne 'F7687D895E8C4BCB9A85078FEED3278C240789058EE25DC39363900331CA23B5') { throw 'CI graphics runtime digest mismatch.' }

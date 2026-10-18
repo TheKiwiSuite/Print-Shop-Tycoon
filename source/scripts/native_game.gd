@@ -279,7 +279,7 @@ func _process(delta:float) -> void:
  if qa_ui:
   var qa=FileAccess.open("user://desktop-acceptance-state.json" if qa_desktop else "user://ui-acceptance-state.json",FileAccess.WRITE)
   var focus=get_viewport().gui_get_focus_owner()
-  if qa!=null:qa.store_string(JSON.stringify({"screen":screen,"modal":modal,"owner":sim.owner(),"orders":sim.state["orders"],"cash":sim.state["cash"],"build":build,"speed":sim.state["speed"],"paused":sim.state["paused"],"last_key":last_key,"window_mode":DisplayServer.window_get_mode(),"window_focus":get_window().has_focus(),"focused":focus.accessibility_name if focus!=null else "","style":sim.state.get("style",{}),"frames":qa_frame_deltas,"viewport":[_screen_size().x,_screen_size().y]}))
+  if qa!=null:qa.store_string(JSON.stringify({"accessibility_enabled":get_tree().is_accessibility_enabled(),"accessibility_supported":get_tree().is_accessibility_supported(),"semantic_count":accessible_buttons.size(),"screen":screen,"modal":modal,"owner":sim.owner(),"orders":sim.state["orders"],"cash":sim.state["cash"],"build":build,"speed":sim.state["speed"],"paused":sim.state["paused"],"last_key":last_key,"window_mode":DisplayServer.window_get_mode(),"window_focus":get_window().has_focus(),"focused":focus.accessibility_name if focus!=null else "","style":sim.state.get("style",{}),"frames":qa_frame_deltas,"viewport":[_screen_size().x,_screen_size().y]}))
 
 func iso(p:Vector2) -> Vector2:
  return origin+offset+Vector2((p.x-p.y)*48,(p.x+p.y)*23)*zoom

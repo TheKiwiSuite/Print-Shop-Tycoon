@@ -5,6 +5,7 @@ Add-Type @'
 using System;
 using System.Runtime.InteropServices;
 public static class DesktopQA {
+ [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr hWnd,uint msg,IntPtr wParam,IntPtr lParam);
  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
  [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr hWnd,int x,int y,int width,int height,bool repaint);
  [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr hWnd);
@@ -77,6 +78,13 @@ try {
  $script:window=[System.Windows.Automation.AutomationElement]::FromHandle($process.MainWindowHandle)
  $initial=Wait-State {param($s) $s.screen -eq 'shop' -and $s.paused} 'Isolated desktop demo starts paused'
  Assert ($initial.cash -eq 5000) 'Desktop tests use a disposable demo, not career progress'
+ $process.Refresh()
+ [DesktopQA]::SendMessage($process.MainWindowHandle,0x003D,[IntPtr]::Zero,[IntPtr](-25)) | Out-Null
+ Start-Sleep -Milliseconds 500
+ $script:window=[System.Windows.Automation.AutomationElement]::FromHandle($process.MainWindowHandle)
+ $elements=$script:window.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
+ @($elements | ForEach-Object { [pscustomobject]@{name=$_.Current.Name;type=$_.Current.ControlType.ProgrammaticName;offscreen=$_.Current.IsOffscreen} }) | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $OutputDirectory 'initial-accessibility-tree.json')
+ Capture 'windows-initial'
  $workshop=Button 'WORKSHOP + STYLE'
  Assert ($workshop.Current.ControlType -eq [System.Windows.Automation.ControlType]::Button) 'Windows UI Automation exposes a named button'
  Invoke-Button 'WORKSHOP + STYLE'
