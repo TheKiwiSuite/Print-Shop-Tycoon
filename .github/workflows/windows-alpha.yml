@@ -4,6 +4,7 @@ on:
     branches: ['codex/desktop-acceptance-probe']
 permissions:
   contents: read
+  actions: read
 jobs:
   desktop:
     runs-on: windows-latest
