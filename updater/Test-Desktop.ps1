@@ -137,7 +137,8 @@ try {
   $buttons=$script:window.FindAll([System.Windows.Automation.TreeScope]::Descendants,(New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty,[System.Windows.Automation.ControlType]::Button)))
   Assert ($buttons.Count -gt 10) "Native controls remain exposed at $w x $h"
   foreach($b in $buttons){
-   if($b.Current.IsOffscreen){continue}
+   # Raw UIA descendants include hidden nodes; only the Control View is player-facing.
+   if($b.Current.IsOffscreen -or !$b.Current.IsControlElement){continue}
    $r=$b.Current.BoundingRectangle
    Assert ($r.X -ge $rect.X-2 -and $r.Y -ge $rect.Y-2 -and $r.Right -le $rect.Right+2 -and $r.Bottom -le $rect.Bottom+2) "Control stays inside window: $($b.Current.Name) at $w x $h"
   }
