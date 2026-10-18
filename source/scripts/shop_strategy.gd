@@ -115,6 +115,7 @@ static func board(s,include_inquiries:bool=false) -> Dictionary:
   # Track delivery reservation across earlier rows using negative on-hand quantities.
   if not missing.is_empty(): reasons.append("Needs supplies: "+s.missing_all(missing))
   if p["type"] in ["transfer","apparel"] and p["gang"].is_empty(): reasons.append("Artwork does not fit the selected sheet")
+  if not o.get("artwork_offer",{}).is_empty():reasons.append("Artwork change awaiting agreement")
   if o["stage"]=="fault": reasons.append("Choose reprint or reduced-quality payment")
   if o["stage"] in ["intake","preflight","revision","plan"]: reasons.append("Needs player approval")
   var finish=input_at;var operator_name="";var station_name=""

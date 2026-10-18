@@ -862,7 +862,7 @@ func decline(i:int) -> bool:
 
 func preflight(i:int, action:String) -> bool:
  var o=order(i)
- if o.is_empty() or o["stage"]!="preflight": return false
+ if o.is_empty() or o["stage"]!="preflight" or not o.get("artwork_offer",{}).is_empty(): return false
  if action=="revision":
   o["stage"]="revision"
   o["revision_eta"]=now()+0.3
@@ -932,7 +932,7 @@ func _consume(recipe:Dictionary, o:Dictionary) -> void:
 
 func queue_order(i:int) -> bool:
  var o=order(i)
- if o.is_empty() or o["stage"] not in ["plan","waiting_stock"]: return false
+ if o.is_empty() or o["stage"] not in ["plan","waiting_stock"] or not o.get("artwork_offer",{}).is_empty(): return false
  if o["type"] in ["transfer","apparel"] and not gang_valid(i,o["gang"]): notice("Lay out a valid gang sheet first."); return false
  if o["type"]=="cnc" and o["settings"]["media"] not in ["PVC","ACM"]: notice("Incompatible cutter preset: select PVC or ACM panel stock."); return false
  o["recipe"]=order_recipe(o)
@@ -959,6 +959,7 @@ func _dispatch(i:int, w:Dictionary, m:String) -> bool:
  var o=order(i)
  if w.is_empty() or not w["task"].is_empty() or not state["machines"].has(m): return false
  if not role_matches(w,m): return false
+ if not o.get("artwork_offer",{}).is_empty():return false
  var machine=state["machines"][m]
  if int(machine["active"])>=0: return false
  for w2 in state["workers"]:

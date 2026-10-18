@@ -2,6 +2,7 @@ extends RefCounted
 # Authored game systems. No real-world equipment economics or credit advice.
 const C=preload("res://scripts/catalog.gd")
 const SERVICE={"dtf":"Nozzle check / capping / feed cleanup","shaker":"Powder cleanup / cure check","sticker":"Roller clean / registration calibration","heat":"Platen and pad inspection","banner":"Feed and printhead check","cnc":"Bed and tool inspection"}
+const Art=preload("res://scripts/artwork_negotiation.gd")
 const CONFIG_VERSION=1
 static func ensure(s) -> void:
  if not s.state.get("operations") is Dictionary:
@@ -118,7 +119,7 @@ static func tick(s,dt:float) -> void:
  if ops["away"]:
   var pending=false
   for i in s.active_orders():
-   if s.order(i)["stage"] in ["preflight","plan","fault"]:pending=true
+   if s.order(i)["stage"] in ["preflight","plan","fault"] or not s.order(i).get("artwork_offer",{}).is_empty():pending=true
   if not ops["event"].is_empty():pending=true
   if pending:s.state["paused"]=true;ops["return_report"]={"reason":"Decision / artwork / quality approval needs the manager. No reaction penalty was applied.","spent":ops["spent"]}
 static func resolve_event(s,choice:String) -> bool:
@@ -140,6 +141,20 @@ static func resolve_event(s,choice:String) -> bool:
   var reward={"sticker":200,"transfer":600,"banner":1400,"cnc":1800}[type]
   var o=C.make_order("OPP-"+event["id"],type,quantity,"Rare local event commission",s.now()+7,reward);o["art_ready"]=true;o["opportunity"]=true
   s.state["orders"].append(o);s._ensure_visit(o)
+ elif choice=="artwork":
+  if event["kind"]!="artwork":return false
+  var index=-1
+  for i in s.active_orders():
+   if Art.eligible(s,i):index=i;break
+  if index>=0:
+   if not Art.propose(s,index):return false
+   ops["artwork_order"]=index
+  else:
+   if s.active_orders().size()>=6:return false
+   var kind="sticker" if s.state["machines"].has("sticker") else "transfer"
+   if not s.state["machines"].has("sticker" if kind=="sticker" else "dtf"):return false
+   var o=C.make_order("ART-"+event["id"],kind,12,"Artwork and print client",s.now()+7,320)
+   o["art_ready"]=false;s.state["orders"].append(o);s._ensure_visit(o);ops["artwork_order"]=-1
  elif choice=="cover":
   if event["kind"]!="absence" or s.state["cash"]<45:return false
   s.state["cash"]-=45;s.state["stats"]["hurdles"]=s.state["stats"].get("hurdles",0)+45

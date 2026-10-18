@@ -1,3 +1,11 @@
+# v0.4.1 — Finish the personal workshop
+
+Move or remove any selected decoration without repurchasing it. Name your shop and paint the name on the wall sign. Negotiate customer artwork changes with explicit one-time costs, revised payout/deadline and ordinary proof arrival. Two illustrated official-project banner links are enabled, with local artwork/configuration support and rotation controls. Photo mode adds optional logo and shop-name watermark controls, corner selection and opacity.
+
+Keyboard focus follows visual order, typing in the shop-name field does not trigger gameplay shortcuts, and shop status has a polite accessibility announcement. Windows desktop acceptance adds real UI Automation, keyboard, focus-loss, movement and window-resize checks against the packaged executable. Native screenshots and frame samples accompany the existing production, update, render and balance evidence. Human screen-reader listening and OS monitor-scaling changes remain unverified; see WORKSHOP-UPGRADE.md.
+
+Existing career/demo saves and the verified updater remain compatible. Separate matching editable source, Windows and QA archives are supplied.
+
 # v0.4.0 — Your workshop
 
 Permanent industrial Growth / fit-out route; safer Help and Settings spacing; separated world labels; community sale trust recovery; equipment agreements and cash bridge; scheduled maintenance, neglect recovery, optional timing and daily decisions; capped Away/offline work; shirt and transfer displays, floor presets and local PNG imports; worker clothing and earned suits; purchase unboxing; local landscape, square and portrait photos; configurable title-screen partner links (blank by default).

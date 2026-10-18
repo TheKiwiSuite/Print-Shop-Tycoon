@@ -1,6 +1,8 @@
 extends Node2D
 
 const Ops=preload("res://scripts/shop_operations.gd")
+const Studio=preload("res://scripts/workshop_studio.gd")
+const Art=preload("res://scripts/artwork_negotiation.gd")
 const Style=preload("res://scripts/shop_style.gd")
 const Workshop=preload("res://scripts/workshop_ui.gd")
 const Photo=preload("res://scripts/workshop_photo.gd")
@@ -10,6 +12,14 @@ var world_labels=[]
 var workshop_page=0
 var style_worker="owner"
 var pending_decor=""
+var moving_decor=""
+var selected_decor=""
+var decor_point=Vector2i(2,2)
+var decor_previous_pause=true
+var shop_name_edit:LineEdit
+var banner_index=0
+var banner_elapsed=0.0
+var banner_paused=false
 var floor_texture:Texture2D
 var floor_texture_path=""
 var photo_render=false
@@ -103,6 +113,9 @@ var audio:AudioStreamPlayer
 var music:AudioStreamPlayer
 var capture_args = []
 var qa_ui=false
+var qa_desktop=false
+var qa_frame_deltas=[]
+var accessibility_context=""
 var last_key={}
 var key_tap=Vector2.ZERO
 var closing=false
@@ -158,6 +171,10 @@ func _ready() -> void:
  add_child(audio)
  add_child(music)
  capture_args=OS.get_cmdline_user_args()
+ if "--qa-desktop" in capture_args:
+  qa_desktop=true;qa_ui=true;sim.save_path="user://desktop-acceptance-profile.json";sim.save_enabled=false
+  sim.start_demo();sim.state["paused"]=true;sim.owner()["manual"]=true;screen="shop"
+  sim.state["settings"]["music"]=false
  if "--qa-ui" in capture_args:
   qa_ui=true
   sim.save_path="user://ui-acceptance-profile.json"
@@ -184,10 +201,17 @@ func _ready() -> void:
  reset_camera()
  get_viewport().size_changed.connect(reset_camera)
  _start_music()
+ shop_name_edit=LineEdit.new();shop_name_edit.max_length=40
+ shop_name_edit.accessibility_name="Shop name, up to 40 characters"
+ shop_name_edit.accessibility_description="Save this name to paint the shop's wall sign and use it as an optional photo watermark."
+ shop_name_edit.placeholder_text="Your print shop name";shop_name_edit.add_theme_font_size_override("font_size",20)
+ shop_name_edit.text_submitted.connect(func(_value):_action("shop_name_save"))
+ add_child(shop_name_edit);shop_name_edit.hide()
  accessible_summary=Label.new()
  accessible_summary.mouse_filter=Control.MOUSE_FILTER_IGNORE
  accessible_summary.self_modulate=Color(1,1,1,0)
  accessible_summary.accessibility_name="Shop status"
+ accessible_summary.accessibility_live=1
  accessible_summary.size=Vector2(800,600)
  accessible_summary.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
  accessible_summary.clip_text=true
@@ -225,7 +249,9 @@ func _notification(what:int) -> void:
 
 func _process(delta:float) -> void:
  time+=delta
+ if qa_desktop and qa_frame_deltas.size()<240:qa_frame_deltas.append(delta)
  _desktop_tick(delta)
+ Banner.tick(self,delta)
  if screen=="shop":
   Ops.cosmetic(sim,delta)
   if modal=="intervention" and get_window().has_focus() and desktop_menu=="":
@@ -250,8 +276,9 @@ func _process(delta:float) -> void:
  queue_redraw()
  _sync_accessibility()
  if qa_ui:
-  var qa=FileAccess.open("user://ui-acceptance-state.json",FileAccess.WRITE)
-  if qa!=null: qa.store_string(JSON.stringify({"screen":screen,"modal":modal,"owner":sim.owner(),"orders":sim.state["orders"],"cash":sim.state["cash"],"build":build,"speed":sim.state["speed"],"paused":sim.state["paused"],"last_key":last_key,"window_mode":DisplayServer.window_get_mode()}))
+  var qa=FileAccess.open("user://desktop-acceptance-state.json" if qa_desktop else "user://ui-acceptance-state.json",FileAccess.WRITE)
+  var focus=get_viewport().gui_get_focus_owner()
+  if qa!=null:qa.store_string(JSON.stringify({"screen":screen,"modal":modal,"owner":sim.owner(),"orders":sim.state["orders"],"cash":sim.state["cash"],"build":build,"speed":sim.state["speed"],"paused":sim.state["paused"],"last_key":last_key,"window_mode":DisplayServer.window_get_mode(),"window_focus":get_window().has_focus(),"focused":focus.accessibility_name if focus!=null else "","style":sim.state.get("style",{}),"frames":qa_frame_deltas,"viewport":[_screen_size().x,_screen_size().y]}))
 
 func iso(p:Vector2) -> Vector2:
  return origin+offset+Vector2((p.x-p.y)*48,(p.x+p.y)*23)*zoom
@@ -290,6 +317,9 @@ func _zoom_shop(point:Vector2,amount:float) -> void:
  _clamp_camera()
 
 func _input(event:InputEvent) -> void:
+ if event is InputEventKey and shop_name_edit!=null and shop_name_edit.visible and shop_name_edit.has_focus():
+  if event is InputEventKey and event.pressed and event.keycode==KEY_ESCAPE:_action("worktab:4");get_viewport().set_input_as_handled()
+  return
  if photo_active:
   if event is InputEventKey and event.pressed:
    if event.keycode==KEY_ESCAPE:_action("photo_close");return
@@ -309,6 +339,11 @@ func _input(event:InputEvent) -> void:
   last_key={"physical":event.physical_keycode,"keycode":event.keycode,"unicode":event.unicode,"pressed":event.pressed}
  if event is InputEventKey and event.pressed and not event.echo:
   var code=event.keycode if event.keycode!=0 else event.physical_keycode
+  if screen=="shop" and modal=="" and (pending_decor!="" or moving_decor!=""):
+   var moves={KEY_LEFT:Vector2i(-1,0),KEY_RIGHT:Vector2i(1,0),KEY_UP:Vector2i(0,-1),KEY_DOWN:Vector2i(0,1)}
+   if moves.has(code):decor_point+=moves[code];get_viewport().set_input_as_handled();return
+   if code in [KEY_ENTER,KEY_KP_ENTER]:_commit_decor(decor_point);get_viewport().set_input_as_handled();return
+   if code==KEY_ESCAPE:_cancel_world_drag();get_viewport().set_input_as_handled();return
   if binding_action!="":
    if code==KEY_ESCAPE: binding_action="";return
    if code<KEY_A or code>KEY_Z or code in [KEY_B,KEY_E,KEY_Q,KEY_R]: status="Choose a letter other than reserved B, E, Q or R, or Escape to cancel.";return
@@ -369,10 +404,8 @@ func _input(event:InputEvent) -> void:
      if b["rect"].has_point(event.position): _action(b["action"]); return
     if modal=="gang": _gang_press(event.position-_modal_offset()); return
     if modal!="" or screen!="shop" or not SHOP_VIEW.has_point(event.position): return
-    if pending_decor!="":
-     var tile=uniso(event.position)
-     if Style.place(sim,pending_decor,Vector2i(roundi(tile.x),roundi(tile.y))):pending_decor=""
-     return
+    if pending_decor!="" or moving_decor!="":
+     var tile=uniso(event.position);decor_point=Vector2i(roundi(tile.x),roundi(tile.y));_commit_decor(decor_point);return
     if pending_equipment!="":
      var tile=uniso(event.position)
      var at=Vector2i(roundi(tile.x),roundi(tile.y))
@@ -482,7 +515,8 @@ func _relocating() -> bool:
  return dragging=="machine" or moving_equipment!=""
 
 func _cancel_world_drag() -> void:
- pending_decor=""
+ if pending_decor!="" or moving_decor!="":sim.state["paused"]=decor_previous_pause
+ pending_decor="";moving_decor=""
  if sim.state.has("operations"):sim.state["operations"]["finance_intent"]=""
  pending_equipment="";moving_equipment="";dragging="";drag_id="";drag_valid={};drag_offset=Vector2.ZERO;pan=false
 
@@ -519,8 +553,11 @@ func _draw() -> void:
  world_labels.clear()
  _world()
  if not (photo_render or photo_active):_draw_world_labels()
- if photo_render:return
+ if photo_render:
+  Photo.draw_brand(self,Rect2(Vector2.ZERO,_screen_size()));return
  if photo_active:Photo.draw(self);return
+ if pending_decor!="" or moving_decor!="":
+  _diamond(iso(Vector2(decor_point)),48*zoom,23*zoom,Color(.1,.8,.9,.35),CYAN)
  if screen=="title":
   _set_ui_offset(_modal_offset())
   _title()
@@ -758,7 +795,10 @@ func _button(r:Rect2, title:String, action:String, color:Color=CYAN, enabled:boo
    draw_rect(r.grow(3),YELLOW,false,3)
 
 func _sync_accessibility() -> void:
- var seen={}
+ if shop_name_edit!=null:
+  shop_name_edit.visible=modal=="studio"
+  shop_name_edit.position=Vector2(389,247)+_modal_offset();shop_name_edit.size=Vector2(610,42)
+ var seen={};var ordered=[]
  for b in buttons:
   var key=b["action"]
   if seen.has(key): continue
@@ -773,9 +813,19 @@ func _sync_accessibility() -> void:
   var button:Button=accessible_buttons[key]
   button.position=b["rect"].position;button.size=b["rect"].size
   button.text=b.get("label",key.replace(":"," ").replace("_"," "))
-  button.accessibility_name=button.text;button.visible=true
+  button.accessibility_name="Close dialog" if key=="close" and button.text=="X" else button.text;button.visible=true
+  ordered.append(button)
  for key in accessible_buttons:
   if not seen.has(key): accessible_buttons[key].hide()
+ if shop_name_edit!=null and shop_name_edit.visible:ordered.append(shop_name_edit)
+ ordered.sort_custom(func(a,b):return a.position.x<b.position.x if absf(a.position.y-b.position.y)<8 else a.position.y<b.position.y)
+ for i in ordered.size():
+  ordered[i].focus_next=ordered[i].get_path_to(ordered[(i+1)%ordered.size()]);ordered[i].focus_previous=ordered[i].get_path_to(ordered[posmod(i-1,ordered.size())])
+ var context=screen+":"+modal+":"+str(workshop_page)+":"+str(photo_active)
+ if not ordered.is_empty() and context!=accessibility_context:
+  accessibility_context=context
+  var focus=get_viewport().gui_get_focus_owner()
+  if focus==null or not ordered.has(focus):ordered[0].grab_focus()
  if accessible_summary!=null:
   var clock_status="Clock held by desktop menu" if desktop_menu!="" else ("Clock paused" if sim.state["paused"] else ("Clock running" if modal in ["","order","machine","staff"] else "Clock held by menu"))
   accessible_summary.text="%s. %s. %s. Cash %d. %d open orders. %s" % [screen,modal,clock_status,sim.state["cash"],sim.active_orders().size(),sim.state["notices"][0]]
@@ -913,7 +963,8 @@ func _world() -> void:
  for n in [2,5,8]:
   var p=iso(Vector2(0,n))
   _poly([p,p+Vector2(92,44)*zoom,p+Vector2(139,22)*zoom,p+Vector2(47,-22)*zoom],Color(1,0.95,0.69,0.11),Color.TRANSPARENT,0)
- _poster(iso(Vector2(4,-0.5)),["PRINT","MORE","GROW","BIGGER"],[BLUE,BLUE,MAGENTA,BLUE],true)
+ if sim.state.get("style",{}).get("shop_name","My Print Shop")!="My Print Shop":_poster(iso(Vector2(4,-0.5)),Style.sign_lines(sim),[BLUE,BLUE,MAGENTA,BLUE],true)
+ else:_poster(iso(Vector2(4,-0.5)),["PRINT","MORE","GROW","BIGGER"],[BLUE,BLUE,MAGENTA,BLUE],true)
  _poster(iso(Vector2(size.x-3,-0.5)),["GOOD","PRINTS","HAPPIER","PEOPLE"],[MAGENTA,BLUE,BLUE,GREEN],false)
  var items=[]
  for id in _render_machines():
@@ -1319,7 +1370,7 @@ func _toolbar() -> void:
  var extra_width=_screen_size().x-1600
  var notice=status if status!="" else sim.state["notices"][0]
  var placing=pending_equipment!="" or _relocating()
- if pending_decor!="":notice="Click clear floor to place "+pending_decor.replace("_"," ")+". Escape cancels. Shop paused."
+ if pending_decor!="" or moving_decor!="":notice="Click clear floor or arrows + Enter to "+("move selected decor" if moving_decor!="" else "place "+pending_decor.replace("_"," "))+". Escape cancels. Shop held."
  if placing:notice=("Click to place. " if dragging!="machine" else "Release to place. ")+drag_valid.get("reason","Choose clear floor.")
  draw_rect(Rect2(276,775,_screen_size().x-288,21),RED if placing and not drag_valid.get("valid",false) else NAVY)
  _text(Vector2(286,791),notice,14,CREAM,_screen_size().x-310)
@@ -1504,6 +1555,8 @@ func _modal() -> void:
  draw_rect(Rect2(-ui_offset,_screen_size()),Color(0.015,0.055,0.14,0.42))
  match modal:
   "cash_bridge":_cash_bridge_panel()
+  "studio":Studio.draw(self)
+  "artwork":Art.draw(self)
   "workshop": Workshop.draw(self)
   "intervention": _intervention_panel()
   "marketing": _marketing_panel()
@@ -1635,6 +1688,7 @@ func _order_panel() -> void:
   "scheduled": _text(pos,_customer_detail(o)+".\nFinish setup, then resume the shop clock.",19,INK,800)
   "abandoned": _text(pos,"The customer left before a quote was accepted. No payment was taken.",19,MUTED,800)
   "declined": _text(pos,"This order was declined.",21,MUTED)
+ if Art.eligible(sim,selected_order) or not o.get("artwork_offer",{}).is_empty():_button(Rect2(389,650,818,35),"REVIEW CUSTOMER ARTWORK CHANGE","artwork_offer",CREAM,true,15)
  _button(Rect2(389,703,397,48),"BACK TO SHOP","close",NAVY)
  _button(Rect2(801,703,406,48),"VIEW MATERIAL STOCK","stock",CREAM)
 
@@ -1944,6 +1998,10 @@ func _action(action:String) -> void:
   return
  if action=="cash_bridge":modal="cash_bridge";return
  if action=="annex":Ops.annex(sim);reset_camera();return
+ if action in ["banner_previous","banner_next","banner_pause"]:
+  if action=="banner_pause":banner_paused=not banner_paused
+  else:banner_index+=(-1 if action=="banner_previous" else 1);banner_elapsed=0
+  return
  if _workshop_action(action):return
  status=""
  forecast_preview={}
@@ -2373,17 +2431,34 @@ func _stamp_offline() -> void:
 
 func _workshop_action(action:String) -> bool:
  var p=action.split(":")
- if p[0] not in ["workshop","worktab","promotion","service","finance","decor","decor_remove","floor_next","floor_import","outfit_worker","outfit_next","away_toggle","offline_toggle","offline_settle","auto_service","qte_toggle","assist_toggle","events_toggle","event","intervene","jam","qte_hit","qte_skip","photo_mode","photo_close","photo_export","photo_format","photo_imported"]:return false
+ if p[0] not in ["studio","shop_name_save","decor_cycle","decor_move","decor_remove_selected","artwork_offer","art_decide","back_order","photo_logo","photo_watermark","photo_corner","photo_opacity","workshop","worktab","promotion","service","finance","decor","decor_remove","floor_next","floor_import","outfit_worker","outfit_next","away_toggle","offline_toggle","offline_settle","auto_service","qte_toggle","assist_toggle","events_toggle","event","intervene","jam","qte_hit","qte_skip","photo_mode","photo_close","photo_export","photo_format","photo_imported"]:return false
  Ops.ensure(sim);Style.ensure(sim)
  var ops=sim.state["operations"];var style=sim.state["style"]
  match p[0]:
+  "studio":
+   _cancel_world_drag();modal="studio";shop_name_edit.text=style["shop_name"]
+  "shop_name_save":Style.rename_shop(sim,shop_name_edit.text)
+  "decor_cycle":
+   var ids=[]
+   for item in style["decor"]:ids.append(item["id"])
+   if not ids.is_empty():selected_decor=ids[posmod(ids.find(selected_decor)+int(p[1]),ids.size())]
+  "decor_move":
+   var item=Style.item(sim,selected_decor)
+   if not item.is_empty():
+    _cancel_world_drag();decor_previous_pause=sim.state["paused"];moving_decor=selected_decor;decor_point=sim.cell(item["pos"]);sim.state["paused"]=true;modal="";build=false
+  "decor_remove_selected":Style.remove(sim,selected_decor)
+  "artwork_offer":
+   if Art.propose(sim,selected_order):modal="artwork"
+  "art_decide":
+   if Art.resolve(sim,selected_order,p[1]):modal="order"
+  "back_order":modal="order"
   "workshop":_cancel_world_drag();workshop_page=0;modal="workshop"
   "worktab":workshop_page=int(p[1]);modal="workshop"
   "promotion":Ops.promo(sim)
   "service":Ops.start_service(sim,p[1]);modal="";sim.state["paused"]=false
   "finance":
    if Ops.finance(sim,p[1]):_action("place:"+p[1])
-  "decor":_cancel_world_drag();pending_decor=p[1];modal="";build=false;sim.state["paused"]=true
+  "decor":_cancel_world_drag();decor_previous_pause=sim.state["paused"];pending_decor=p[1];decor_point=Vector2i(2,2);modal="";build=false;sim.state["paused"]=true
   "decor_remove":Style.remove(sim)
   "floor_next":
    var floors=Style.FLOORS.keys();style["floor"]=floors[(floors.find(style["floor"])+1)%floors.size()];style["floor_image"]=""
@@ -2407,7 +2482,8 @@ func _workshop_action(action:String) -> bool:
   "qte_toggle":ops["qte_enabled"]=not ops["qte_enabled"]
   "assist_toggle":ops["assist"]=not ops["assist"]
   "events_toggle":ops["event_enabled"]=not ops["event_enabled"]
-  "event":Ops.resolve_event(sim,p[1])
+  "event":
+   if Ops.resolve_event(sim,p[1]) and p[1]=="artwork" and int(ops.get("artwork_order",-1))>=0:selected_order=int(ops["artwork_order"]);modal="artwork"
   "intervene":
    var o=sim.order(selected_order);var kind="registration" if o.get("type","")=="sticker" else "press"
    if Ops.begin_qte(sim,selected_order,kind):qte_previous_pause=sim.state["paused"];sim.state["paused"]=true;modal="intervention"
@@ -2418,11 +2494,19 @@ func _workshop_action(action:String) -> bool:
    if Ops.qte_result(sim,p[0]=="qte_skip"):sim.state["paused"]=qte_previous_pause;modal="order";sim.save_game()
   "photo_mode":
    if screen!="shop":return true
+   Photo.ensure(sim)
    _cancel_world_drag();photo_previous={"paused":sim.state["paused"],"zoom":zoom,"offset":offset,"origin":origin,"modal":modal,"build":build}
    photo_active=true;sim.state["paused"]=true;modal="";build=false;reset_camera();status="";return true
   "photo_close":
    if photo_busy:return true
    photo_active=false;sim.state["paused"]=photo_previous.get("paused",true);zoom=photo_previous.get("zoom",zoom);offset=photo_previous.get("offset",offset);origin=photo_previous.get("origin",origin);modal=photo_previous.get("modal","");build=photo_previous.get("build",false)
+  "photo_logo","photo_watermark","photo_corner","photo_opacity":
+   Photo.ensure(sim);var brand=sim.state["style"]["photo"]
+   if action=="photo_logo":brand["logo"]=not brand["logo"]
+   elif action=="photo_watermark":brand["watermark"]=not brand["watermark"]
+   elif action=="photo_corner":brand["corner"]=(int(brand["corner"])+1)%4
+   else:brand["opacity"]=.25 if float(brand["opacity"])>=1.0 else float(brand["opacity"])+.25
+   return true
   "photo_format":photo_format=int(p[1]);return true
   "photo_export":Photo.export_png(self,int(p[1]));return true
   "photo_imported":photo_imported=not photo_imported;return true
@@ -2484,3 +2568,8 @@ func _cash_bridge_panel() -> void:
   _text(Vector2(1060,y),"$%.0f" % rows[i][1],18,BLUE)
  _text(Vector2(389,669),"Stock consumption is already paid through inventory purchases; it is not charged twice.",16,MUTED,810)
  _button(Rect2(389,715,818,40),"BACK TO DAY REPORT","report",NAVY)
+
+func _commit_decor(at:Vector2i) -> void:
+ var moved=Style.move(sim,moving_decor,at) if moving_decor!="" else Style.place(sim,pending_decor,at)
+ if moved:
+  _cancel_world_drag();sim.save_game()

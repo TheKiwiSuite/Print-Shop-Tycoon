@@ -55,7 +55,7 @@ jobs:
           engine="$RUNNER_TEMP/godot/Godot_v4.5.1-stable_linux.x86_64"
           "$engine" --headless --path source --editor --import
           mkdir -p "$(realpath -m source/../../../work)"
-          for test in workshop_operations workshop_visual_review demo_shop strategy_visual_review updater_security strategy_growth native_release_walkthrough handoff_recovery acceptance customer_loop sales_growth customer_walking session_reliability illustrated_equipment rotation_stability illustrated_ui ui_dtf_placement wall_visual_review shop_workspace window_controls; do
+          for test in studio_operations studio_visual_review workshop_operations workshop_visual_review demo_shop strategy_visual_review updater_security strategy_growth native_release_walkthrough handoff_recovery acceptance customer_loop sales_growth customer_walking session_reliability illustrated_equipment rotation_stability illustrated_ui ui_dtf_placement wall_visual_review shop_workspace window_controls; do
             timeout 120 xvfb-run -a "$engine" --path source --rendering-method gl_compatibility --audio-driver Dummy --script "res://test/$test.gd" 2>&1 | tee "$RUNNER_TEMP/$test.log"
             if grep -E 'SCRIPT ERROR:|ERROR:|FAIL:' "$RUNNER_TEMP/$test.log"; then exit 1; fi
           done
@@ -98,6 +98,9 @@ jobs:
           sha256sum "PrintShopTycoon-Editable-Source-v${GAME_VERSION}.zip" > "PrintShopTycoon-Editable-Source-v${GAME_VERSION}.zip.sha256"
           zip -qr "PrintShopTycoon-Windows-v${GAME_VERSION}.zip" PrintShopTycoon
           sha256sum "PrintShopTycoon-Windows-v${GAME_VERSION}.zip" > "PrintShopTycoon-Windows-v${GAME_VERSION}.zip.sha256"
+          cd ..
+          mkdir -p source-archive/release
+          mv release/PrintShopTycoon-Editable-Source-* source-archive/release/
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
@@ -107,6 +110,11 @@ jobs:
             release/*.sha256
             captures/strategy-review/**
             verification/strategy-balance.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: tycoon-source-${{ github.sha }}
+          path: source-archive/
           if-no-files-found: error
   native_windows:
     needs: [windows, updater_tests]
@@ -142,6 +150,19 @@ jobs:
             $marker = if ($suite -eq 'updater_walkthrough') { 'UPDATER SECURITY:.*0 failures / Windows' } else { 'NATIVE RELEASE WALKTHROUGH:.*0 failures / Windows' }
             if (!(Select-String -LiteralPath $log -Pattern $marker -Quiet)) { throw 'Missing Windows completion marker.' }
           }
+      - name: Validate the real Windows desktop accessibility and input
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $destination = Join-Path $env:RUNNER_TEMP 'tycoon-native'
+          $folder = Join-Path $destination 'PrintShopTycoon/windows'
+          $chrome = Get-ChildItem 'C:/Program Files/Google/Chrome/Application/*/libEGL.dll' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (!$chrome) { $chrome = Get-ChildItem 'C:/Program Files (x86)/Microsoft/Edge/Application/*/libEGL.dll' -ErrorAction SilentlyContinue | Select-Object -First 1 }
+          if (!$chrome) { throw 'Runner official browser ANGLE runtime was not found.' }
+          Copy-Item $chrome.FullName $folder
+          Copy-Item (Join-Path $chrome.DirectoryName 'libGLESv2.dll') $folder
+          New-Item -ItemType Directory -Force -Path native-validation/desktop | Out-Null
+          ./updater/Test-Desktop.ps1 -Executable (Join-Path $folder 'Print Shop Tycoon.exe') -OutputDirectory native-validation/desktop 2>&1 | Tee-Object -FilePath native-validation/desktop/acceptance.log
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
@@ -167,7 +188,7 @@ jobs:
         run: |
           set -euo pipefail
           cd build
-          zip -qr "release/PrintShopTycoon-QA-v${GAME_VERSION}.zip" captures verification native_windows.log updater_windows.log
+          zip -qr "release/PrintShopTycoon-QA-v${GAME_VERSION}.zip" captures verification native_windows.log updater_windows.log desktop
           cd release
           sha256sum "PrintShopTycoon-QA-v${GAME_VERSION}.zip" > "PrintShopTycoon-QA-v${GAME_VERSION}.zip.sha256"
       - name: Publish validated Windows alpha download
@@ -180,7 +201,7 @@ jobs:
           set -euo pipefail
           [[ "$(gh api "repos/$GH_REPO/commits/main" --jq .sha)" == "$GITHUB_SHA" ]]
           tag="v${GAME_VERSION}-windows-alpha"
-          notes='Windows x86_64 alpha built from the recorded source commit with Godot 4.5.1. Extract the Windows ZIP and open windows/Print Shop Tycoon.exe. Difficulty, forecasts, staged growth, repeat clients, shared DTF batches, accessibility controls and task-driven visual cues are described in RELEASE-NOTES.md. The separate QA ZIP includes the render matrix, 14-day balance runs and automated walkthrough of the actual packaged Windows executable. Manual Windows display scaling and assistive-technology acceptance remain unverified. This alpha is unsigned.'
+          notes='Workshop completion update: individual decor movement, custom shop signage, negotiated artwork revisions, illustrated official project links, and optional photo logo/watermark controls. Existing career and demo saves remain separate. Extract the Windows ZIP and open windows/Print Shop Tycoon.exe, or use the in-game verified updater. Separate editable-source and QA archives are included. QA covers production, saves, balance, renders, exports and actual Windows desktop accessibility/input/focus. Human screen-reader listening and OS monitor-scaling acceptance are not certified. This alpha is unsigned.'
           if gh release view "$tag" >/dev/null 2>&1; then
             echo "Release version already exists. Increment the version; published updates are immutable."
             exit 1

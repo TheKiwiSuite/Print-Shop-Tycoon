@@ -127,7 +127,7 @@ func run() -> void:
  game.sim.state["paused"]=false;var oldzoom=game.zoom;var oldoffset=game.offset
  game._action("photo_mode");check(game.photo_active and game.sim.state["paused"],"Photo mode freezes shop")
  game._action("photo_close");check(not game.photo_active and not game.sim.state["paused"] and game.zoom==oldzoom and game.offset==oldoffset,"Leaving photo restores pause and camera exactly")
- check(Banner.read_config("res://config/partner-banners.json").is_empty(),"Release banner stays hidden without configured URLs")
+ check(Banner.read_config("res://config/partner-banners.json").size()==2,"Release ships two explicit official project links with local artwork")
  for arg in OS.get_cmdline_user_args():
   if arg.begins_with("--review-saves="):
    for name in ["career-nine-paid-expanded-no-fitout.json","demo-three-paid-expanded-no-fitout.json"]:

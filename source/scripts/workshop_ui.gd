@@ -53,7 +53,7 @@ static func draw(g) -> void:
    for i in ids.size():
     var id=ids[i];var spec=Style.DECOR[id]
     g._button(Rect2(389+(i%2)*414,298+floori(i/2.0)*45,404,37),spec["title"]+"  $"+str(spec["price"]),"decor:"+id,g.CREAM,true,14)
-   g._button(Rect2(803,388,404,37),"REMOVE LAST DECOR","decor_remove",g.CREAM,not style["decor"].is_empty(),14)
+   g._button(Rect2(803,388,404,37),"MOVE DECOR + SHOP SIGN","studio",g.CREAM,true,14)
    g._button(Rect2(389,454,397,39),"FLOOR: "+style["floor"],"floor_next",g.CYAN,true,16)
    g._button(Rect2(801,454,406,39),"IMPORT LOCAL PNG FLOOR","floor_import",g.CREAM,true,15)
    g._button(Rect2(389,508,397,39),"WORKER: "+s.worker(g.style_worker)["name"],"outfit_worker",g.CREAM,true,15)
@@ -69,7 +69,7 @@ static func draw(g) -> void:
    g._text(Vector2(389,475),"SHOP DECISION: "+str(event.get("kind","None waiting")),22,g.BLUE)
    if not event.is_empty():
     var kind=event["kind"]
-    var choices={"supplier":[["Expedite supplies $25","expedite"],["Accept 15 shop-minute delay","delay"]],"artwork":[["Keep accepted artwork and terms","keep"]],"absence":[["Pay $45 for shift cover","cover"],["Accept one worker absence today","absence"]],"opportunity":[["Review rare project / equipment may be required","opportunity"],["Decline with no trust penalty","keep"]]}
+    var choices={"supplier":[["Expedite supplies $25","expedite"],["Accept 15 shop-minute delay","delay"]],"artwork":[["Review artwork-change request / new print quote","artwork"],["Keep accepted artwork and terms","keep"]],"absence":[["Pay $45 for shift cover","cover"],["Accept one worker absence today","absence"]],"opportunity":[["Review rare project / equipment may be required","opportunity"],["Decline with no trust penalty","keep"]]}
     for i in choices[kind].size():g._button(Rect2(389,508+i*53,818,42),choices[kind][i][0],"event:"+choices[kind][i][1],g.YELLOW,true,17)
    g._button(Rect2(389,654,818,39),"DAILY HURDLES: "+("ON" if o["event_enabled"] else "OFF"),"events_toggle",g.CREAM,true,16)
  g._line(Vector2(389,729),str(s.state["notices"][0]),14,g.BLUE,810)

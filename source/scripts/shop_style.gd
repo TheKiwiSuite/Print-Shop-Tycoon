@@ -3,49 +3,96 @@ const DECOR={"shirt_rack":{"price":120,"width":2,"title":"T-shirt display rack"}
 const FLOORS={"Original":"", "Warm oak":"d5a969","Cool concrete":"a9b4bf","Blue tile":"91b6c9","Graphite":"707d89","Cream tile":"ddd6be"}
 const OUTFITS=["Workshop","Blue apron","Red apron","Executive suit"]
 static func ensure(s) -> void:
- if not s.state.get("style") is Dictionary:s.state["style"]={"decor":[],"floor":"Original","floor_image":"","outfits":{},"shop_name":"My Print Shop","next_decor":0}
+ if not s.state.get("style") is Dictionary:s.state["style"]={}
+ var defaults={"decor":[],"floor":"Original","floor_image":"","outfits":{},"shop_name":"My Print Shop","next_decor":0}
+ for key in defaults:
+  if not s.state["style"].has(key):s.state["style"][key]=defaults[key]
+static func item(s,id:String) -> Dictionary:
+ ensure(s)
+ for decor in s.state["style"]["decor"]:
+  if decor["id"]==id:return decor
+ return {}
+static func _validate_layout(s) -> String:
+ var occupied={};var size=s.bounds()
+ for decor in s.state["style"]["decor"]:
+  for dx in int(decor["width"]):
+   var at=s.cell(decor["pos"])+Vector2i(dx,0)
+   if not s.inside(at) or at==s.entrance() or occupied.has(at):return "Decor needs clear floor inside the shop and must preserve the entrance."
+   occupied[at]=true
+ for decor_cell in occupied:
+  for w in s.state["workers"]:
+   if s.cell(w["pos"])==decor_cell:return "A worker is standing there. Choose clear floor."
+  for actor in s.visible_customers():
+   if s.cell(actor["pos"])==decor_cell:return "A customer is standing there. Choose clear floor."
+ # Placement feedback checks all physical footprints and DTF loading clearances.
+ # Suppress only the 'moving busy machine' guard: no machine is actually moved.
+ var actual=s.state["machines"];var check_machines=actual.duplicate(true)
+ for m in check_machines.values():m["active"]=-1;m.erase("service_work")
+ s.state["machines"]=check_machines
+ var reason=""
+ for id in check_machines:
+  var m=check_machines[id]
+  var feedback=s.placement_feedback(id,s.cell(m["pos"]),int(m["rotation"]),s.facing_of(m),s.equipment_center(id,check_machines))
+  if not feedback["valid"]:reason=feedback["reason"]
+  break
+ s.state["machines"]=actual
+ if reason!="":return reason
+ var routes={}
+ for w in s.state["workers"]:
+  if w["path"].is_empty():continue
+  var goal=s.cell(w["path"][-1]);var route=s.path(s.cell(w["pos"]),goal)
+  if goal!=s.cell(w["pos"]) and route.is_empty():return "That display would cut off a worker's route."
+  routes[w["id"]]=route
+ for id in routes:s.worker(id)["path"]=routes[id]
+ s._reroute_customers();return ""
 static func place(s,kind:String,at:Vector2i) -> bool:
  ensure(s)
  if not DECOR.has(kind):return false
  var spec=DECOR[kind]
  if s.state["cash"]<spec["price"]:s.notice("Not enough cash for this decor.");return false
- var block=s.blocked()
- for x in int(spec["width"]):
-  var cell=at+Vector2i(x,0)
-  if not s.inside(cell) or block.has(cell) or cell==s.entrance():s.notice("Decor needs clear floor and must preserve access.");return false
-  for w in s.state["workers"]:
-   if s.cell(w["pos"])==cell:return false
- var item={"id":"decor-"+str(s.state["style"]["next_decor"]),"kind":kind,"pos":[at.x,at.y],"width":spec["width"],"unbox":.8}
- for actor in s.visible_customers():
-  var actor_cell=s.cell(actor["pos"])
-  if actor_cell.y==at.y and actor_cell.x>=at.x and actor_cell.x<at.x+int(spec["width"]):s.notice("A customer is standing there. Choose clear floor.");return false
- s.state["style"]["decor"].append(item)
- for id in s.state["machines"]:
-  if s.path(s.entrance(),s.service(id)).is_empty() and s.entrance()!=s.service(id):
-   s.state["style"]["decor"].pop_back();s.notice("That position would block a station's service route.");return false
- # Check complete equipment clearances, including the DTF loading / film span.
- for id in s.state["machines"]:
-  var m=s.state["machines"][id]
-  var feedback=s.placement_feedback(id,s.cell(m["pos"]),int(m["rotation"]),s.facing_of(m),s.equipment_center(id,s.state["machines"]))
-  if not feedback["valid"]:
-   s.state["style"]["decor"].pop_back();s.notice(feedback["reason"]);return false
-  break
- # Resolve saved walking routes before the new display can obstruct them.
- var routes={}
- for w in s.state["workers"]:
-  if w["path"].is_empty():continue
-  var goal=s.cell(w["path"][-1]);var route=s.path(s.cell(w["pos"]),goal)
-  if goal!=s.cell(w["pos"]) and route.is_empty():
-   s.state["style"]["decor"].pop_back();s.notice("That display would cut off a worker's route.");return false
-  routes[w["id"]]=route
- for id in routes:s.worker(id)["path"]=routes[id]
- s._reroute_customers()
+ var before=s.state.duplicate(true)
+ s.state["style"]["decor"].append({"id":"decor-"+str(s.state["style"]["next_decor"]),"kind":kind,"pos":[at.x,at.y],"width":spec["width"]})
+ var reason=_validate_layout(s)
+ if reason!="":s.state=before;s.notice(reason);return false
  s.state["style"]["next_decor"]+=1;s.state["cash"]-=spec["price"];s.state["stats"]["capex"]=s.state["stats"].get("capex",0)+spec["price"]
- s.notice("Placed "+spec["title"]+". Decor changes presentation, not machine throughput.");s.save_game();return true
-static func remove(s) -> bool:
+ s.notice("Placed "+spec["title"]+". Decor changes presentation, not machine throughput.")
+ if not s.save_game():s.state=before;return false
+ return true
+static func move(s,id:String,at:Vector2i) -> bool:
+ var decor=item(s,id)
+ if decor.is_empty():return false
+ var before=s.state.duplicate(true);decor["pos"]=[at.x,at.y]
+ var reason=_validate_layout(s)
+ if reason!="":s.state=before;s.notice(reason);return false
+ s.notice("Display moved. Cash, ownership and its saved ID are unchanged.")
+ if not s.save_game():s.state=before;return false
+ return true
+static func remove(s,id:String="") -> bool:
  ensure(s)
- if s.state["style"]["decor"].is_empty():return false
- s.state["style"]["decor"].pop_back();s._reroute_customers();s.notice("Last decor item removed. No resale cash is invented.");return true
+ var items=s.state["style"]["decor"]
+ if items.is_empty():return false
+ if id=="":id=items[-1]["id"]
+ var decor=item(s,id)
+ if decor.is_empty():return false
+ var before=s.state.duplicate(true);items.erase(decor);s._reroute_customers()
+ s.notice("Selected decor removed. No resale cash is created.")
+ if not s.save_game():s.state=before;return false
+ return true
+static func rename_shop(s,value:String) -> bool:
+ ensure(s)
+ var name=""
+ for character in value:
+  var code=character.unicode_at(0)
+  if code>=32 and code!=127:name+=character
+ name=name.strip_edges()
+ if name.is_empty() or name.length()>40:s.notice("Enter a shop name from 1 to 40 characters.");return false
+ var previous=s.state["style"]["shop_name"];s.state["style"]["shop_name"]=name
+ if not s.save_game():s.state["style"]["shop_name"]=previous;return false
+ s.notice("Shop sign saved: "+name);return true
+static func sign_lines(s) -> Array:
+ var name=str(s.state.get("style",{}).get("shop_name","My Print Shop"));var lines=[]
+ while name.length()>0:lines.append(name.left(12));name=name.substr(12)
+ return lines
 static func import_png(s,path:String) -> bool:
  ensure(s)
  if path.get_extension().to_lower()!="png":s.notice("Choose a PNG image.");return false
