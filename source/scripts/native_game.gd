@@ -800,7 +800,9 @@ func _button(r:Rect2, title:String, action:String, color:Color=CYAN, enabled:boo
 
 func _sync_shop_name_editor() -> void:
  if shop_name_edit!=null:
-  shop_name_edit.visible=modal=="studio"
+  var editor_visible=modal=="studio"
+  if shop_name_edit.visible!=editor_visible:
+   shop_name_edit.visible=editor_visible;shop_name_edit.queue_accessibility_update()
   shop_name_edit.position=Vector2(389,247)+_modal_offset();shop_name_edit.size=Vector2(610,42)
 
 func _sync_accessibility() -> void:
@@ -822,11 +824,13 @@ func _sync_accessibility() -> void:
   # Text is custom-drawn. Keep the semantic control free of theme text minimums.
   var label=b.get("label",key.replace(":"," ").replace("_"," "))
   button.text="";button.position=b["rect"].position;button.size=b["rect"].size
-  button.accessibility_name="Close dialog" if action=="close" and label=="X" else label;button.visible=true
+  button.accessibility_name="Close dialog" if action=="close" and label=="X" else label
+  if not button.visible:button.show();button.queue_accessibility_update()
   button.disabled=not b.get("enabled",true)
   if not button.disabled:ordered.append(button)
  for key in accessible_buttons:
-  if not seen.has(key): accessible_buttons[key].hide()
+  if not seen.has(key) and accessible_buttons[key].visible:
+   accessible_buttons[key].hide();accessible_buttons[key].queue_accessibility_update()
  if shop_name_edit!=null and shop_name_edit.visible:ordered.append(shop_name_edit)
  ordered.sort_custom(func(a,b):return a.position.x<b.position.x if absf(a.position.y-b.position.y)<8 else a.position.y<b.position.y)
  for i in ordered.size():
