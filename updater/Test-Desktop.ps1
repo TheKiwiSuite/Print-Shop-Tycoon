@@ -38,10 +38,10 @@ function Wait-State([scriptblock]$Predicate,[string]$Label) {
  Assert $false $Label
 }
 function Button([string]$Name) {
- $condition=New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty,$Name)
  for($i=0;$i -lt 50;$i++) {
-  $element=$script:window.FindFirst([System.Windows.Automation.TreeScope]::Descendants,$condition)
-  if($null -ne $element){return $element}
+  # AccessKit's Windows provider can append whitespace to an accessible label.
+  $elements=$script:window.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
+  foreach($element in $elements) {if($element.Current.Name.Trim() -eq $Name){return $element}}
   Start-Sleep -Milliseconds 100
  }
  throw "Accessible control not found: $Name"
@@ -148,6 +148,7 @@ try {
  $metadata | ConvertTo-Json -Depth 10 | Set-Content (Join-Path $OutputDirectory 'windows-desktop.json')
  Write-Host "WINDOWS DESKTOP ACCEPTANCE: $script:checks checks, 0 failures"
 } finally {
+ try {State | ConvertTo-Json -Depth 20 | Set-Content (Join-Path $OutputDirectory 'last-desktop-state.json')} catch {}
  if($null -ne $process -and !$process.HasExited){$process.CloseMainWindow() | Out-Null;if(!$process.WaitForExit(5000)){$process.Kill()}}
  if(Test-Path $log){Get-Content -LiteralPath $log}
 }
