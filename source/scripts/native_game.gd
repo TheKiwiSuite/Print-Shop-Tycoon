@@ -79,6 +79,7 @@ var machine_images={}
 var atlas_tiles={}
 var atlas_regions = [Rect2(20,22,358,320),Rect2(394,13,355,317),Rect2(781,33,363,317),Rect2(1164,15,365,348),Rect2(20,344,351,333),Rect2(390,362,379,299),Rect2(782,366,381,314),Rect2(1230,348,269,349),Rect2(49,667,304,337),Rect2(481,667,172,349),Rect2(862,669,167,348),Rect2(1133,689,370,312)]
 var buttons = []
+var semantic_buttons=[]
 var world_hits = []
 var worker_hits = []
 var customer_hits = []
@@ -549,7 +550,8 @@ func _interact_nearby() -> void:
  else: selected_machine=nearest; modal="machine"
 
 func _draw() -> void:
- buttons.clear(); world_hits.clear(); worker_hits.clear(); customer_hits.clear(); output_hits.clear()
+ _sync_shop_name_editor()
+ buttons.clear();semantic_buttons.clear(); world_hits.clear(); worker_hits.clear(); customer_hits.clear(); output_hits.clear()
  world_labels.clear()
  _world()
  if not (photo_render or photo_active):_draw_world_labels()
@@ -789,32 +791,39 @@ func _button(r:Rect2, title:String, action:String, color:Color=CYAN, enabled:boo
  while size>11 and font.get_string_size(title,HORIZONTAL_ALIGNMENT_LEFT,-1,size).x>r.size.x-12: size-=1
  var w=font.get_string_size(title,HORIZONTAL_ALIGNMENT_LEFT,-1,size).x
  _line(r.position+Vector2(maxf(6,(r.size.x-w)*0.5),r.size.y*0.5+size*0.36),title,size,text_color if enabled else INK,r.size.x-12)
+ semantic_buttons.append({"rect":Rect2(r.position+ui_offset,r.size),"action":action,"label":title,"enabled":enabled})
  if enabled:
   buttons.append({"rect":Rect2(r.position+ui_offset,r.size),"action":action,"label":title})
-  if accessible_buttons.has(action) and accessible_buttons[action].has_focus():
-   draw_rect(r.grow(3),YELLOW,false,3)
+  for control in accessible_buttons.values():
+   if control.visible and control.has_focus() and control.position==r.position+ui_offset:
+    draw_rect(r.grow(3),YELLOW,false,3);break
 
-func _sync_accessibility() -> void:
+func _sync_shop_name_editor() -> void:
  if shop_name_edit!=null:
   shop_name_edit.visible=modal=="studio"
   shop_name_edit.position=Vector2(389,247)+_modal_offset();shop_name_edit.size=Vector2(610,42)
- var seen={};var ordered=[]
- for b in buttons:
-  var key=b["action"]
-  if seen.has(key): continue
+
+func _sync_accessibility() -> void:
+ _sync_shop_name_editor()
+ var seen={};var ordered=[];var occurrences={}
+ var controls=semantic_buttons if not semantic_buttons.is_empty() else buttons
+ for b in controls:
+  var action=b["action"];var count=int(occurrences.get(action,0))+1;occurrences[action]=count
+  var key=action if count==1 else action+"#"+str(count)
   seen[key]=true
   if not accessible_buttons.has(key):
    var control=Button.new()
    control.flat=true;control.focus_mode=Control.FOCUS_ALL
    control.mouse_filter=Control.MOUSE_FILTER_IGNORE
    control.self_modulate=Color(1,1,1,0)
-   control.pressed.connect(_action.bind(key))
+   control.pressed.connect(_action.bind(action))
    add_child(control);accessible_buttons[key]=control
   var button:Button=accessible_buttons[key]
   button.position=b["rect"].position;button.size=b["rect"].size
   button.text=b.get("label",key.replace(":"," ").replace("_"," "))
-  button.accessibility_name="Close dialog" if key=="close" and button.text=="X" else button.text;button.visible=true
-  ordered.append(button)
+  button.accessibility_name="Close dialog" if action=="close" and button.text=="X" else button.text;button.visible=true
+  button.disabled=not b.get("enabled",true)
+  if not button.disabled:ordered.append(button)
  for key in accessible_buttons:
   if not seen.has(key): accessible_buttons[key].hide()
  if shop_name_edit!=null and shop_name_edit.visible:ordered.append(shop_name_edit)
@@ -1551,7 +1560,7 @@ func _tutorial_hint(o:Dictionary) -> String:
 
 func _modal() -> void:
  record_modal_text=true;modal_accessible_text=[]
- buttons.clear()
+ buttons.clear();semantic_buttons.clear()
  draw_rect(Rect2(-ui_offset,_screen_size()),Color(0.015,0.055,0.14,0.42))
  match modal:
   "cash_bridge":_cash_bridge_panel()

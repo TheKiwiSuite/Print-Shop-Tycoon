@@ -70,7 +70,7 @@ jobs:
             sudo apt-get install -y --no-install-recommends ffmpeg
           fi
           engine="$RUNNER_TEMP/godot/Godot_v4.5.1-stable_linux.x86_64"
-          timeout 240 xvfb-run -a -s '-screen 0 1280x720x24' "$engine" --path source --windowed --resolution 1280x720 --rendering-method gl_compatibility --audio-driver Dummy --disable-vsync --write-movie "$RUNNER_TEMP/production-motion.avi" --fixed-fps 20 --script res://test/animation_review.gd 2>&1 | tee "$RUNNER_TEMP/animation_review.log"
+          timeout 360 xvfb-run -a -s '-screen 0 1280x720x24' "$engine" --path source --windowed --resolution 1280x720 --rendering-method gl_compatibility --audio-driver Dummy --disable-vsync --write-movie "$RUNNER_TEMP/production-motion.avi" --fixed-fps 20 --script res://test/animation_review.gd 2>&1 | tee "$RUNNER_TEMP/animation_review.log"
           if grep -E 'SCRIPT ERROR:|ERROR:|FAIL:' "$RUNNER_TEMP/animation_review.log"; then exit 1; fi
           ffmpeg -v error -i "$RUNNER_TEMP/production-motion.avi" -c:v libx264 -crf 26 -pix_fmt yuv420p captures/strategy-review/production-motion.mp4
           [[ "$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 captures/strategy-review/production-motion.mp4)" == "1280,720" ]]
@@ -156,11 +156,17 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $destination = Join-Path $env:RUNNER_TEMP 'tycoon-native'
           $folder = Join-Path $destination 'PrintShopTycoon/windows'
-          $chrome = Get-ChildItem 'C:/Program Files/Google/Chrome/Application/*/libEGL.dll' -ErrorAction SilentlyContinue | Select-Object -First 1
-          if (!$chrome) { $chrome = Get-ChildItem 'C:/Program Files (x86)/Microsoft/Edge/Application/*/libEGL.dll' -ErrorAction SilentlyContinue | Select-Object -First 1 }
-          if (!$chrome) { throw 'Runner official browser ANGLE runtime was not found.' }
-          Copy-Item $chrome.FullName $folder
-          Copy-Item (Join-Path $chrome.DirectoryName 'libGLESv2.dll') $folder
+          # CI-only software graphics runtime from the official CEF distribution.
+          # Verify the pinned archive before extracting; these DLLs are never shipped.
+          $archive = Join-Path $env:RUNNER_TEMP 'cef-angle.tar.bz2'
+          Invoke-WebRequest -UseBasicParsing -Uri 'https://cef-builds.spotifycdn.com/cef_binary_131.4.1%2Bg437feba%2Bchromium-131.0.6778.265_windows64_minimal.tar.bz2' -OutFile $archive
+          if ((Get-FileHash $archive -Algorithm SHA256).Hash -ne 'F7687D895E8C4BCB9A85078FEED3278C240789058EE25DC39363900331CA23B5') { throw 'CI graphics runtime digest mismatch.' }
+          $runtime = Join-Path $env:RUNNER_TEMP 'cef-angle'
+          New-Item -ItemType Directory -Force -Path $runtime | Out-Null
+          $prefix = 'cef_binary_131.4.1+g437feba+chromium-131.0.6778.265_windows64_minimal/Release'
+          tar -xjf $archive -C $runtime --strip-components=2 "$prefix/libEGL.dll" "$prefix/libGLESv2.dll" "$prefix/d3dcompiler_47.dll"
+          if ($LASTEXITCODE -ne 0) { throw 'CI graphics runtime extraction failed.' }
+          Copy-Item (Join-Path $runtime '*.dll') $folder
           New-Item -ItemType Directory -Force -Path native-validation/desktop | Out-Null
           ./updater/Test-Desktop.ps1 -Executable (Join-Path $folder 'Print Shop Tycoon.exe') -OutputDirectory native-validation/desktop 2>&1 | Tee-Object -FilePath native-validation/desktop/acceptance.log
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

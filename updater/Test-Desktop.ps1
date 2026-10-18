@@ -23,7 +23,7 @@ function Assert([bool]$Value,[string]$Label) {
 }
 function State {
  for($i=0;$i -lt 30;$i++) {
-  try {if(Test-Path $script:statePath){return (Get-Content -LiteralPath $script:statePath -Raw | ConvertFrom-Json)}} catch {}
+  try {if(Test-Path $script:statePath){$parsed=Get-Content -LiteralPath $script:statePath -Raw | ConvertFrom-Json;if($null -ne $parsed -and $null -ne $parsed.owner -and $parsed.screen){return $parsed}}} catch {}
   Start-Sleep -Milliseconds 100
  }
  throw 'Desktop QA state not available.'
@@ -64,7 +64,7 @@ $log=Join-Path $OutputDirectory 'game-desktop.log'
 $process=$null
 try {
  # ANGLE DLLs are supplied only to this disposable CI validation folder from
- # the runner's already-installed official Chrome. They are not shipped to players.
+ # a digest-verified official CEF archive. They are not shipped to players.
  $arguments=@('--windowed','--resolution','1280x720','--position','20,20','--rendering-method','gl_compatibility','--rendering-driver','opengl3_angle','--audio-driver','Dummy','--accessibility','always','--max-fps','60','--log-file',('"{0}"' -f $log),'--','--qa-desktop')
  $process=Start-Process -FilePath $Executable -ArgumentList $arguments -PassThru
  $process.Refresh()

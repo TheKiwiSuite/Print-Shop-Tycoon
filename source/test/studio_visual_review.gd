@@ -11,14 +11,19 @@ func check(ok:bool,label:String) -> void:
  if not ok:failures+=1;push_error("FAIL: "+label)
 func _initialize():call_deferred("run")
 func capture(name:String) -> void:
- game.queue_redraw();await process_frame;await RenderingServer.frame_post_draw;game._sync_accessibility()
+ game._sync_shop_name_editor();game.queue_redraw();await process_frame;await RenderingServer.frame_post_draw
+ game._sync_accessibility();game.queue_redraw();await process_frame;await RenderingServer.frame_post_draw
+ check(game.shop_name_edit.visible==(game.modal=="studio"),"Name editor belongs only to studio "+name)
  var image=game.get_viewport().get_texture().get_image();check(not image.is_empty(),"Render "+name)
  if not image.is_empty():image.save_png(folder.path_join(name+".png"))
  for i in game.buttons.size():
   var a=game.buttons[i]
   check(Rect2(Vector2.ZERO,game._screen_size()).encloses(a["rect"]),"Button fits "+name+" / "+a["action"])
   for j in range(i+1,game.buttons.size()):check(not a["rect"].intersects(game.buttons[j]["rect"]),"No button conflict "+name+" / "+a["action"]+" / "+game.buttons[j]["action"])
-  check(game.accessible_buttons.has(a["action"]) and game.accessible_buttons[a["action"]].accessibility_name!="","Control has semantic name "+a["action"])
+  var semantic=false
+  for control in game.accessible_buttons.values():
+   if control.visible and control.position==a["rect"].position and control.size==a["rect"].size and control.accessibility_name!="":semantic=true;break
+  check(semantic,"Every visible button has its own semantic control "+a["action"])
  if game.modal=="studio":
   for button in game.buttons:check(not button["rect"].intersects(Rect2(game.shop_name_edit.position,game.shop_name_edit.size)),"Shop name field clears button "+button["action"])
 func run() -> void:
