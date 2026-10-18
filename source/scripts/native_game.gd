@@ -819,9 +819,10 @@ func _sync_accessibility() -> void:
    control.pressed.connect(_action.bind(action))
    add_child(control);accessible_buttons[key]=control
   var button:Button=accessible_buttons[key]
-  button.position=b["rect"].position;button.size=b["rect"].size
-  button.text=b.get("label",key.replace(":"," ").replace("_"," "))
-  button.accessibility_name="Close dialog" if action=="close" and button.text=="X" else button.text;button.visible=true
+  # Text is custom-drawn. Keep the semantic control free of theme text minimums.
+  var label=b.get("label",key.replace(":"," ").replace("_"," "))
+  button.text="";button.position=b["rect"].position;button.size=b["rect"].size
+  button.accessibility_name="Close dialog" if action=="close" and label=="X" else label;button.visible=true
   button.disabled=not b.get("enabled",true)
   if not button.disabled:ordered.append(button)
  for key in accessible_buttons:
