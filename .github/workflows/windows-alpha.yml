@@ -1,217 +1,40 @@
-name: Package Windows alpha
+name: Windows desktop probe
 on:
   push:
-    branches: [main, 'codex/**']
-    paths: [.github/workflows/windows-alpha.yml, 'source/**', 'Build-Release.ps1', 'Run-QA.ps1', 'updater/**']
-  workflow_dispatch:
+    branches: ['codex/desktop-acceptance-probe']
 permissions:
   contents: read
-concurrency:
-  group: tycoon-windows-alpha-${{ github.ref }}
-  cancel-in-progress: true
 jobs:
-  updater_tests:
+  desktop:
     runs-on: windows-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - name: Verify updater recovery and rejection cases
-        shell: powershell
-        run: ./updater/Test-Updater.ps1
-  windows:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: write
-    outputs:
-      version: ${{ steps.game.outputs.version }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - name: Install matching official Godot engine and templates
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/godot"
-          cd "$RUNNER_TEMP/godot"
-          base=https://github.com/godotengine/godot/releases/download/4.5.1-stable
-          curl --fail --location --retry 3 "$base/SHA512-SUMS.txt" -o SHA512-SUMS.txt
-          for file in Godot_v4.5.1-stable_linux.x86_64.zip Godot_v4.5.1-stable_export_templates.tpz; do
-            curl --fail --location --retry 3 "$base/$file" -o "$file"
-            grep " $file$" SHA512-SUMS.txt | sha512sum --check --strict
-          done
-          unzip -q Godot_v4.5.1-stable_linux.x86_64.zip
-          chmod +x Godot_v4.5.1-stable_linux.x86_64
-          unzip -q Godot_v4.5.1-stable_export_templates.tpz
-          mkdir -p "$HOME/.local/share/godot/export_templates/4.5.1.stable"
-          mv templates/* "$HOME/.local/share/godot/export_templates/4.5.1.stable/"
-      - name: Import and verify native simulation
-        shell: bash
-        run: |
-          set -euo pipefail
-          engine="$RUNNER_TEMP/godot/Godot_v4.5.1-stable_linux.x86_64"
-          "$engine" --headless --path source --editor --import
-          mkdir -p "$(realpath -m source/../../../work)"
-          for test in studio_operations studio_visual_review workshop_operations workshop_visual_review demo_shop strategy_visual_review updater_security strategy_growth native_release_walkthrough handoff_recovery acceptance customer_loop sales_growth customer_walking session_reliability illustrated_equipment rotation_stability illustrated_ui ui_dtf_placement wall_visual_review shop_workspace window_controls; do
-            timeout 120 xvfb-run -a "$engine" --path source --rendering-method gl_compatibility --audio-driver Dummy --script "res://test/$test.gd" 2>&1 | tee "$RUNNER_TEMP/$test.log"
-            if grep -E 'SCRIPT ERROR:|ERROR:|FAIL:' "$RUNNER_TEMP/$test.log"; then exit 1; fi
-          done
-          timeout 240 "$engine" --headless --path source --script res://test/strategy_balance.gd 2>&1 | tee "$RUNNER_TEMP/strategy_balance.log"
-          if grep -E 'SCRIPT ERROR:|ERROR:|FAIL:' "$RUNNER_TEMP/strategy_balance.log"; then exit 1; fi
-      - name: Record task-linked motion at 1x, 4x and pause
-        shell: bash
-        run: |
-          set -euo pipefail
-          if ! command -v ffmpeg >/dev/null; then
-            sudo apt-get update -qq
-            sudo apt-get install -y --no-install-recommends ffmpeg
-          fi
-          engine="$RUNNER_TEMP/godot/Godot_v4.5.1-stable_linux.x86_64"
-          timeout 360 xvfb-run -a -s '-screen 0 1280x720x24' "$engine" --path source --windowed --resolution 1280x720 --rendering-method gl_compatibility --audio-driver Dummy --disable-vsync --write-movie "$RUNNER_TEMP/production-motion.avi" --fixed-fps 20 --script res://test/animation_review.gd 2>&1 | tee "$RUNNER_TEMP/animation_review.log"
-          if grep -E 'SCRIPT ERROR:|ERROR:|FAIL:' "$RUNNER_TEMP/animation_review.log"; then exit 1; fi
-          ffmpeg -v error -i "$RUNNER_TEMP/production-motion.avi" -c:v libx264 -crf 26 -pix_fmt yuv420p captures/strategy-review/production-motion.mp4
-          [[ "$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 captures/strategy-review/production-motion.mp4)" == "1280,720" ]]
-      - name: Read game version
-        id: game
-        shell: bash
-        run: |
-          set -euo pipefail
-          version="$(sed -n 's/^config\/version="\([^"]*\)"/\1/p' source/project.godot | tr -d '\r')"
-          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-      - name: Export and package Windows x86_64
-        env:
-          GAME_VERSION: ${{ steps.game.outputs.version }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p release/PrintShopTycoon/windows
-          "$RUNNER_TEMP/godot/Godot_v4.5.1-stable_linux.x86_64" --headless --path source --export-release 'Windows Desktop' "$GITHUB_WORKSPACE/release/PrintShopTycoon/windows/Print Shop Tycoon.exe"
-          cp updater/Update-Game.ps1 release/PrintShopTycoon/windows/
-          cp PLAYER-UPDATES.md README.md README.txt RELEASE-NOTES.md GAME-AUDIT.md ART-SOURCES.txt ASSESSMENT-INTEGRATION.md STRATEGY-UPGRADE.md UPDATING.md WORKSHOP-UPGRADE.md release/PrintShopTycoon/
-          printf 'Source commit: %s\nEngine: Godot 4.5.1\nWindows x86_64 alpha %s\nUnsigned community test build. Known issues: GAME-AUDIT.md\n' "$GITHUB_SHA" "$GAME_VERSION" > release/PrintShopTycoon/BUILD.txt
-          git archive --format=zip --output="release/PrintShopTycoon-Editable-Source-v${GAME_VERSION}.zip" "$GITHUB_SHA"
-          cd release
-          sha256sum "PrintShopTycoon-Editable-Source-v${GAME_VERSION}.zip" > "PrintShopTycoon-Editable-Source-v${GAME_VERSION}.zip.sha256"
-          zip -qr "PrintShopTycoon-Windows-v${GAME_VERSION}.zip" PrintShopTycoon
-          sha256sum "PrintShopTycoon-Windows-v${GAME_VERSION}.zip" > "PrintShopTycoon-Windows-v${GAME_VERSION}.zip.sha256"
-          cd ..
-          mkdir -p source-archive/release
-          mv release/PrintShopTycoon-Editable-Source-* source-archive/release/
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        if: always()
-        with:
-          name: tycoon-build-${{ github.sha }}
-          path: |
-            release/*.zip
-            release/*.sha256
-            captures/strategy-review/**
-            verification/strategy-balance.json
-          if-no-files-found: error
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: tycoon-source-${{ github.sha }}
-          path: source-archive/
-          if-no-files-found: error
-  native_windows:
-    needs: [windows, updater_tests]
-    runs-on: windows-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
-          name: tycoon-build-${{ github.sha }}
+          name: tycoon-build-84eb41987e9fd030d2f37f9b6c5110c6bee42ce4
+          run-id: 39095285429
+          github-token: ${{ github.token }}
           path: build
-      - name: Walk all production routes using the packaged Windows executable
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $package = Get-ChildItem build/release/PrintShopTycoon-Windows-*.zip | Select-Object -First 1
-          $destination = Join-Path $env:RUNNER_TEMP 'tycoon-native'
-          Expand-Archive -LiteralPath $package.FullName -DestinationPath $destination
-          $executable = Join-Path $destination 'PrintShopTycoon/windows/Print Shop Tycoon.exe'
-          New-Item -ItemType Directory -Path native-validation -Force | Out-Null
-          foreach ($suite in @('native_release_walkthrough', 'updater_walkthrough')) {
-            $name = if ($suite -eq 'updater_walkthrough') { 'updater_windows' } else { 'native_windows' }
-            $log = Join-Path $env:GITHUB_WORKSPACE "native-validation/$name.log"
-            $arguments = @('--headless', '--log-file', ('"{0}"' -f $log), '--script', "res://qa/$suite.gd")
-            $process = Start-Process -FilePath $executable -ArgumentList $arguments -PassThru
-            if (!$process.WaitForExit(180000)) { $process.Kill(); throw 'Packaged Windows walkthrough timed out.' }
-            $process.WaitForExit()
-            Get-Content -LiteralPath $log
-            if ($process.ExitCode -ne 0) { throw "Packaged Windows walkthrough exited $($process.ExitCode)." }
-            if (Select-String -LiteralPath $log -Pattern 'SCRIPT ERROR:|ERROR:(?! Failed to read the root certificate store\.)|FAIL:' -Quiet) { throw 'Packaged Windows walkthrough failed.' }
-            $marker = if ($suite -eq 'updater_walkthrough') { 'UPDATER SECURITY:.*0 failures / Windows' } else { 'NATIVE RELEASE WALKTHROUGH:.*0 failures / Windows' }
-            if (!(Select-String -LiteralPath $log -Pattern $marker -Quiet)) { throw 'Missing Windows completion marker.' }
-          }
-      - name: Validate the real Windows desktop accessibility and input
+      - name: Probe desktop
         shell: powershell
         run: |
-          $ErrorActionPreference = 'Stop'
-          $destination = Join-Path $env:RUNNER_TEMP 'tycoon-native'
-          $folder = Join-Path $destination 'PrintShopTycoon/windows'
-          # CI-only software graphics runtime from the official CEF distribution.
-          # Verify the pinned archive before extracting; these DLLs are never shipped.
-          $ProgressPreference = 'SilentlyContinue'
-          $archive = Join-Path $env:RUNNER_TEMP 'cef-angle.tar.bz2'
+          $ErrorActionPreference='Stop'
+          $ProgressPreference='SilentlyContinue'
+          $zip=Get-ChildItem build/release/*Windows*.zip | Select-Object -First 1
+          $destination=Join-Path $env:RUNNER_TEMP 'game'
+          Expand-Archive $zip.FullName $destination
+          $folder=Join-Path $destination 'PrintShopTycoon/windows'
+          $archive=Join-Path $env:RUNNER_TEMP 'angle.tar.bz2'
           Invoke-WebRequest -UseBasicParsing -Uri 'https://cef-builds.spotifycdn.com/cef_binary_131.4.1%2Bg437feba%2Bchromium-131.0.6778.265_windows64_minimal.tar.bz2' -OutFile $archive
-          if ((Get-FileHash $archive -Algorithm SHA256).Hash -ne 'F7687D895E8C4BCB9A85078FEED3278C240789058EE25DC39363900331CA23B5') { throw 'CI graphics runtime digest mismatch.' }
-          $runtime = Join-Path $env:RUNNER_TEMP 'cef-angle'
-          New-Item -ItemType Directory -Force -Path $runtime | Out-Null
-          $prefix = 'cef_binary_131.4.1+g437feba+chromium-131.0.6778.265_windows64_minimal/Release'
-          tar -xjf $archive -C $runtime --strip-components=2 "$prefix/libEGL.dll" "$prefix/libGLESv2.dll" "$prefix/d3dcompiler_47.dll"
-          if ($LASTEXITCODE -ne 0) { throw 'CI graphics runtime extraction failed.' }
-          Copy-Item (Join-Path $runtime '*.dll') $folder
-          New-Item -ItemType Directory -Force -Path native-validation/desktop | Out-Null
-          ./updater/Test-Desktop.ps1 -Executable (Join-Path $folder 'Print Shop Tycoon.exe') -OutputDirectory native-validation/desktop 2>&1 | Tee-Object -FilePath native-validation/desktop/acceptance.log
+          if((Get-FileHash $archive -Algorithm SHA256).Hash -ne 'F7687D895E8C4BCB9A85078FEED3278C240789058EE25DC39363900331CA23B5'){throw 'Digest mismatch'}
+          $prefix='cef_binary_131.4.1+g437feba+chromium-131.0.6778.265_windows64_minimal/Release'
+          tar -xjf $archive -C $folder --strip-components=2 "$prefix/libEGL.dll" "$prefix/libGLESv2.dll" "$prefix/d3dcompiler_47.dll"
+          ./updater/Test-Desktop.ps1 -Executable (Join-Path $folder 'Print Shop Tycoon.exe') -OutputDirectory desktop
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: tycoon-native-${{ github.sha }}
-          path: native-validation/
-          if-no-files-found: error
-  publish:
-    if: github.ref == 'refs/heads/main'
-    needs: [windows, native_windows]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        with:
-          pattern: tycoon-*-${{ github.sha }}
-          merge-multiple: true
-          path: build
-      - name: Package render matrix, balance runs and native Windows evidence
-        shell: bash
-        env:
-          GAME_VERSION: ${{ needs.windows.outputs.version }}
-        run: |
-          set -euo pipefail
-          cd build
-          zip -qr "release/PrintShopTycoon-QA-v${GAME_VERSION}.zip" captures verification native_windows.log updater_windows.log desktop
-          cd release
-          sha256sum "PrintShopTycoon-QA-v${GAME_VERSION}.zip" > "PrintShopTycoon-QA-v${GAME_VERSION}.zip.sha256"
-      - name: Publish validated Windows alpha download
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GAME_VERSION: ${{ needs.windows.outputs.version }}
-          GH_REPO: ${{ github.repository }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ "$(gh api "repos/$GH_REPO/commits/main" --jq .sha)" == "$GITHUB_SHA" ]]
-          tag="v${GAME_VERSION}-windows-alpha"
-          notes='Workshop completion update: individual decor movement, custom shop signage, negotiated artwork revisions, illustrated official project links, and optional photo logo/watermark controls. Existing career and demo saves remain separate. Extract the Windows ZIP and open windows/Print Shop Tycoon.exe, or use the in-game verified updater. Separate editable-source and QA archives are included. QA covers production, saves, balance, renders, exports and actual Windows desktop accessibility/input/focus. Human screen-reader listening and OS monitor-scaling acceptance are not certified. This alpha is unsigned.'
-          if gh release view "$tag" >/dev/null 2>&1; then
-            echo "Release version already exists. Increment the version; published updates are immutable."
-            exit 1
-          else
-            gh release create "$tag" build/release/*.zip build/release/*.sha256 --target "$GITHUB_SHA" --title "Print Shop Tycoon ${GAME_VERSION} · Windows alpha" --prerelease --notes "$notes"
-          fi
+          name: desktop-probe
+          path: desktop/
