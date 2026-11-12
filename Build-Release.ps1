@@ -63,7 +63,11 @@ try {
         throw "Export failed. See $exportLog"
     }
     $smokeErrors = Join-Path $stageRoot 'smoke-stderr.log'
-    $smokeProcess = Start-Process -FilePath $candidate -ArgumentList @('--headless','--log-file',(Join-Path $stageRoot 'smoke-engine.log'),'--','--smoke') -WindowStyle Hidden -PassThru -Wait -RedirectStandardOutput $smokeLog -RedirectStandardError $smokeErrors
+    $smokeEngineLog = Join-Path $stageRoot 'smoke-engine.log'
+    # Start-Process flattens ArgumentList into one command line. Quote the log
+    # path so workspace roots containing spaces (such as E:\Print Shop Tycoon)
+    # remain one Godot argument instead of being split into multiple arguments.
+    $smokeProcess = Start-Process -FilePath $candidate -ArgumentList @('--headless','--log-file',('"{0}"' -f $smokeEngineLog),'--','--smoke') -WindowStyle Hidden -PassThru -Wait -RedirectStandardOutput $smokeLog -RedirectStandardError $smokeErrors
     Get-Content -LiteralPath $smokeErrors | Add-Content -LiteralPath $smokeLog
     if ($smokeProcess.ExitCode -ne 0 -or (Select-String -LiteralPath $smokeLog -Pattern 'SCRIPT ERROR:|ERROR:(?! Failed to read the root certificate store\.)' -Quiet)) {
         throw "Exported game startup failed. See $smokeLog"

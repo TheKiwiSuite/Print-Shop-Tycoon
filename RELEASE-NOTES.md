@@ -1,3 +1,11 @@
+# v0.4.2 — safer shop interactions
+
+- Closing the gang-sheet builder during a drag now restores the original design position and clears the drag state.
+- Owner and staff routes check customer positions and re-route before characters overlap.
+- Supplies forecasts include packaging at the packing stage and garment sizes at the press stage.
+- Replay Tutorial selects a job that matches installed production equipment, or explains which equipment is needed.
+- Failed Continue attempts show the save recovery message on the title screen.
+
 # v0.4.1 — Finish the personal workshop
 
 Move or remove any selected decoration without repurchasing it. Name your shop and paint the name on the wall sign. Negotiate customer artwork changes with explicit one-time costs, revised payout/deadline and ordinary proof arrival. Two illustrated official-project banner links are enabled, with local artwork/configuration support and rotation controls. Photo mode adds optional logo and shop-name watermark controls, corner selection and opacity.

@@ -1043,7 +1043,9 @@ func move_owner(target:Vector2i) -> bool:
  var b=blocked()
  if not inside(target) or b.has(target): notice("Click a clear floor tile. Machines have solid footprints."); return false
  var start=Vector2i(roundi(owner()["pos"][0]),roundi(owner()["pos"][1]))
- var route=path(start,target)
+ var customer_blocks={}
+ for actor in visible_customers(): customer_blocks[cell(actor["pos"])]=true
+ var route=path(start,target,{},customer_blocks)
  if target!=start and route.is_empty(): notice("No clear walking route to this spot."); return false
  interrupt_owner()
  owner()["path"]=route
@@ -1323,8 +1325,17 @@ func _walk(w:Dictionary, delta:float) -> void:
  var amount=minf(distance,delta*2.2)
  var next=pos+direction.normalized()*amount
  var b=blocked()
- if b.has(Vector2i(roundi(next.x),roundi(next.y))) or not walk_segment_clear(pos,next):
-  w["path"]=path(Vector2i(roundi(pos.x),roundi(pos.y)),cell(w["path"][-1]))
+ var crowd={}
+ for actor in visible_customers():
+  if is_same(actor,w): continue
+  crowd[cell(actor["pos"])]=true
+ var next_cell=Vector2i(roundi(next.x),roundi(next.y))
+ var collides=false
+ for actor in visible_customers():
+  if is_same(actor,w): continue
+  if next.distance_to(v(actor["pos"]))<0.55: collides=true;break
+ if b.has(next_cell) or crowd.has(next_cell) or collides or not walk_segment_clear(pos,next):
+  w["path"]=path(Vector2i(roundi(pos.x),roundi(pos.y)),cell(w["path"][-1]),{},crowd)
   return
  w["pos"]=[next.x,next.y]
  w["step"]+=amount*5.0
@@ -1562,12 +1573,19 @@ func forecast() -> Dictionary:
  var required={}
  for i in active_orders():
   var o=order(i)
-  if o["stage"] in ["intake","completed","declined","scheduled","abandoned"] or o["consumed"]: continue
-  var recipe=C.recipe(o)
-  for key in recipe: required[key]=required.get(key,0)+recipe[key]
+  if o["stage"] in ["intake","completed","declined","scheduled","abandoned"]: continue
+  if not o["consumed"]:
+   var recipe=C.recipe(o)
+   for key in recipe: required[key]=required.get(key,0)+recipe[key]
+  if o["stage"]=="pack" and not o.get("boxes_consumed",false):
+   required["packaging"]=required.get("packaging",0)+boxes_for(o)
+  if o["stage"]=="press" and not o.get("garments_consumed",false):
+   for key in o.get("garments",{}):
+    required[key]=required.get(key,0)+int(o["garments"][key])
  var shortages={}
  for key in required:
-  if required[key]>state["stock"].get(key,0): shortages[key]=required[key]-state["stock"].get(key,0)
+  var available=state["garments"].get(key,0) if state["garments"].has(key) else state["stock"].get(key,0)
+  if required[key]>available: shortages[key]=required[key]-available
  return {"required":required,"shortages":shortages}
 
 func save_game() -> bool:

@@ -1316,7 +1316,8 @@ func _title() -> void:
  _button(Rect2(545,600,245,52),"SETTINGS","settings",CYAN)
  _button(Rect2(811,600,245,52),"QUIT","quit",CREAM)
  _button(Rect2(545,670,510,48),"PLAY DEMO SHOP","demo",GREEN,true,23)
- _line(Vector2(549,742),status if status!="" else "Demo equipment and team included. Career save stays separate.",14,RED if status!="" else MUTED,510)
+ var title_message=status if status!="" else "Demo equipment and team included. Career save stays separate."
+ _line(Vector2(549,742),title_message,14,RED if status!="" else MUTED,510)
  Banner.draw(self)
  if modal!="": _modal()
 
@@ -2017,6 +2018,11 @@ func _action(action:String) -> void:
   else:banner_index+=(-1 if action=="banner_previous" else 1);banner_elapsed=0
   return
  if _workshop_action(action):return
+ if action=="close" and gang_drag>=0 and selected_order>=0 and selected_order<sim.state["orders"].size():
+  var sheet=sim.order(selected_order)["gang"]
+  if gang_drag<sheet.size(): sheet[gang_drag]=gang_before.duplicate()
+  gang_drag=-1
+  gang_before=[]
  status=""
  forecast_preview={}
  var parts=action.split(":")
@@ -2083,6 +2089,7 @@ func _action(action:String) -> void:
    sim.start_shop(draft_rules["preset"],draft_rules); screen="shop"; modal="";build=false;pending_equipment="";moving_equipment="";dragging="";drag_valid={};order_page=0;customer_page=0;reset_camera(); _load_music_preference();sim.save_game(); _start_music()
   "continue":
    if sim.load_game(): Ops.settle_offline(sim); screen="shop"; modal="report" if not sim.state["report"].is_empty() else ""; reset_camera(); _load_music_preference();_start_music()
+   else: status=sim.state["notices"][0] if not sim.state["notices"].is_empty() else "No valid shop save was found. Your save and backup could not be loaded."
   "close":
    if modal=="intervention":_action("qte_skip");return
    modal=""; status="";pending_save_action="";binding_action=""
@@ -2231,11 +2238,31 @@ func _action(action:String) -> void:
    _save_window_preference()
   "skip": sim.state["tutorial"]=false
   "tutorial":
+   var tutorial_type=""
+   if sim.state["machines"].has("dtf"): tutorial_type="transfer"
+   elif sim.state["machines"].has("sticker"): tutorial_type="sticker"
+   elif sim.state["machines"].has("banner"): tutorial_type="banner"
+   elif sim.state["machines"].has("cnc"): tutorial_type="cnc"
+   if tutorial_type=="":
+    sim.state["tutorial"]=false
+    status="Place a printer or cutter before starting the production tutorial."
+    return
    sim.state["tutorial"]=true
    var i=_tutorial_index()
-   if i<0 or sim.order(i)["stage"] in ["completed","declined"]:
-    var id="TUTORIAL-%d" % sim.state["orders"].size()
-    sim.state["orders"].append(C.make_order(id,"transfer",6,"Tutorial / practice customer",sim.now()+4,120))
+   var id="TUTORIAL-%d" % sim.state["orders"].size()
+   var quantity=12 if tutorial_type=="sticker" else (2 if tutorial_type=="cnc" else 3)
+   if i>=0 and sim.order(i)["type"]!=tutorial_type and sim.order(i)["stage"] not in ["completed","declined"]:
+    # A tutorial job belongs to the tutorial system; replace it in place when
+    # the shop's available equipment changes so no impossible job is stranded.
+    id=sim.order(i)["id"]
+    var replacement=C.make_order(id,tutorial_type,quantity,"Tutorial / practice customer",sim.now()+4,120)
+    replacement["priority"]=-1
+    sim.state["orders"][i]=replacement
+    sim.state["tutorial_order"]=id
+   elif i<0 or sim.order(i)["stage"] in ["completed","declined"]:
+    var tutorial_order=C.make_order(id,tutorial_type,quantity,"Tutorial / practice customer",sim.now()+4,120)
+    tutorial_order["priority"]=-1
+    sim.state["orders"].append(tutorial_order)
     sim.state["tutorial_order"]=id
    modal=""
  _sfx()
