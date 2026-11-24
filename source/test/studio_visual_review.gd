@@ -52,5 +52,5 @@ func run() -> void:
    var image=Image.load_from_file(file);check(image.get_size()==Photo.SIZES[format],"Branded image uses exact preset dimensions")
    DirAccess.copy_absolute(file,folder.path_join("branded-%dx%d.png" % [Photo.SIZES[format].x,Photo.SIZES[format].y]))
  check(game.sim.state==before,"Branded exports do not alter shop economy or settings")
- game._action("photo_close");game.free();await process_frame
+ game._action("photo_close");await preload("res://test/qa_audio_cleanup.gd").stop(game,self);game.free();await process_frame
  print("STUDIO VISUAL REVIEW: %d checks, %d failures" % [checks,failures]);quit(failures)

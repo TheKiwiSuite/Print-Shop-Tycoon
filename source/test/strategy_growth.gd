@@ -130,6 +130,12 @@ func run() -> void:
  check(game.movement_bindings["up"]==KEY_I,"Movement preference survives shop snapshot restoration")
  var preferences=game.sim.save_path+".preferences.cfg"
  if FileAccess.file_exists(preferences): DirAccess.remove_absolute(preferences)
- game.free();await process_frame
+ # Let the mixer process stop commands while its player nodes are still alive.
+ game.audio.stop();game.music.stop()
+ for player in game.sfx_players: player.stop()
+ await create_timer(.25).timeout
+ await preload("res://test/qa_audio_cleanup.gd").stop(game,self);game.free();await process_frame
+ # Mixer playbacks retire asynchronously after the game node releases its streams.
+ await create_timer(.2).timeout
  print("STRATEGY GROWTH: ",checks," checks, ",failures," failures")
- quit(failures)
+ call_deferred("quit",failures)

@@ -40,6 +40,6 @@ func run() -> void:
  DirAccess.make_dir_recursive_absolute(folder)
  var f=FileAccess.open(folder+"/motion-events.json",FileAccess.WRITE)
  f.store_string(JSON.stringify({"scope":"Rendered transfer and CNC routes at 1x, 2x and 4x with two-second pause; remaining routes covered by automated state checks.","failures":failures,"events":events},"  "))
- game.free();await process_frame
+ await preload("res://test/qa_audio_cleanup.gd").stop(game,self);game.free();await process_frame
  print("ANIMATION REVIEW: ",events.size()," stage transitions, ",failures," failures")
  quit(failures)

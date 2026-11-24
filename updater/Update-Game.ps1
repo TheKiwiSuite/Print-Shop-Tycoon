@@ -13,32 +13,41 @@ try {
     $root = Join-Path $env:LOCALAPPDATA 'PrintShopTycoonUpdates'
     New-Item -ItemType Directory -Path $root -Force | Out-Null
     $lock = [IO.File]::Open((Join-Path $root 'update.lock'), 'OpenOrCreate', 'ReadWrite', 'None')
-    Write-Host 'Checking official Windows alpha releases...'
-    # Latest endpoint omits alpha releases. Select only the exact Windows channel.
+    Write-Host 'Checking official Windows releases...'
+    # Retain legacy ZIP releases and accept stable standalone Windows releases.
     $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases?per_page=100" -Headers $headers -TimeoutSec 30
-    $candidates = @($releases | Where-Object { !$_.draft -and $_.tag_name -cmatch '^v(\d+\.\d+\.\d+)-windows-alpha$' } | Sort-Object { [version]($_.tag_name -replace '^v|\-windows-alpha$', '') } -Descending)
+    $candidates = @($releases | Where-Object { !$_.draft -and ($_.tag_name -cmatch '^v(\d+\.\d+\.\d+)-windows-alpha$' -or ($_.tag_name -cmatch '^v(\d+\.\d+\.\d+)$' -and !$_.prerelease)) } | Sort-Object { [version]($_.tag_name -replace '^v|\-windows-alpha$', '') } -Descending)
     if (!$candidates.Count) { throw 'No official release is available.' }
     $release = $candidates[0]
     $version = [version]($release.tag_name -replace '^v|\-windows-alpha$', '')
     if ($version -le $current) { Write-Host 'You already have the newest version in this channel.'; return }
-    $name = "PrintShopTycoon-Windows-v$version.zip"
+    $standalone = $release.tag_name -cmatch '^v\d+\.\d+\.\d+$'
+    $name = if ($standalone) { 'Print.Shop.Tycoon.exe' } else { "PrintShopTycoon-Windows-v$version.zip" }
     $assets = @($release.assets | Where-Object { $_.name -ceq $name })
     if ($assets.Count -ne 1) { throw 'Missing or ambiguous Windows package.' }
     $asset = $assets[0]
     # Trust the digest supplied by the authenticated HTTPS GitHub API, never a checksum inside the ZIP.
     if (!$asset.digest -or $asset.digest -cnotmatch '^sha256:[a-f0-9]{64}$') { throw 'Release has no valid GitHub SHA-256 digest. Update refused.' }
     $expectedUrl = "https://github.com/$repo/releases/download/$($release.tag_name)/$name"
-    if ($asset.browser_download_url -cne $expectedUrl -or $asset.size -le 0 -or $asset.size -gt 536870912) { throw 'Invalid package URL or size.' }
+    $maximumSize = if ($standalone) { 314572800 } else { 536870912 }
+    if ($asset.browser_download_url -cne $expectedUrl -or $asset.size -le 0 -or $asset.size -gt $maximumSize) { throw 'Invalid package URL or size.' }
     Write-Host "Available: $version. Save and close the game before continuing."
     if ((Read-Host 'Type UPDATE to download and prepare this version') -cne 'UPDATE') { return }
-    $gameProcesses = @(Get-Process -Name 'Print Shop Tycoon' -ErrorAction SilentlyContinue)
+    $gameProcesses = @(Get-Process -Name 'Print Shop Tycoon','Print.Shop.Tycoon' -ErrorAction SilentlyContinue)
     if ($gameProcesses.Count) { throw 'The game is still running. Save and close it, then run this updater again.' }
     $stage = Join-Path $root ('staging-' + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $stage | Out-Null
-    $zip = Join-Path $stage 'package.zip'
+    $zip = Join-Path $stage $name
     Invoke-WebRequest -UseBasicParsing -Uri $expectedUrl -OutFile $zip -Headers $headers -TimeoutSec 180
     if ((Get-Item -LiteralPath $zip).Length -ne $asset.size) { throw 'Download size mismatch; old game retained.' }
     if ((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant() -cne $asset.digest.Substring(7)) { throw 'Download checksum mismatch; old game retained.' }
+    if ($standalone) {
+        $stream = [IO.File]::OpenRead($zip)
+        try { if ($stream.ReadByte() -ne 77 -or $stream.ReadByte() -ne 90) { throw 'Release is not a Windows executable.' } } finally { $stream.Dispose() }
+        $package = Join-Path $stage 'PrintShopTycoon'
+        New-Item -ItemType Directory -Path (Join-Path $package 'windows') -Force | Out-Null
+        Copy-Item -LiteralPath $zip -Destination (Join-Path $package 'windows/Print Shop Tycoon.exe')
+    } else {
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $archive = [IO.Compression.ZipFile]::OpenRead($zip)
     $unpack = Join-Path $stage 'unpacked'
@@ -56,6 +65,7 @@ try {
     } finally { $archive.Dispose() }
     [IO.Compression.ZipFile]::ExtractToDirectory($zip, $unpack)
     $package = Join-Path $unpack 'PrintShopTycoon'
+    }
     $exe = Join-Path $package 'windows/Print Shop Tycoon.exe'
     if (!(Test-Path -LiteralPath $exe -PathType Leaf)) { throw 'Package has no Windows game.' }
     # Snapshot the complete persistent profile, including preferences and rotating backup.

@@ -22,7 +22,7 @@ jobs:
         run: ./updater/Test-Updater.ps1
   windows:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 40
     permissions:
       contents: write
     outputs:
@@ -55,8 +55,8 @@ jobs:
           engine="$RUNNER_TEMP/godot/Godot_v4.5.1-stable_linux.x86_64"
           "$engine" --headless --path source --editor --import
           mkdir -p "$(realpath -m source/../../../work)"
-          for test in studio_operations studio_visual_review workshop_operations workshop_visual_review demo_shop strategy_visual_review updater_security strategy_growth native_release_walkthrough handoff_recovery acceptance customer_loop sales_growth customer_walking session_reliability illustrated_equipment rotation_stability illustrated_ui ui_dtf_placement wall_visual_review shop_workspace window_controls; do
-            timeout 120 xvfb-run -a "$engine" --path source --rendering-method gl_compatibility --audio-driver Dummy --script "res://test/$test.gd" 2>&1 | tee "$RUNNER_TEMP/$test.log"
+          for test in studio_operations studio_visual_review workshop_operations workshop_visual_review demo_shop strategy_visual_review updater_security update_release_formats strategy_growth native_release_walkthrough handoff_recovery acceptance customer_loop sales_growth customer_walking session_reliability illustrated_equipment rotation_stability illustrated_ui ui_dtf_placement wall_visual_review shop_workspace window_controls final_visual_review bugfix_regression starter_equipment premises_check progress_check products_check customers_check people_check merch_check audio_check audit_edge_cases starter_visual_review; do
+            timeout 300 xvfb-run -a "$engine" --verbose --path source --rendering-method gl_compatibility --audio-driver Dummy --script "res://test/$test.gd" 2>&1 | tee "$RUNNER_TEMP/$test.log"
             if grep -E 'SCRIPT ERROR:|ERROR:|FAIL:' "$RUNNER_TEMP/$test.log"; then exit 1; fi
           done
           timeout 240 "$engine" --headless --path source --script res://test/strategy_balance.gd 2>&1 | tee "$RUNNER_TEMP/strategy_balance.log"
@@ -91,8 +91,8 @@ jobs:
           mkdir -p release/PrintShopTycoon/windows
           "$RUNNER_TEMP/godot/Godot_v4.5.1-stable_linux.x86_64" --headless --path source --export-release 'Windows Desktop' "$GITHUB_WORKSPACE/release/PrintShopTycoon/windows/Print Shop Tycoon.exe"
           cp updater/Update-Game.ps1 release/PrintShopTycoon/windows/
-          cp PLAYER-UPDATES.md README.md README.txt RELEASE-NOTES.md GAME-AUDIT.md ART-SOURCES.txt ASSESSMENT-INTEGRATION.md STRATEGY-UPGRADE.md UPDATING.md WORKSHOP-UPGRADE.md release/PrintShopTycoon/
-          printf 'Source commit: %s\nEngine: Godot 4.5.1\nWindows x86_64 alpha %s\nUnsigned community test build. Known issues: GAME-AUDIT.md\n' "$GITHUB_SHA" "$GAME_VERSION" > release/PrintShopTycoon/BUILD.txt
+          cp PLAYER-UPDATES.md README.md README.txt RELEASE-NOTES.md KNOWN-ISSUES.md GAME-AUDIT.md ART-SOURCES.txt ASSESSMENT-INTEGRATION.md STRATEGY-UPGRADE.md UPDATING.md WORKSHOP-UPGRADE.md release/PrintShopTycoon/
+          printf 'Source commit: %s\nEngine: Godot 4.5.1\nWindows x86_64 %s\nUnsigned build. Known issues: KNOWN-ISSUES.md\n' "$GITHUB_SHA" "$GAME_VERSION" > release/PrintShopTycoon/BUILD.txt
           git archive --format=zip --output="release/PrintShopTycoon-Editable-Source-v${GAME_VERSION}.zip" "$GITHUB_SHA"
           cd release
           sha256sum "PrintShopTycoon-Editable-Source-v${GAME_VERSION}.zip" > "PrintShopTycoon-Editable-Source-v${GAME_VERSION}.zip.sha256"
@@ -109,6 +109,7 @@ jobs:
             release/*.zip
             release/*.sha256
             captures/strategy-review/**
+            captures/final-review/**
             verification/strategy-balance.json
           if-no-files-found: error
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -208,10 +209,21 @@ jobs:
           set -euo pipefail
           [[ "$(gh api "repos/$GH_REPO/commits/main" --jq .sha)" == "$GITHUB_SHA" ]]
           tag="v${GAME_VERSION}-windows-alpha"
-          notes='Workshop completion update: individual decor movement, custom shop signage, negotiated artwork revisions, illustrated official project links, and optional photo logo/watermark controls. Existing career and demo saves remain separate. Extract the Windows ZIP and open windows/Print Shop Tycoon.exe, or use the in-game verified updater. Separate editable-source and QA archives are included. QA covers production, saves, balance, renders, exports and actual Windows desktop accessibility/input/focus. Human screen-reader listening and OS monitor-scaling acceptance are not certified. This alpha is unsigned.'
-          if gh release view "$tag" >/dev/null 2>&1; then
-            echo "Release version already exists. Increment the version; published updates are immutable."
-            exit 1
-          else
-            gh release create "$tag" build/release/*.zip build/release/*.sha256 --target "$GITHUB_SHA" --title "Print Shop Tycoon ${GAME_VERSION} · Windows alpha" --prerelease --notes "$notes"
-          fi
+          stable="v${GAME_VERSION}"
+          for existing in "$tag" "$stable"; do
+            if gh release view "$existing" >/dev/null 2>&1; then
+              echo "Release $existing already exists. Increment the version; published updates are immutable."
+              exit 1
+            fi
+          done
+          # Player notes come from the top section of RELEASE-NOTES.md in this commit.
+          gh api "repos/$GH_REPO/contents/RELEASE-NOTES.md?ref=$GITHUB_SHA" --jq .content | base64 -d | awk 'NR==1{print;next} /^# v/{exit} {print}' > notes.md
+          [[ -s notes.md ]]
+          printf '\nExtract the Windows ZIP and open windows/Print Shop Tycoon.exe, or use the in-game verified updater. Saves in %%APPDATA%%/PrintShopTycoonNative are kept. This build is unsigned.\n' >> notes.md
+          # Legacy ZIP channel: the only format the v1.0.0-and-older in-game updater accepts.
+          gh release create "$tag" build/release/*.zip build/release/*.sha256 --target "$GITHUB_SHA" --title "Print Shop Tycoon ${GAME_VERSION} · Windows (updater channel)" --prerelease --notes-file notes.md
+          # Stable channel: standalone executable for 1.0.1+ updaters and direct downloads.
+          mkdir -p stable
+          unzip -q "build/release/PrintShopTycoon-Windows-v${GAME_VERSION}.zip" "PrintShopTycoon/windows/Print Shop Tycoon.exe" -d stable
+          cp "stable/PrintShopTycoon/windows/Print Shop Tycoon.exe" stable/Print.Shop.Tycoon.exe
+          gh release create "$stable" stable/Print.Shop.Tycoon.exe "build/release/PrintShopTycoon-Windows-v${GAME_VERSION}.zip" "build/release/PrintShopTycoon-Windows-v${GAME_VERSION}.zip.sha256" --target "$GITHUB_SHA" --title "Print Shop Tycoon ${GAME_VERSION}" --latest --notes-file notes.md

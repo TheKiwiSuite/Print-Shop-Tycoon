@@ -8,6 +8,8 @@ Player saves live separately in `%APPDATA%/PrintShopTycoonNative`, not in the ex
 
 ## Built-in update flow from 0.3.2
 
+Version 1.1.0 is published in both channels, so 1.0.0 players can update in-game. After that update the game reads both formats.
+
 Open **Settings → Game updates + save backups**. Choose **Check for updates**, then **Download verified update**. When ready, choose **Save, back up + restart to install**. Updates never start in the background without these actions.
 
 The game saves first and copies JSON saves, fallback backups, archived shops and preferences into a unique `updates/<operation>/saves` folder under AppData. The current game must close before installation. An isolated copy of the existing executable performs the update without administrator access. The new game opens at its title screen; Continue resumes the saved production state.
@@ -16,7 +18,7 @@ The installer retains `Print Shop Tycoon.rollback-<operation>.exe` alongside the
 
 ## Security boundary
 
-- Only the fixed `TheKiwiSuite/Print-Shop-Tycoon` GitHub repository and `vX.Y.Z-windows-alpha` release channel are eligible. Versions compare numerically; equal/older versions, drafts, invalid filenames, unsupported URLs and missing GitHub SHA-256 digests are rejected.
+- Only official releases of the fixed `TheKiwiSuite/Print-Shop-Tycoon` repository are eligible, in two channels: legacy `vX.Y.Z-windows-alpha` releases with `PrintShopTycoon-Windows-vX.Y.Z.zip` (the only format 1.0.0 and older can read), and, from 1.0.1, stable `vX.Y.Z` releases with the standalone `Print.Shop.Tycoon.exe` (300 MiB cap, Windows `MZ` header and staged SHA-256 checked). Stable prereleases are ignored. Versions compare numerically; equal/older versions, drafts, duplicate or invalid filenames, unsupported URLs and missing GitHub SHA-256 digests are rejected.
 - HTTPS certificate verification stays enabled. Download length and SHA-256 must match GitHub's release-asset API record. The isolated helper fetches that record again before installing and verifies the archive again. A checksum sidecar, release-body link or downloaded installer script cannot authorize an update.
 - Only the canonical embedded-PCK Windows executable is read from the ZIP; archive directory paths are never extracted. ZIP downloads and executable payloads have size limits. The installed executable must still match the original hash.
 - Windows' built-in .NET `File.Replace` performs replacement with a retained backup. The helper uses a fixed, locally bundled command with literal escaped paths through the system PowerShell executable. It does not change execution policy, elevate, install dependencies, run downloaded scripts or create a service.

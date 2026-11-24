@@ -59,17 +59,26 @@ func run() -> void:
 	observe("BUG-01", accepted and restored.owner().is_empty(), {"load_returned":accepted,"owner":restored.owner(),"backup_exists":FileAccess.file_exists(valid.save_path+".bak")})
 
 	# The new-game backup is rotated away on the next ordinary save.
+	for name in DirAccess.get_files_at(root_path):
+		if name.begins_with("new-game.json"):
+			DirAccess.remove_absolute(root_path.path_join(name))
 	var old = fresh()
 	old.save_path = root_path.path_join("new-game.json")
 	old.save_enabled = true
 	old.state["cash"] = 5432
 	old.save_game()
+	# Since 0.3.0 New Game archives the previous shop to a timestamped file before
+	# ordinary .bak rotation; the defect is reproduced only if no archive keeps it.
+	var archived = old.backup_before_new_shop()
 	old.state = C.empty_shop()
 	old.save_game()
-	var first_backup = JSON.parse_string(FileAccess.get_file_as_string(old.save_path+".bak"))["state"]["cash"]
 	old.save_game()
-	var second_backup = JSON.parse_string(FileAccess.get_file_as_string(old.save_path+".bak"))["state"]["cash"]
-	observe("BUG-02", first_backup==5432 and second_backup==1200, {"original_cash":5432,"backup_after_new_game":first_backup,"backup_after_next_save":second_backup})
+	old.save_game()
+	var archive_cash = -1.0
+	for name in DirAccess.get_files_at(root_path):
+		if name.begins_with("new-game.json.before-new-"):
+			archive_cash = float(JSON.parse_string(FileAccess.get_file_as_string(root_path.path_join(name)))["state"]["cash"])
+	observe("BUG-02", not archived or archive_cash!=5432, {"original_cash":5432,"archive_created":archived,"archived_cash_after_three_saves":archive_cash})
 
 	# Walking is solid against equipment but not against waiting customers.
 	var s = fresh()
@@ -174,7 +183,8 @@ func run() -> void:
 	game.screen = "title"
 	game.modal = ""
 	game._action("continue")
-	observe("BUG-13", game.screen=="title" and game.modal=="" and game.sim.state["notices"][0].begins_with("No valid save"), {"screen":game.screen,"modal":game.modal,"notice":game.sim.state["notices"][0]})
+	# Fixed in 0.4.2: the failure is drawn in the title footer (game.status), not only in a hidden shop notice.
+	observe("BUG-13", game.screen=="title" and game.modal=="" and game.status=="", {"screen":game.screen,"modal":game.modal,"title_status":game.status,"notice":game.sim.state["notices"][0]})
 	await capture("invalid-continue")
 
 	# The title does not load stored preferences; Continue overwrites title edits.
@@ -218,4 +228,8 @@ func run() -> void:
 	file.store_string(JSON.stringify(findings,"  ")); file.close()
 	print("AUDIT COMPLETE: ", findings.size(), " probes; ", findings.filter(func(f):return f["reproduced"]).size(), " defects reproduced")
 	game.sim.save_enabled = false
-	quit()
+	await preload("res://test/qa_audio_cleanup.gd").stop(game,self);game.free()
+	await process_frame
+	# Mixer playbacks retire asynchronously after the game node releases its streams.
+	await create_timer(.2).timeout
+	call_deferred("quit")

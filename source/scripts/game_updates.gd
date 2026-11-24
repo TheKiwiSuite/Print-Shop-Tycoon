@@ -7,7 +7,7 @@ const DOWNLOAD="https://github.com/"+REPOSITORY+"/releases/download/"
 const ENTRY="PrintShopTycoon/windows/Print Shop Tycoon.exe"
 const MAX_ARCHIVE=120*1024*1024
 const MAX_EXECUTABLE=300*1024*1024
-var status="Check for a newer Windows alpha. Updates are optional."
+var status="Check for a newer official Windows release. Updates are optional."
 var busy=false
 var available={}
 var staged=""
@@ -40,24 +40,49 @@ static func newer(a:String,b:String) -> bool:
 static func metadata(release:Variant,current:String) -> Dictionary:
  if not release is Dictionary or release.get("draft",true) or release.get("published_at",null)==null:return {}
  var tag=str(release.get("tag_name",""))
- if not tag.begins_with("v") or not tag.ends_with("-windows-alpha"):return {}
- var version=tag.trim_prefix("v").trim_suffix("-windows-alpha")
+ if not tag.begins_with("v"):return {}
+ var legacy=tag.ends_with("-windows-alpha")
+ var version=tag.trim_prefix("v").trim_suffix("-windows-alpha") if legacy else tag.trim_prefix("v")
+ if not legacy and release.get("prerelease",false):return {}
  if not newer(version,current) or not release.get("assets",null) is Array:return {}
- var name="PrintShopTycoon-Windows-v"+version+".zip"
+ var name="PrintShopTycoon-Windows-v"+version+".zip" if legacy else "Print.Shop.Tycoon.exe"
+ var package_format="zip" if legacy else "exe"
+ var limit=MAX_ARCHIVE if legacy else MAX_EXECUTABLE
+ var matches=[]
  for asset in release["assets"]:
+  if asset is Dictionary and asset.get("name","")==name:matches.append(asset)
+ if matches.size()!=1:return {}
+ for asset in matches:
   if not asset is Dictionary or asset.get("name","")!=name:continue
   var digest=str(asset.get("digest",""));var regex=RegEx.new();regex.compile("^sha256:[0-9a-f]{64}$")
-  if regex.search(digest)==null or int(asset.get("size",0))<1024 or int(asset["size"])>MAX_ARCHIVE:continue
+  if regex.search(digest)==null or int(asset.get("size",0))<1024 or int(asset["size"])>limit:continue
   if asset.get("browser_download_url","")!=DOWNLOAD+tag+"/"+name or asset.get("state","")!="uploaded":continue
   if int(asset.get("id",0))<=0 or int(release.get("id",0))<=0:continue
-  return {"version":version,"tag":tag,"name":name,"digest":digest.trim_prefix("sha256:"),"size":int(asset["size"]),"asset_id":int(asset["id"]),"release_id":int(release["id"])}
+  return {"version":version,"tag":tag,"name":name,"format":package_format,"digest":digest.trim_prefix("sha256:"),"size":int(asset["size"]),"asset_id":int(asset["id"]),"release_id":int(release["id"])}
  return {}
 
 static func verify_archive(path:String,meta:Dictionary) -> bool:
+ # Retain this API for older ZIP fixtures; package format controls the size cap.
+ var package_format=str(meta.get("format","zip"))
+ if package_format not in ["zip","exe"]:return false
+ var limit=MAX_ARCHIVE if package_format=="zip" else MAX_EXECUTABLE
  var file=FileAccess.open(path,FileAccess.READ)
  if file==null:return false
  var size=file.get_length();file.close()
- return size==int(meta.get("size",-1)) and size<=MAX_ARCHIVE and FileAccess.get_sha256(path)==meta.get("digest","")
+ return size>0 and size==int(meta.get("size",-1)) and size<=limit and FileAccess.get_sha256(path)==meta.get("digest","")
+
+static func supported_filename(path:String) -> bool:
+ return path.get_file() in ["Print Shop Tycoon.exe","Print.Shop.Tycoon.exe"]
+
+static func stage_package(path:String,destination:String,meta:Dictionary) -> bool:
+ if not verify_archive(path,meta):return false
+ if meta.get("format","zip")=="zip":return extract_executable(path,destination)
+ if path==destination:return false
+ var file=FileAccess.open(path,FileAccess.READ)
+ if file==null:return false
+ var magic=file.get_buffer(2);file.close()
+ if magic!=PackedByteArray([77,90]):return false
+ return DirAccess.copy_absolute(path,destination)==OK and FileAccess.get_sha256(destination)==meta.get("digest","")
 
 static func write_json(path:String,value:Dictionary) -> bool:
  var file=FileAccess.open(path,FileAccess.WRITE)
@@ -89,7 +114,7 @@ func check(current:String) -> void:
  for release in releases:
   var candidate=metadata(release,current)
   if not candidate.is_empty() and (available.is_empty() or newer(candidate["version"],available["version"])):available=candidate
- status="Version "+available["version"]+" is available. Download size: %.1f MB." % (float(available["size"])/1000000) if not available.is_empty() else "You have the newest compatible Windows alpha."
+ status="Version "+available["version"]+" is available. Download size: %.1f MB." % (float(available["size"])/1000000) if not available.is_empty() else "No newer compatible official Windows release was found."
  busy=false
 
 func download() -> void:
@@ -98,7 +123,7 @@ func download() -> void:
  var root=OS.get_user_data_dir().path_join("updates")
  if DirAccess.make_dir_recursive_absolute(root)!=OK:status="Cannot create the update folder.";busy=false;return
  var path=root.path_join(available["name"]+".part")
- request=HTTPRequest.new();add_child(request);request.timeout=180;request.body_size_limit=MAX_ARCHIVE;request.max_redirects=5;request.download_file=path
+ request=HTTPRequest.new();add_child(request);request.timeout=180;request.body_size_limit=MAX_ARCHIVE if available.get("format","zip")=="zip" else MAX_EXECUTABLE;request.max_redirects=5;request.download_file=path
  var err=request.request(DOWNLOAD+available["tag"]+"/"+available["name"],["User-Agent: Print-Shop-Tycoon-Updater"])
  if err!=OK:request.queue_free();request=null;status="Download could not start.";busy=false;return
  var reply=await request.request_completed;request.queue_free();request=null
@@ -126,7 +151,7 @@ func restart() -> bool:
  if not verify_archive(staged,available):status="The staged download changed. Download again.";return false
  var nonce=Crypto.new().generate_random_bytes(16).hex_encode();var root=folder(nonce)
  var target=OS.get_executable_path();var helper=root.path_join("update-helper.exe")
- if target.get_file()!="Print Shop Tycoon.exe":status="Keep the original Print Shop Tycoon.exe filename to use in-game updates.";return false
+ if not supported_filename(target):status="Keep the official game executable filename to use in-game updates.";return false
  var directory=DirAccess.open(target.get_base_dir())
  if directory==null or directory.get_space_left()<MAX_EXECUTABLE*2:status="At least 600 MB of free space is needed for staging and rollback.";return false
  var probe_path=target.get_base_dir().path_join(".tycoon-update-"+nonce+".probe")

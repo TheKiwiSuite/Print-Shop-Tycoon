@@ -1,3 +1,18 @@
+# v1.1.0 — clearer shop, smoother first day
+
+A polish update built from a hands-on playtest of 1.0. Saves from every earlier version carry over.
+
+- **Clear money on every quote.** Orders now show estimated materials and expected contribution before overhead and wages, with what you have actually used so far underneath. A $210 shirt order no longer reads as $210 profit.
+- **A calmer first job.** While the guided first order is in progress, other customers wait instead of arriving and quietly walking out. Expert keeps the pressure on. You get one notice that they are waiting.
+- **Next step on the shop floor.** When Sam can do the next hand-off himself, a strip at the bottom of the shop names the job and station, with **Sam: Work It** and **Auto Assist** side by side. No more reopening the order for every stage.
+- **Optional timing explains itself.** The button is only enabled when a timing event can actually start. Otherwise the panel says why (for example, "Available when ready to press"), and any message from a button inside a panel now appears with that panel instead of behind it.
+- **Away shifts tell you what will happen.** Before you go, the Away page counts the accepted jobs that can run unattended and lists any that need you first. The return report is plain language: offline time, jobs completed, cash change and budget used.
+- **Service at full size.** The Service page pages five machines at a time, so every machine is reachable even in a full factory, and the jam-recovery button no longer touches the Service button.
+- **Photo mode.** Opens fitted to the selected frame, with Fit Shop to Frame, Hide Controls, and Open Photo Folder after an export. The control deck now fits smaller windows.
+- **Growth guidance.** Shop Growth names one concrete next step (the next lease, unlocked machine or fit-out), what is still missing, and the station your jobs are queuing for.
+- Sticker planning, the capacity board and other panels were checked for overlapping text at 1280 × 720 and 1920 × 1080.
+- **Updates.** The in-game updater now accepts stable standalone releases as well as the older ZIP channel, still with GitHub SHA-256, exact-size and executable checks. Version 1.0.0 players can update in-game through the ZIP channel; 1.1.0 is published in both formats.
+
 # v1.0.0 — Print Shop Tycoon 1.0
 
 The full game: start in your home garage with a gifted vinyl cutter, press your first shirts, and grow into a print factory with a loading yard.

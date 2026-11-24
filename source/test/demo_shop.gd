@@ -48,6 +48,6 @@ func run() -> void:
  var clock=game.sim.state["clock"];var before=game.sim.owner()["pos"].duplicate()
  game.sim.manual_input=Vector2(1,0);game.sim.tick(.1)
  check(game.sim.owner()["pos"]==before and game.sim.state["clock"]==clock,"Pause still freezes movement and shop clock consistently")
- game.queue_free();await process_frame
+ await preload("res://test/qa_audio_cleanup.gd").stop(game,self);game.queue_free();await process_frame
  print("DEMO SHOP: ",checks," checks, ",failures," failures")
  quit(failures)

@@ -44,4 +44,8 @@ func run() -> void:
  game._action("back_machine")
  check(game.modal=="machine","Views return to equipment controls")
  print("DTF ART CHECKS: ",failures," failures")
- quit(failures)
+ await preload("res://test/qa_audio_cleanup.gd").stop(game,self);game.free()
+ await process_frame
+ # Mixer playbacks retire asynchronously after the game node releases its streams.
+ await create_timer(.5).timeout
+ call_deferred("quit",failures)
