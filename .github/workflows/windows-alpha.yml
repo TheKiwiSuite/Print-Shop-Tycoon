@@ -56,7 +56,7 @@ jobs:
           "$engine" --headless --path source --editor --import
           mkdir -p "$(realpath -m source/../../../work)"
           for test in studio_operations studio_visual_review workshop_operations workshop_visual_review demo_shop strategy_visual_review updater_security update_release_formats strategy_growth native_release_walkthrough handoff_recovery acceptance customer_loop sales_growth customer_walking session_reliability illustrated_equipment rotation_stability illustrated_ui ui_dtf_placement wall_visual_review shop_workspace window_controls; do
-            timeout 120 xvfb-run -a "$engine" --path source --rendering-method gl_compatibility --audio-driver Dummy --script "res://test/$test.gd" 2>&1 | tee "$RUNNER_TEMP/$test.log"
+            timeout 120 xvfb-run -a "$engine" --verbose --path source --rendering-method gl_compatibility --audio-driver Dummy --script "res://test/$test.gd" 2>&1 | tee "$RUNNER_TEMP/$test.log"
             if grep -E 'SCRIPT ERROR:|ERROR:|FAIL:' "$RUNNER_TEMP/$test.log"; then exit 1; fi
           done
           timeout 240 "$engine" --headless --path source --script res://test/strategy_balance.gd 2>&1 | tee "$RUNNER_TEMP/strategy_balance.log"
