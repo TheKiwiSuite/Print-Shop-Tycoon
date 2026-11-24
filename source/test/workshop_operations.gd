@@ -141,5 +141,6 @@ func run() -> void:
  game.music.stop()
  game.queue_free();await process_frame
  await process_frame
+ await create_timer(.2).timeout
  print("WORKSHOP OPERATIONS: %d checks, %d failures" % [checks,failures])
  call_deferred("quit",failures)

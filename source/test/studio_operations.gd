@@ -84,6 +84,8 @@ func run() -> void:
  check(game.sim.state["style"]["photo"]["logo"] and game.sim.state["style"]["photo"]["watermark"],"Photo logo and watermark controls are connected")
  game._action("photo_close");check(not game.photo_active,"Branded photo mode returns to the shop")
  game.queue_free();await process_frame
+ # The audio mixer retires Ogg playbacks asynchronously, not by render frame.
+ await create_timer(.2).timeout
  print("STUDIO OPERATIONS: %d checks, %d failures" % [checks,failures])
  # Let this coroutine release its local resources before engine shutdown.
  call_deferred("quit",failures)
