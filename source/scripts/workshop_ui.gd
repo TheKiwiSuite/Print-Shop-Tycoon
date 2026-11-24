@@ -50,7 +50,7 @@ static func draw(g) -> void:
    if not plan["needs"].is_empty():outlook+="  Needs you first: "+", ".join(plan["needs"].slice(0,2))+("…" if plan["needs"].size()>2 else "")
    elif plan["ready"]==0:outlook+="  Accept and approve a job first, or Away has nothing to do."
    if not plan["waiting"].is_empty():outlook+="  Waiting: "+", ".join(plan["waiting"].slice(0,2))
-   g._text(Vector2(389,596),outlook,14,g.RED if plan["ready"]==0 else g.INK,810,true)
+   g._text(Vector2(389,598),outlook,15,g.RED if plan["ready"]==0 else g.BLUE,810)
    var report=o["return_report"];var summary="No away shift completed yet."
    if not report.is_empty():
     summary=str(report.get("reason","Away shift report"))
