@@ -65,7 +65,7 @@ try {
     $smokeErrors = Join-Path $stageRoot 'smoke-stderr.log'
     $smokeEngineLog = Join-Path $stageRoot 'smoke-engine.log'
     # Start-Process flattens ArgumentList into one command line. Quote the log
-    # path so workspace roots containing spaces (such as E:\Print Shop Tycoon)
+    # path so workspace roots containing spaces (such as F:\Print Shop Tycoon)
     # remain one Godot argument instead of being split into multiple arguments.
     $smokeProcess = Start-Process -FilePath $candidate -ArgumentList @('--headless','--log-file',('"{0}"' -f $smokeEngineLog),'--','--smoke') -WindowStyle Hidden -PassThru -Wait -RedirectStandardOutput $smokeLog -RedirectStandardError $smokeErrors
     Get-Content -LiteralPath $smokeErrors | Add-Content -LiteralPath $smokeLog

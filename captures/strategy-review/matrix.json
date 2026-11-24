@@ -1,0 +1,871 @@
+{
+  "failures": 0,
+  "matrix": [
+    {
+      "buttons": 9,
+      "outside": [],
+      "screen": "1280x720-title-demo",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 26,
+      "outside": [],
+      "screen": "1280x720-empty-shop",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 29,
+      "outside": [],
+      "screen": "1280x720-playable-demo",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 30,
+      "outside": [],
+      "screen": "1280x720-full-sidebar",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 12,
+      "outside": [],
+      "screen": "1280x720-capacity",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 18,
+      "outside": [],
+      "screen": "1280x720-difficulty",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 7,
+      "outside": [],
+      "screen": "1280x720-move",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 2,
+      "outside": [],
+      "screen": "1280x720-roster",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 2,
+      "outside": [],
+      "screen": "1280x720-help",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 17,
+      "outside": [],
+      "screen": "1280x720-settings",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 8,
+      "outside": [],
+      "screen": "1280x720-order",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 8,
+      "outside": [],
+      "screen": "1280x720-accessibility",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 3,
+      "outside": [],
+      "screen": "1280x720-updates",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 13,
+      "outside": [],
+      "screen": "1280x720-staff",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 13,
+      "outside": [],
+      "screen": "1280x720-stock",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 5,
+      "outside": [],
+      "screen": "1280x720-customers",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 6,
+      "outside": [],
+      "screen": "1280x720-equipment",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 7,
+      "outside": [],
+      "screen": "1280x720-gang",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 3,
+      "outside": [],
+      "screen": "1280x720-report",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 6,
+      "outside": [],
+      "screen": "1280x720-marketing",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 18,
+      "outside": [],
+      "screen": "1280x720-dtf_views",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 9,
+      "outside": [],
+      "screen": "1442x842-title-demo",
+      "size": [
+        1600.0,
+        934.0
+      ]
+    },
+    {
+      "buttons": 26,
+      "outside": [],
+      "screen": "1442x842-empty-shop",
+      "size": [
+        1600.0,
+        934.0
+      ]
+    },
+    {
+      "buttons": 29,
+      "outside": [],
+      "screen": "1442x842-playable-demo",
+      "size": [
+        1600.0,
+        934.0
+      ]
+    },
+    {
+      "buttons": 30,
+      "outside": [],
+      "screen": "1442x842-full-sidebar",
+      "size": [
+        1600.0,
+        934.0
+      ]
+    },
+    {
+      "buttons": 12,
+      "outside": [],
+      "screen": "1442x842-capacity",
+      "size": [
+        1600.0,
+        934.0
+      ]
+    },
+    {
+      "buttons": 18,
+      "outside": [],
+      "screen": "1442x842-difficulty",
+      "size": [
+        1600.0,
+        934.0
+      ]
+    },
+    {
+      "buttons": 7,
+      "outside": [],
+      "screen": "1442x842-move",
+      "size": [
+        1600.0,
+        934.0
+      ]
+    },
+    {
+      "buttons": 2,
+      "outside": [],
+      "screen": "1442x842-roster",
+      "size": [
+        1600.0,
+        934.0
+      ]
+    },
+    {
+      "buttons": 2,
+      "outside": [],
+      "screen": "1442x842-help",
+      "size": [
+        1600.0,
+        934.0
+      ]
+    },
+    {
+      "buttons": 17,
+      "outside": [],
+      "screen": "1442x842-settings",
+      "size": [
+        1600.0,
+        934.0
+      ]
+    },
+    {
+      "buttons": 8,
+      "outside": [],
+      "screen": "1442x842-order",
+      "size": [
+        1600.0,
+        934.0
+      ]
+    },
+    {
+      "buttons": 8,
+      "outside": [],
+      "screen": "1442x842-accessibility",
+      "size": [
+        1600.0,
+        934.0
+      ]
+    },
+    {
+      "buttons": 3,
+      "outside": [],
+      "screen": "1442x842-updates",
+      "size": [
+        1600.0,
+        934.0
+      ]
+    },
+    {
+      "buttons": 13,
+      "outside": [],
+      "screen": "1442x842-staff",
+      "size": [
+        1600.0,
+        934.0
+      ]
+    },
+    {
+      "buttons": 13,
+      "outside": [],
+      "screen": "1442x842-stock",
+      "size": [
+        1600.0,
+        934.0
+      ]
+    },
+    {
+      "buttons": 5,
+      "outside": [],
+      "screen": "1442x842-customers",
+      "size": [
+        1600.0,
+        934.0
+      ]
+    },
+    {
+      "buttons": 6,
+      "outside": [],
+      "screen": "1442x842-equipment",
+      "size": [
+        1600.0,
+        934.0
+      ]
+    },
+    {
+      "buttons": 7,
+      "outside": [],
+      "screen": "1442x842-gang",
+      "size": [
+        1600.0,
+        934.0
+      ]
+    },
+    {
+      "buttons": 3,
+      "outside": [],
+      "screen": "1442x842-report",
+      "size": [
+        1600.0,
+        934.0
+      ]
+    },
+    {
+      "buttons": 6,
+      "outside": [],
+      "screen": "1442x842-marketing",
+      "size": [
+        1600.0,
+        934.0
+      ]
+    },
+    {
+      "buttons": 18,
+      "outside": [],
+      "screen": "1442x842-dtf_views",
+      "size": [
+        1600.0,
+        934.0
+      ]
+    },
+    {
+      "buttons": 9,
+      "outside": [],
+      "screen": "1920x1080-title-demo",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 26,
+      "outside": [],
+      "screen": "1920x1080-empty-shop",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 29,
+      "outside": [],
+      "screen": "1920x1080-playable-demo",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 30,
+      "outside": [],
+      "screen": "1920x1080-full-sidebar",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 12,
+      "outside": [],
+      "screen": "1920x1080-capacity",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 18,
+      "outside": [],
+      "screen": "1920x1080-difficulty",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 7,
+      "outside": [],
+      "screen": "1920x1080-move",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 2,
+      "outside": [],
+      "screen": "1920x1080-roster",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 2,
+      "outside": [],
+      "screen": "1920x1080-help",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 17,
+      "outside": [],
+      "screen": "1920x1080-settings",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 8,
+      "outside": [],
+      "screen": "1920x1080-order",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 8,
+      "outside": [],
+      "screen": "1920x1080-accessibility",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 3,
+      "outside": [],
+      "screen": "1920x1080-updates",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 13,
+      "outside": [],
+      "screen": "1920x1080-staff",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 13,
+      "outside": [],
+      "screen": "1920x1080-stock",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 5,
+      "outside": [],
+      "screen": "1920x1080-customers",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 6,
+      "outside": [],
+      "screen": "1920x1080-equipment",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 7,
+      "outside": [],
+      "screen": "1920x1080-gang",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 3,
+      "outside": [],
+      "screen": "1920x1080-report",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 6,
+      "outside": [],
+      "screen": "1920x1080-marketing",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 18,
+      "outside": [],
+      "screen": "1920x1080-dtf_views",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 9,
+      "outside": [],
+      "screen": "2560x1440-title-demo",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 26,
+      "outside": [],
+      "screen": "2560x1440-empty-shop",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 29,
+      "outside": [],
+      "screen": "2560x1440-playable-demo",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 30,
+      "outside": [],
+      "screen": "2560x1440-full-sidebar",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 12,
+      "outside": [],
+      "screen": "2560x1440-capacity",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 18,
+      "outside": [],
+      "screen": "2560x1440-difficulty",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 7,
+      "outside": [],
+      "screen": "2560x1440-move",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 2,
+      "outside": [],
+      "screen": "2560x1440-roster",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 2,
+      "outside": [],
+      "screen": "2560x1440-help",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 17,
+      "outside": [],
+      "screen": "2560x1440-settings",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 8,
+      "outside": [],
+      "screen": "2560x1440-order",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 8,
+      "outside": [],
+      "screen": "2560x1440-accessibility",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 3,
+      "outside": [],
+      "screen": "2560x1440-updates",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 13,
+      "outside": [],
+      "screen": "2560x1440-staff",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 13,
+      "outside": [],
+      "screen": "2560x1440-stock",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 5,
+      "outside": [],
+      "screen": "2560x1440-customers",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 6,
+      "outside": [],
+      "screen": "2560x1440-equipment",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 7,
+      "outside": [],
+      "screen": "2560x1440-gang",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 3,
+      "outside": [],
+      "screen": "2560x1440-report",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 6,
+      "outside": [],
+      "screen": "2560x1440-marketing",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 18,
+      "outside": [],
+      "screen": "2560x1440-dtf_views",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 8,
+      "outside": [],
+      "screen": "product-transfer",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 7,
+      "outside": [],
+      "screen": "preset-transfer",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 8,
+      "outside": [],
+      "screen": "product-apparel",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 8,
+      "outside": [],
+      "screen": "preset-apparel",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 8,
+      "outside": [],
+      "screen": "product-sticker",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 10,
+      "outside": [],
+      "screen": "preset-sticker",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 8,
+      "outside": [],
+      "screen": "product-banner",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 6,
+      "outside": [],
+      "screen": "preset-banner",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 8,
+      "outside": [],
+      "screen": "product-cnc",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 7,
+      "outside": [],
+      "screen": "preset-cnc",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 30,
+      "outside": [],
+      "screen": "active-production",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    },
+    {
+      "buttons": 30,
+      "outside": [],
+      "screen": "paused-production",
+      "size": [
+        1600.0,
+        900.0
+      ]
+    }
+  ],
+  "renderer": "Godot viewport",
+  "scope": "Linux render and input-rectangle checks; not Windows scaling or screen-reader certification"
+}

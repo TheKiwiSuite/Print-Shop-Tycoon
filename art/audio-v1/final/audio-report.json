@@ -1,0 +1,61 @@
+{
+  "music-open-sign": {
+    "seconds": 83.0,
+    "peak": 0.812,
+    "rms": 0.16
+  },
+  "music-weeding-by-the-window": {
+    "seconds": 96.91,
+    "peak": 0.581,
+    "rms": 0.16
+  },
+  "music-rush-order": {
+    "seconds": 71.57,
+    "peak": 0.89,
+    "rms": 0.1471
+  },
+  "music-paper-and-ink": {
+    "seconds": 72.07,
+    "peak": 0.764,
+    "rms": 0.16
+  },
+  "sfx-click": {
+    "seconds": 0.07
+  },
+  "sfx-place": {
+    "seconds": 0.26
+  },
+  "sfx-cash": {
+    "seconds": 0.8
+  },
+  "sfx-door": {
+    "seconds": 1.2
+  },
+  "sfx-done": {
+    "seconds": 0.95
+  },
+  "sfx-fanfare": {
+    "seconds": 2.0
+  },
+  "sfx-levelup": {
+    "seconds": 1.5
+  },
+  "sfx-error": {
+    "seconds": 0.36
+  },
+  "sfx-cutter": {
+    "seconds": 0.55
+  },
+  "sfx-press": {
+    "seconds": 0.8
+  },
+  "sfx-print": {
+    "seconds": 0.7
+  },
+  "sfx-pack": {
+    "seconds": 0.3
+  },
+  "sfx-day": {
+    "seconds": 2.0
+  }
+}

@@ -32,6 +32,9 @@ try {
     $env:TEMP = $runRoot
     $env:TMP = $runRoot
     $qaProcess = Start-Process -FilePath $engine -ArgumentList $engineArguments -WorkingDirectory $source -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+    # Windows PowerShell 5.1 reports a null ExitCode for redirected processes
+    # unless the process handle is opened while the process is running.
+    $null = $qaProcess.Handle
     Write-Output "QA_PID=$($qaProcess.Id)"
     Write-Output "QA_LOG=$engineLog"
     if (!$qaProcess.WaitForExit($TimeoutSeconds * 1000)) {

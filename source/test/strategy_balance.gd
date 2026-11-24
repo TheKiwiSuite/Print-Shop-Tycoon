@@ -3,6 +3,7 @@ extends SceneTree
 # receipts and day-close charges. They do not inject income or completed work.
 const Sim=preload("res://scripts/simulation.gd")
 const C=preload("res://scripts/catalog.gd")
+const Progress=preload("res://scripts/shop_progress.gd")
 var failures=0
 var results=[]
 func _initialize() -> void: call_deferred("run")
@@ -10,9 +11,15 @@ func check(ok:bool,message:String) -> void:
  if not ok: failures+=1;push_error("FAIL: "+message)
 func simulate(preset:String,branch:String,policy:String) -> void:
  var s=Sim.new();s.save_enabled=false;s.start_shop(preset)
- var ids=["sticker","art","finish","pack"] if branch=="Stickers" else ["dtf","heat","art","finish","pack"]
+ # New careers start on the gifted vinyl cutter; shirts are heat-transfer vinyl
+ # until sales unlock DTF equipment.
+ var ids=["sticker","art","finish","pack"] if branch=="Stickers" else ["cutter","heat","art","finish","pack"]
+ # The sticker station unlocks at shop level 2; this branch studies a shop that
+ # has reached it.
+ if branch=="Stickers": Progress.ensure(s)["xp"]=Progress.LEVEL_XP[1]
  for id in ids:
-  check(s.install_equipment(id,s.cell(C.layout(1)[id]["pos"])),"Install opening station "+id)
+  var spot=C.garage_spot(id)
+  check(s.install_equipment(id,spot),"Install opening station "+id)
  s.select_specialty(branch);s.owner()["manual"]=false;s.state["speed"]=4;s.state["paused"]=false
  var daily=[];var floor_cash=float(s.state["cash"]);var blocked=0;var first_paid=-1.0;var expired=0
  for day in 14:
@@ -44,13 +51,19 @@ func simulate(preset:String,branch:String,policy:String) -> void:
        var shortfall=int(o["recipe"][key])-int(s.state["stock"].get(key,0))-in_transit
        if shortfall>0: needed[key]=shortfall
       if not needed.is_empty(): s.restock(needed)
-     if o["stage"]=="press" and not s.garment_available(o): s.restock({"garment:navy:S":6,"garment:navy:M":6,"garment:navy:L":6})
+     # Buy the blanks this job is missing (tees, hoodies or totes), once per delivery.
+     if o["stage"]=="press" and not s.garment_available(o) and s.state["deliveries"].is_empty():
+      var blanks={}
+      for key in o["garments"]:
+       var short=int(o["garments"][key])-int(s.state["garments"].get(key,0))
+       if short>0: blanks["garment:"+key]=maxi(short,6)
+      if not blanks.is_empty(): s.restock(blanks)
      if o["stage"]=="pack" and s.state["stock"]["packaging"]<s.boxes_for(o): s.restock({"packaging":12})
      if o["stage"]=="fault": s.recover(i,policy!="Novice")
     # Planned inventory replenishment is a paid purchase with its real lead time.
     if s.state["deliveries"].is_empty() and s.state["cash"]>220:
      var wanted={}
-     for key in ["film","white","powder","sticker","laminate","cyan","magenta","yellow","black","packaging","maintenance"]:
+     for key in ["film","white","powder","sticker","laminate","cyan","magenta","yellow","black","packaging","maintenance","htv","vinyl","transfer_tape"]:
       if s.state["stock"][key]<10: wanted[key]=20
      if not wanted.is_empty(): s.restock(wanted)
    s.tick(.1)

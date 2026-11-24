@@ -37,7 +37,15 @@ func run():
    for point in [Vector2(-.5,-.5),Vector2(size.x-.5,-.5),Vector2(-.5,size.y-.5)]:
     check(game.SHOP_VIEW.has_point(game.iso(point)+Vector2(0,-155)*game.zoom),"Wall top stays below HUD")
    var before=game.sim.owner()["path"].duplicate(true)
-   mouse(Vector2(80,805),true);mouse(Vector2(80,805),false)
+   # Find a sidebar point with no control under it; where the dock is empty
+   # depends on the display's aspect ratio (16:9 and 16:10 lay out differently).
+   var blank=Vector2(80,805)
+   for y in range(int(game._screen_size().y)-125,300,-6):
+    var free=true
+    for button in game.buttons:
+     if button["rect"].has_point(Vector2(80,y)): free=false;break
+    if free: blank=Vector2(80,y);break
+   mouse(blank,true);mouse(blank,false)
    check(game.sim.owner()["path"]==before,"Blank sidebar cannot move owner through the dock")
    game.get_viewport().get_texture().get_image().save_png("res://../captures/workspace-%d-%s.png" % [location,"build" if arranging else "play"])
  game.sim.state=game.C.empty_shop();game.sim.state["cash"]=100000;game.sim.state["settings"]["music"]=false

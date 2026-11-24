@@ -4,6 +4,11 @@ const Ops=preload("res://scripts/shop_operations.gd")
 const Studio=preload("res://scripts/workshop_studio.gd")
 const Art=preload("res://scripts/artwork_negotiation.gd")
 const Style=preload("res://scripts/shop_style.gd")
+const Look=preload("res://scripts/character_look.gd")
+const Progress=preload("res://scripts/shop_progress.gd")
+const Customers=preload("res://scripts/shop_customers.gd")
+const Merch=preload("res://scripts/shop_merch.gd")
+const People=preload("res://scripts/shop_people.gd")
 const Workshop=preload("res://scripts/workshop_ui.gd")
 const Photo=preload("res://scripts/workshop_photo.gd")
 const Banner=preload("res://scripts/partner_banner.gd")
@@ -89,6 +94,8 @@ var selected_machine = "dtf"
 var selected_worker = "owner"
 var order_page = 0
 var customer_page = 0
+var merch_kind = ""
+var merch_theme = 0
 var staff_page = 0
 var build = false
 var zoom = 0.92
@@ -112,6 +119,29 @@ var autosave = 0.0
 var status = ""
 var audio:AudioStreamPlayer
 var music:AudioStreamPlayer
+# Original tunes and sound effects (see art/audio-v1). The shop shuffles three
+# tunes; the title screen has its own. Sounds follow what happens in the shop.
+const MUSIC_SHOP=["open-sign","weeding-by-the-window","rush-order"]
+const MUSIC_TITLE="paper-and-ink"
+const SFX_NAMES=["click","place","cash","door","done","fanfare","levelup","error","cutter","press","print","pack","day"]
+var sfx_streams={}
+var sfx_players=[]
+var sfx_last={}
+var music_tracks={}
+var music_queue=[]
+var music_last=""
+var music_context=""
+var audio_watch={}
+# Shop level pop-ups and goal toasts waiting to be shown.
+var goals_page=0
+var reviews_view=false
+var season_seen=-1
+var progress_card={}
+var pending_cards=[]
+var toasts=[]
+# Headless runs (tests, packaged smoke check) have no audio device: stay silent so
+# nothing is left playing when the engine shuts down.
+var audio_output=true
 var capture_args = []
 var qa_ui=false
 var qa_desktop=false
@@ -153,6 +183,7 @@ func _ready() -> void:
  atlas=load("res://assets/shop-atlas.png")
  official_logo=load("res://assets/official-logo.png")
  owner_sheet=load("res://assets/owner-walk.png")
+ Look.load_layers()
  dtf_line_texture=load("res://assets/dtf-line-approved.png")
  for path in ["approved","right","left","back","front"]:
   dtf_views.append(load("res://assets/dtf-line-"+path+".png"))
@@ -171,6 +202,8 @@ func _ready() -> void:
  music=AudioStreamPlayer.new()
  add_child(audio)
  add_child(music)
+ audio_output=DisplayServer.get_name()!="headless"
+ _load_audio()
  capture_args=OS.get_cmdline_user_args()
  if "--qa-desktop" in capture_args:
   qa_desktop=true;qa_ui=true;sim.save_path="user://desktop-acceptance-profile.json";sim.save_enabled=false
@@ -234,10 +267,18 @@ func _capture() -> void:
  get_viewport().get_texture().get_image().save_png("res://../captures/"+filename)
  _quit_game()
 
+# Release every audio stream when the game node leaves the tree, so the engine
+# never shuts down with a sound still playing.
+func _exit_tree() -> void:
+ if audio!=null: audio.stop();audio.stream=null
+ if music!=null: music.stop();music.stream=null
+ for player in sfx_players: player.stop();player.stream=null
+
 func _quit_game() -> void:
  if closing: return
  closing=true
  audio.stop(); music.stop()
+ for player in sfx_players: player.stop();player.stream=null
  audio.stream=null; music.stream=null
  await get_tree().create_timer(0.1).timeout
  get_tree().quit()
@@ -274,6 +315,10 @@ func _process(delta:float) -> void:
   if autosave>10:
    _stamp_offline();sim.save_game(); autosave=0.0
   if not sim.state["report"].is_empty() and modal=="": modal="report"
+  _progress_events()
+  _audio_events()
+ # The title screen and the shop each have their own music.
+ if ("shop" if screen=="shop" else "title")!=music_context and not photo_render: _start_music()
  queue_redraw()
  _sync_accessibility()
  if qa_ui:
@@ -295,7 +340,9 @@ func uniso(p:Vector2) -> Vector2:
 
 func shop_world_bounds() -> Rect2:
  var size=sim.bounds()
- return Rect2(Vector2(-size.y*48-12,-190),Vector2((size.x+size.y)*48+24,(size.x+size.y-1)*23+198))
+ # The warehouse and factory include their outdoor loading yard on the right.
+ var wide=size.x+_yard_depth()
+ return Rect2(Vector2(-size.y*48-12,-190),Vector2((wide+size.y)*48+24,(wide+size.y-1)*23+198))
 
 func fit_zoom() -> float:
  var bounds=shop_world_bounds()
@@ -472,7 +519,7 @@ func _input(event:InputEvent) -> void:
     elif dragging=="output":
      var target=_machine_at(event.position)
      var o=sim.order(drag_order)
-     if target==sim.machine_for(o) or (target=="dtf2" and sim.machine_for(o)=="dtf"): sim.work_order(drag_order,target)
+     if target==sim.machine_for(o) or (sim.dtf_family(target) and sim.dtf_family(sim.machine_for(o))): sim.work_order(drag_order,target)
      else: status="Take this job to the required station: "+sim.machine_for(o)+"."
      dragging=""
  if event is InputEventMouseMotion:
@@ -535,6 +582,9 @@ func _render_machines() -> Dictionary:
  return drag_valid["machines"] if (_relocating() or pending_equipment!="") and drag_valid.has("machines") else sim.state["machines"]
 
 func _refresh_equipment_preview() -> void:
+ # The loading bay always sits against the outside wall: slide it along that wall.
+ if pending_equipment=="dock" or (_relocating() and drag_id=="dock") or moving_equipment=="dock":
+  drag_point.x=sim.bounds().x-2
  var center=Vector2(drag_point)+preview_center_offset
  if pending_equipment!="":drag_valid=sim.install_feedback(pending_equipment,drag_point,placement_rotation,placement_facing,center)
  elif _relocating():drag_valid=sim.placement_feedback(drag_id,drag_point,drag_rotation,drag_facing,center)
@@ -579,6 +629,7 @@ func _draw() -> void:
   _diamond(iso(Vector2(roundf(p.x),roundf(p.y))),48*zoom,23*zoom,Color(0.1,0.8,1,0.4))
  if dragging=="output": _product(sim.order(drag_order)["type"],get_global_mouse_position(),42)
  if modal=="" and dragging=="" and SHOP_VIEW.has_point(get_global_mouse_position()): _station_hover_label()
+ _toasts()
  if modal!="":
   _set_ui_offset(_modal_offset());_modal();_set_ui_offset(Vector2.ZERO)
  _version_badge()
@@ -936,50 +987,68 @@ func _world() -> void:
  var b=iso(Vector2(-0.5,size.y-0.5))
  var c=iso(Vector2(size.x-0.5,-0.5))
  var wall=Vector2(0,-high)
- _poly([a,b,b+wall,a+wall],Color("e7d7b9"),Color("70685d"),2)
- _poly([a,c,c+wall,a+wall],Color("f2dfbb") if sim.state["location"]==1 else Color("c4ccd0"),Color("70685d"),2)
+ var place=sim.premises()
+ var room=ROOMS[place]
+ _poly([a,b,b+wall,a+wall],Color(room["left"]),Color("70685d"),2)
+ _poly([a,c,c+wall,a+wall],Color(room["back"]),Color("70685d"),2)
  var exterior=Vector2(-11,-5)*zoom
  _poly([b,b+wall,b+wall+exterior,b+exterior],Color("a7ac9f"),Color("606e68"),2)
- # Three generous windows, separated by solid wall, rather than one per tile.
  var entrance_y=float(sim.entrance().y)
- for n in 3:
-  var along=lerpf(1.35,entrance_y-2.0,float(n)/2.0)
-  var p=iso(Vector2(-0.5,along))
-  var half=Vector2(-50.4,24.15)*zoom
-  _poly([p+half+wall*.22,p-half+wall*.22,p-half+wall*.91,p+half+wall*.91],Color("365767"),INK,2)
-  _poly([p+half*.9+wall*.27,p-half*.9+wall*.27,p-half*.9+wall*.86,p+half*.9+wall*.86],Color("b4e9f1"),Color("5a8492"),1)
-  draw_line(p+wall*.27,p+wall*.86,Color("4a7f8d"),3*zoom)
-  draw_line(p+half*.72+wall*.32,p+half*.72+wall*.8,Color("e1faff"),2*zoom)
- var door=iso(Vector2(-0.5,entrance_y))
- var door_half=Vector2(-21.6,10.35)*zoom
- _poly([door+door_half,door-door_half,door-door_half+wall*.93,door+door_half+wall*.93],Color("224660"),INK,2)
- _poly([door+door_half*.8+Vector2(0,-8)*zoom,door-door_half*.8+Vector2(0,-8)*zoom,door-door_half*.8+wall*.87,door+door_half*.8+wall*.87],Color("a1def0"),Color("4a9eaf"),2)
- _panel(Rect2(door+Vector2(-22,-94)*zoom,Vector2(46,27)*zoom),RED)
- _text(door+Vector2(-19,-76)*zoom,"OPEN",int(14*zoom),CREAM)
+ if place=="garage": _garage_wall(entrance_y,wall)
+ else:
+  # Three generous windows, separated by solid wall, rather than one per tile.
+  for n in 3:
+   var along=lerpf(1.35,entrance_y-2.0,float(n)/2.0)
+   var p=iso(Vector2(-0.5,along))
+   var half=Vector2(-50.4,24.15)*zoom
+   _poly([p+half+wall*.22,p-half+wall*.22,p-half+wall*.91,p+half+wall*.91],Color("365767"),INK,2)
+   _poly([p+half*.9+wall*.27,p-half*.9+wall*.27,p-half*.9+wall*.86,p+half*.9+wall*.86],Color("b4e9f1"),Color("5a8492"),1)
+   draw_line(p+wall*.27,p+wall*.86,Color("4a7f8d"),3*zoom)
+   draw_line(p+half*.72+wall*.32,p+half*.72+wall*.8,Color("e1faff"),2*zoom)
+  var door=iso(Vector2(-0.5,entrance_y))
+  var door_half=Vector2(-21.6,10.35)*zoom
+  _poly([door+door_half,door-door_half,door-door_half+wall*.93,door+door_half+wall*.93],Color("224660"),INK,2)
+  _poly([door+door_half*.8+Vector2(0,-8)*zoom,door-door_half*.8+Vector2(0,-8)*zoom,door-door_half*.8+wall*.87,door+door_half*.8+wall*.87],Color("a1def0"),Color("4a9eaf"),2)
+  _panel(Rect2(door+Vector2(-22,-94)*zoom,Vector2(46,27)*zoom),RED)
+  _text(door+Vector2(-19,-76)*zoom,"OPEN",int(14*zoom),CREAM)
+ _loading_yard(size)
  for x in size.x:
   for y in size.y:
    var p=iso(Vector2(x,y))
-   var color=Color("e6b574") if sim.state["location"]==1 else Color("aab2b7")
+   var color=Color(room["floor"])
    if Style.FLOORS.get(style.get("floor","Original"),"")!="":color=Color(Style.FLOORS[style["floor"]])
    color=color.lightened(float((x*13+y*7)%7)*0.013)
-   _diamond(p,48*zoom,23*zoom,color,Color("c99b69") if sim.state["location"]==1 else Color("909ba3"))
+   _diamond(p,48*zoom,23*zoom,color,Color(room["edge"]))
    if floor_texture!=null:
     draw_polygon(PackedVector2Array([p+Vector2(0,-23)*zoom,p+Vector2(48,0)*zoom,p+Vector2(0,23)*zoom,p+Vector2(-48,0)*zoom]),PackedColorArray([Color.WHITE]),PackedVector2Array([Vector2(0,0),Vector2(1,0),Vector2(1,1),Vector2(0,1)]),floor_texture)
-   if sim.state["location"]==1 and floor_texture==null:
+   if room["pattern"]=="wood" and floor_texture==null:
     for k in 2:
      var line=p+Vector2(-25+k*20,3)*zoom
      draw_line(line,line+Vector2(28,13)*zoom,Color(0.63,0.36,0.14,0.12),1)
-   elif y in [1,7,12] or x==12:
+   elif place!="garage" and (y in [1,7,12] or x==12):
     draw_line(p+Vector2(-43,0)*zoom,p+Vector2(0,20)*zoom,YELLOW,3*zoom)
    if build: _diamond(p,48*zoom,23*zoom,Color(0.0,0.5,0.9,0.07),Color(0.1,0.6,0.8,0.35))
  _poly([b,c,iso(Vector2(size.x-0.5,size.y-0.5))],Color(0,0,0,0),Color(0,0,0,0),0)
- # Warm floor light and cast window reflections stay behind equipment.
- for n in [2,5,8]:
-  var p=iso(Vector2(0,n))
-  _poly([p,p+Vector2(92,44)*zoom,p+Vector2(139,22)*zoom,p+Vector2(47,-22)*zoom],Color(1,0.95,0.69,0.11),Color.TRANSPARENT,0)
- if sim.state.get("style",{}).get("shop_name","My Print Shop")!="My Print Shop":_poster(iso(Vector2(4,-0.5)),Style.sign_lines(sim),[BLUE,BLUE,MAGENTA,BLUE],true)
- else:_poster(iso(Vector2(4,-0.5)),["PRINT","MORE","GROW","BIGGER"],[BLUE,BLUE,MAGENTA,BLUE],true)
- _poster(iso(Vector2(size.x-3,-0.5)),["GOOD","PRINTS","HAPPIER","PEOPLE"],[MAGENTA,BLUE,BLUE,GREEN],false)
+ _outer_wall(size)
+ var sign_x=0.7 if place=="garage" else 4.0
+ if place=="garage":
+  # Daylight spilling in from the open door, and an old oil stain on the concrete.
+  var spill=iso(Vector2(0,entrance_y))
+  _poly([spill+Vector2(-48,-46)*zoom,spill+Vector2(140,46)*zoom,spill+Vector2(60,92)*zoom,spill+Vector2(-130,0)*zoom],Color(1,0.97,0.78,0.13),Color.TRANSPARENT,0)
+  _oval(iso(Vector2(6.3,6.4)),Vector2(34,13)*zoom,Color(0.16,0.17,0.2,0.09))
+  _oval(iso(Vector2(6.6,6.2)),Vector2(15,6)*zoom,Color(0.16,0.17,0.2,0.08))
+  _pegboard(6.6,wall)
+ else:
+  # Warm floor light and cast window reflections stay behind equipment.
+  for n in [2,5,8]:
+   var p=iso(Vector2(0,n))
+   _poly([p,p+Vector2(92,44)*zoom,p+Vector2(139,22)*zoom,p+Vector2(47,-22)*zoom],Color(1,0.95,0.69,0.11),Color.TRANSPARENT,0)
+  _poster(iso(Vector2(size.x-3,-0.5)),["GOOD","PRINTS","HAPPIER","PEOPLE"],[MAGENTA,BLUE,BLUE,GREEN],false)
+  if place=="factory":
+   # The factory's back wall has loading-dock doors for outgoing pallets.
+   for dock_x in [9.5,13.5]: _dock_door(dock_x,wall)
+ if sim.state.get("style",{}).get("shop_name","My Print Shop")!="My Print Shop":_poster(iso(Vector2(sign_x,-0.5)),Style.sign_lines(sim),[BLUE,BLUE,MAGENTA,BLUE],true)
+ else:_poster(iso(Vector2(sign_x,-0.5)),["PRINT","MORE","GROW","BIGGER"],[BLUE,BLUE,MAGENTA,BLUE],true)
  var items=[]
  for id in _render_machines():
   var m=_render_machines()[id]
@@ -997,6 +1066,12 @@ func _world() -> void:
  for decor in sim.state.get("style",{}).get("decor",[]):items.append({"kind":"decor","item":decor,"depth":decor["pos"][0]+decor["pos"][1]+.2})
  for w in sim.state["workers"]: items.append({"kind":"worker","id":w["id"],"depth":w["pos"][0]+w["pos"][1]+0.4})
  for actor in sim.visible_customers(): items.append({"kind":"customer","actor":actor,"depth":actor["pos"][0]+actor["pos"][1]+0.4})
+ # The loading door frame and the parked truck sit on the outside wall line.
+ if _yard_depth()>0:
+  var bay=_dock_span()
+  if not bay.is_empty():
+   items.append({"kind":"door_frame","depth":float(size.x)-0.5+float(bay["y1"])+0.05})
+   items.append({"kind":"truck","pos":Vector2(float(size.x)+1.9,float(bay["mid"])),"depth":float(size.x)+1.9+float(bay["mid"])})
  items.sort_custom(func(i,j): return i["depth"]<j["depth"])
  if not (photo_render or photo_active):_film_paths()
  for item in items:
@@ -1012,11 +1087,191 @@ func _world() -> void:
    "customer": _customer(item["actor"])
    "rack": _illustrated_prop("storage",iso(item["pos"]))
    "plant": _sprite(8,iso(item["pos"]),63)
+   "door_frame": _door_frame(size)
+   "truck": _truck(iso(item["pos"]))
  # The pendants hang from a visible ceiling beam at the cutaway roof edge.
  draw_line(a+wall,c+wall,Color("354451"),7*zoom)
  draw_line(a+wall+Vector2(0,-3)*zoom,c+wall+Vector2(0,-3)*zoom,Color("7a8b93"),2*zoom)
- for x in [1.0,7.0,float(size.x)-.8]:
+ for x in ([4.5,8.9] if place=="garage" else [1.0,7.0,float(size.x)-.8]):
   _pendant(iso(Vector2(x,-0.5))+wall)
+
+# Wall and floor colours for each step of the premises ladder.
+const ROOMS={
+ "garage":{"left":"d8d1c1","back":"cec6b5","floor":"bdbab2","edge":"a5a299","pattern":"concrete"},
+ "storefront":{"left":"e7d7b9","back":"f2dfbb","floor":"e6b574","edge":"c99b69","pattern":"wood"},
+ "warehouse":{"left":"e7d7b9","back":"c4ccd0","floor":"aab2b7","edge":"909ba3","pattern":"lines"},
+ "factory":{"left":"dde3e7","back":"b6c2ca","floor":"a2acb4","edge":"88949d","pattern":"lines"}}
+
+# The home garage's side wall: a roll-up door standing open onto the driveway
+# (customers walk in through it), a small window and a hand-painted OPEN sign.
+func _garage_wall(entrance_y:float,wall:Vector2) -> void:
+ var p=iso(Vector2(-0.5,entrance_y))
+ var half=Vector2(-48,23)*1.5*zoom
+ _poly([p+half,p-half,p-half+wall*.9,p+half+wall*.9],Color("59636d"),INK,2)
+ var inner=half*.93
+ _poly([p+inner+wall*.34,p-inner+wall*.34,p-inner+wall*.84,p+inner+wall*.84],Color("bfe8f7"),Color.TRANSPARENT,0)
+ _poly([p+inner+wall*.22,p-inner+wall*.22,p-inner+wall*.36,p+inner+wall*.36],Color("7dbb6b"),Color.TRANSPARENT,0)
+ _poly([p+inner,p-inner,p-inner+wall*.23,p+inner+wall*.23],Color("cfcdc5"),Color.TRANSPARENT,0)
+ # The rolled-up door sits in the top of the frame.
+ _poly([p+inner+wall*.70,p-inner+wall*.70,p-inner+wall*.86,p+inner+wall*.86],Color("e3e7ea"),Color("7c8790"),1)
+ for k in 3: draw_line(p+inner+wall*(.74+k*.04),p-inner+wall*(.74+k*.04),Color("aab4bb"),1.5*zoom)
+ draw_line(p+inner+wall*.70,p-inner+wall*.70,Color("4b5560"),3*zoom)
+ var w=iso(Vector2(-0.5,entrance_y+2.9))
+ var wh=Vector2(-48,23)*.55*zoom
+ _poly([w+wh+wall*.42,w-wh+wall*.42,w-wh+wall*.8,w+wh+wall*.8],Color("365767"),INK,2)
+ _poly([w+wh*.82+wall*.46,w-wh*.82+wall*.46,w-wh*.82+wall*.76,w+wh*.82+wall*.76],Color("b4e9f1"),Color("5a8492"),1)
+ var sign=iso(Vector2(-0.5,entrance_y-2.15))
+ _panel(Rect2(sign+Vector2(-23,-104)*zoom,Vector2(46,27)*zoom),RED)
+ _text(sign+Vector2(-20,-86)*zoom,"OPEN",int(14*zoom),CREAM)
+
+# A closed roll-up loading door on the factory's back wall, with hazard stripes.
+func _dock_door(x:float,wall:Vector2) -> void:
+ var p=iso(Vector2(x,-0.5))
+ var half=Vector2(48,23)*1.25*zoom
+ _poly([p-half,p+half,p+half+wall*.78,p-half+wall*.78],Color("4c5863"),INK,2)
+ var inner=half*.9
+ _poly([p-inner+wall*.02,p+inner+wall*.02,p+inner+wall*.72,p-inner+wall*.72],Color("d5dade"),Color("7c8790"),1)
+ for k in 7: draw_line(p-inner+wall*(.10+k*.09),p+inner+wall*(.10+k*.09),Color("a7b1b8"),1.5*zoom)
+ for k in 6:
+  var from=(p-inner).lerp(p+inner,k/6.0)
+  var to=(p-inner).lerp(p+inner,(k+.5)/6.0)
+  _poly([from+wall*.02,to+wall*.02,to+wall*.07,from+wall*.07],YELLOW,Color.TRANSPARENT,0)
+
+# The garage's back wall: a pegboard of tools over a shelf of paint and vinyl.
+func _pegboard(x:float,wall:Vector2) -> void:
+ var p=iso(Vector2(x,-0.5))
+ var half=Vector2(48,23)*1.2*zoom
+ _poly([p-half+wall*.40,p+half+wall*.40,p+half+wall*.84,p-half+wall*.84],Color("c9a36b"),Color("7a5a33"),2)
+ for k in 5:
+  var at=p-half*.8+half*1.6*(k/4.0)
+  draw_line(at+wall*.76,at+wall*(.54-.04*(k%2)),[Color("4b5560"),RED,Color("4b5560"),BLUE,Color("4b5560")][k],3*zoom)
+  draw_circle(at+wall*.78,3*zoom,Color("3a2a18"))
+ var shelf_a=p-half+wall*.30
+ var shelf_b=p+half+wall*.30
+ draw_line(shelf_a,shelf_b,Color("7a5a33"),5*zoom)
+ for k in 4:
+  var at=shelf_a.lerp(shelf_b,.14+k*.24)
+  var can=Rect2(at+Vector2(-7,-18)*zoom,Vector2(14,15)*zoom)
+  draw_rect(can,[CYAN,MAGENTA,YELLOW,Color("e9edf0")][k])
+  draw_rect(can,INK,false,1.2)
+
+# Frame of the truck sheet that shows it backed up, cab facing away from the door.
+const TRUCK_FRAME=2
+
+# The warehouse and factory have an outdoor loading yard beyond the right wall.
+func _yard_depth() -> int:
+ return 5 if int(sim.state["location"])==2 else 0
+
+# Rows of the right wall covered by the shipping dock's loading bay, if any.
+func _dock_span() -> Dictionary:
+ var ms=_render_machines()
+ if not ms.has("dock"): return {}
+ var low=INF;var high=-INF
+ for p in sim.footprint("dock",ms):
+  low=minf(low,float(p.y));high=maxf(high,float(p.y))
+ return {"y0":low-0.5,"y1":high+0.5,"mid":(low+high)*0.5}
+
+func _loading_yard(size:Vector2i) -> void:
+ var depth=_yard_depth()
+ if depth<=0: return
+ var x0=float(size.x)-0.5;var x1=x0+depth
+ var y0=-0.5;var y1=float(size.y)-0.5
+ # Asphalt lot with a concrete apron along the building.
+ _poly([iso(Vector2(x0,y0)),iso(Vector2(x1,y0)),iso(Vector2(x1,y1)),iso(Vector2(x0,y1))],Color("8b9297"),Color("6c7378"),2)
+ _poly([iso(Vector2(x0,y0)),iso(Vector2(x0+0.9,y0)),iso(Vector2(x0+0.9,y1)),iso(Vector2(x0,y1))],Color("b9bcb8"),Color.TRANSPARENT,0)
+ for k in 3:
+  var cx=x0+1.6+k*1.55
+  var cy=y0+1.3+k*3.6
+  _oval(iso(Vector2(cx,cy)),Vector2(26,9)*zoom,Color(0.2,0.22,0.25,0.08))
+ # Parking stripes running out from the wall.
+ var y=y0+0.8
+ while y<y1-0.4:
+  draw_line(iso(Vector2(x0+1.2,y)),iso(Vector2(x1-0.6,y)),Color(1,1,1,0.55),2*zoom)
+  y+=3.0
+ # A low fence and a planter strip at the far edge of the lot.
+ _poly([iso(Vector2(x1-0.45,y0)),iso(Vector2(x1,y0)),iso(Vector2(x1,y1)),iso(Vector2(x1-0.45,y1))],Color("8fbf73"),Color("6f9a59"),1)
+ var post=Vector2(0,-30)*zoom
+ for k in int(size.y)+1:
+  var p=iso(Vector2(x1-0.2,y0+k*(y1-y0)/float(size.y)))
+  draw_line(p,p+post,Color("5d666d"),2*zoom)
+ draw_line(iso(Vector2(x1-0.2,y0))+post,iso(Vector2(x1-0.2,y1))+post,Color("5d666d"),2*zoom)
+ draw_line(iso(Vector2(x1-0.2,y0))+post*0.55,iso(Vector2(x1-0.2,y1))+post*0.55,Color("7d868d"),1.5*zoom)
+ # The truck's marked bay outside the loading door.
+ var bay=_dock_span()
+ if not bay.is_empty():
+  var bx0=x0+0.25;var bx1=x0+3.6
+  var a=float(bay["y0"])-0.15;var b=float(bay["y1"])+0.15
+  var corners=[iso(Vector2(bx0,a)),iso(Vector2(bx1,a)),iso(Vector2(bx1,b)),iso(Vector2(bx0,b))]
+  for k in 4: draw_line(corners[k],corners[(k+1)%4],YELLOW,3*zoom)
+
+# The building's front-right wall is shown cut away to knee height so the
+# shop stays visible; the loading door is a gap in it.
+func _outer_wall(size:Vector2i) -> void:
+ if _yard_depth()<=0: return
+ var x=float(size.x)-0.5
+ var low=Vector2(0,-22)*zoom
+ var thick=Vector2(10,5)*zoom
+ var spans=[[-0.5,float(size.y)-0.5]]
+ var bay=_dock_span()
+ if not bay.is_empty(): spans=[[-0.5,float(bay["y0"])],[float(bay["y1"]),float(size.y)-0.5]]
+ for span in spans:
+  if float(span[1])-float(span[0])<0.05: continue
+  var a=iso(Vector2(x,float(span[0])));var b=iso(Vector2(x,float(span[1])))
+  _poly([a,b,b+low,a+low],Color("c9cfd3"),Color("70685d"),1.5)
+  _poly([a+low,b+low,b+low+thick,a+low+thick],Color("e3e7ea"),Color("70685d"),1.5)
+
+# The open roll-up door: two posts, the rolled door drum and a striped threshold.
+func _door_frame(size:Vector2i) -> void:
+ var bay=_dock_span()
+ if bay.is_empty(): return
+ var x=float(size.x)-0.5
+ var a=iso(Vector2(x,float(bay["y0"])));var b=iso(Vector2(x,float(bay["y1"])))
+ var tall=Vector2(0,-118)*zoom
+ for k in 6:
+  var from=a.lerp(b,k/6.0);var to=a.lerp(b,(k+.5)/6.0)
+  _poly([from,to,to+Vector2(0,-5)*zoom,from+Vector2(0,-5)*zoom],YELLOW,Color.TRANSPARENT,0)
+ for p in [a,b]:
+  _poly([p+Vector2(-5,0)*zoom,p+Vector2(5,0)*zoom,p+Vector2(5,0)*zoom+tall,p+Vector2(-5,0)*zoom+tall],Color("4b5560"),INK,1.5)
+ _poly([a+tall+Vector2(-6,0)*zoom,b+tall+Vector2(6,0)*zoom,b+tall+Vector2(6,-16)*zoom,a+tall+Vector2(-6,-16)*zoom],Color("d5dade"),INK,1.5)
+ for k in 2: draw_line(a+tall+Vector2(0,-5-k*5)*zoom,b+tall+Vector2(0,-5-k*5)*zoom,Color("9aa5ad"),1.5*zoom)
+ _panel(Rect2(a.lerp(b,0.5)+tall+Vector2(-30,-38)*zoom,Vector2(60,18)*zoom),NAVY,CREAM,4)
+ _text(a.lerp(b,0.5)+tall+Vector2(-25,-24)*zoom,"LOADING",int(11*zoom),YELLOW)
+
+# The delivery truck parked outside, backed up to the loading door.
+func _truck(p:Vector2) -> void:
+ if not illustrated.has("dock"): return
+ var frame=TRUCK_FRAME
+ var info=illustrated_info["dock"]["frames"][frame]
+ var rect=Ground.rect_at(p,Vector2(info["size"][0],info["size"][1])*zoom*1.05,Vector2(info["origin"][0],info["origin"][1]))
+ _oval(p+Vector2(0,4)*zoom,Vector2(70,26)*zoom,Color(0.1,0.12,0.15,0.18))
+ draw_texture_rect(illustrated["dock"][frame],rect,false)
+
+# Inside, the dock is a loading bay: hatched floor and pallets of boxed orders.
+func _loading_bay(target:String,ms:Dictionary) -> Rect2:
+ var center=sim.equipment_center(target,ms)
+ var polygon=sim.equipment_polygon(target,ms)
+ var points=[]
+ for point in polygon: points.append(iso(point))
+ _poly(points,Color("d9d4c4"),YELLOW,3*zoom)
+ var low=INF;var high=-INF
+ for point in points: low=minf(low,point.y);high=maxf(high,point.y)
+ for k in 4:
+  var t=(k+1)/5.0
+  draw_line(iso(center+Vector2(-0.8,-1.3+t*2.6)),iso(center+Vector2(0.8,-1.3+t*2.6)),Color(0.95,0.75,0.1,0.35),2*zoom)
+ var top=0.0
+ for spot in [Vector2(-0.3,-0.7),Vector2(-0.3,0.7)]:
+  var base=iso(center+spot)
+  _poly([base+Vector2(-30,0)*zoom,base+Vector2(0,-14)*zoom,base+Vector2(30,0)*zoom,base+Vector2(0,14)*zoom],Color("b8874f"),Color("6e4b25"),1.5)
+  for level in 2:
+   var lift=Vector2(0,-8-level*22)*zoom
+   var w=Vector2(22,10)*zoom;var h=Vector2(0,-20)*zoom
+   var c=base+lift
+   _poly([c-Vector2(w.x,0),c+Vector2(0,w.y),c+Vector2(0,w.y)+h,c-Vector2(w.x,0)+h],Color("c9955a"),Color("6e4b25"),1.2)
+   _poly([c+Vector2(0,w.y),c+Vector2(w.x,0),c+Vector2(w.x,0)+h,c+Vector2(0,w.y)+h],Color("b07c45"),Color("6e4b25"),1.2)
+   _poly([c-Vector2(w.x,0)+h,c+Vector2(0,-w.y)+h,c+Vector2(w.x,0)+h,c+Vector2(0,w.y)+h],Color("dcb07a"),Color("6e4b25"),1.2)
+   draw_line(c+h+Vector2(-w.x*.5,-w.y*.5),c+h+Vector2(w.x*.5,w.y*.5),Color("e8d29e"),3*zoom)
+   top=minf(top,(c+h).y)
+ return Rect2(Vector2(points[0].x,low),Vector2(1,1)).merge(Rect2(points[2],Vector2(1,1))).merge(Rect2(Vector2(points[1].x,top),Vector2(1,high-top))).merge(Rect2(Vector2(points[3].x,top),Vector2(1,high-top)))
 
 func _pendant(p:Vector2) -> void:
  var z=zoom
@@ -1233,26 +1488,36 @@ func _worker(id:String) -> void:
  if id=="owner": _oval(p+Vector2(0,3)*zoom,Vector2(23,10)*zoom,Color(0.0,0.73,0.95,0.3))
  var col=0
  if w["walking"]: col=[1,2,3,2][int(w["step"])%4]
+ var reduce=sim.state["settings"].get("reduce_motion",false)
+ # Sam keeps the original look; staff get stable skin, hair, cap and shirt colours.
+ var look={} if id=="owner" else Look.look(id+":"+str(w.get("name","")),false)
+ var working=not w["task"].is_empty() and w["task"]["working"] and sim.state["machines"].has(w["task"]["machine"])
+ var face=int(w["face"])
+ var lift=0.0
+ var tool_clock=0.0
+ if working:
+  # Face the station being operated and add a small working motion.
+  var target=sim.equipment_center(w["task"]["machine"],sim.state["machines"])
+  face=Look.face_toward(target-sim.v(w["pos"]),face)
+  tool_clock=0.0 if reduce else float(sim.station_activity(w["task"]["machine"])["elapsed"])
+  lift=absf(sin(tool_clock*4.0))*2.5
  var cellsize=Vector2(owner_sheet.get_width()/4.0,owner_sheet.get_height()/4.0)
- var region=Rect2(Vector2(col,int(w["face"]))*cellsize,cellsize)
- var size=Vector2(116,116)*zoom
+ var region=Rect2(Vector2(col,face)*cellsize,cellsize)
+ var size=Vector2(116,116)*zoom*float(look.get("scale",1.0))
  # Cell feet are at 97% of height; use the real sole baseline as the ground anchor.
- var rect=Rect2(p-Vector2(size.x*0.5,size.y*0.965),size)
- var color=Color.WHITE if id=="owner" else [Color("ffe1f2"),Color("dbeaff"),Color("e7ffda")][int(id.trim_prefix("staff"))%3]
+ var rect=Rect2(p-Vector2(size.x*0.5,size.y*0.965+lift*zoom),size)
  var outfit=sim.state.get("style",{}).get("outfits",{}).get(id,"Workshop")
- draw_texture_rect_region(Style.texture_for(owner_sheet,outfit),rect,region,color)
+ Look.draw(self,Style.texture_for(owner_sheet,outfit),rect,region,look,["shirt"] if outfit=="Executive suit" else [])
  worker_hits.append({"id":id,"rect":Rect2(p-Vector2(35,107)*zoom,Vector2(70,112)*zoom)})
- if not w["task"].is_empty() and w["task"]["working"]:
-  var hand=p+Vector2(18,-37)*zoom
-  _product(sim.order(w["task"]["order"])["type"],hand,17*zoom)
-  var activity=sim.station_activity(w["task"]["machine"])
-  var phase_clock=0.0 if sim.state["settings"].get("reduce_motion",false) else activity["elapsed"]
-  draw_arc(hand,22*zoom,phase_clock*3,phase_clock*3+1.4,8,CYAN,2*zoom)
+ if working:
+  var hand=p+Vector2(18,-37-lift)*zoom
+  Look.draw_tool(self,sim.state["machines"][w["task"]["machine"]]["kind"],hand,tool_clock,zoom)
+  draw_arc(hand,22*zoom,tool_clock*3,tool_clock*3+1.4,8,CYAN,2*zoom)
  elif not w["task"].is_empty() and w["task"]["stage"] in ["press","qc","pack","ready"]:
   var hand=p+Vector2(18,-37)*zoom
   if w["task"]["stage"]=="ready": _panel(Rect2(hand-Vector2(11,8)*zoom,Vector2(22,17)*zoom),Color("d5a467"),NAVY,2)
   else: _product(sim.order(w["task"]["order"])["type"],hand,17*zoom)
- Style.draw_outfit(self,w,p)
+ Style.draw_outfit(self,{"id":w["id"],"face":face},p)
  if not (photo_render or photo_active) and (id==selected_worker or dragging=="worker"):
   var label=w["name"]+ (" • YOU" if id=="owner" else "")
   world_labels.append({"at":p,"text":label,"progress":-1.0})
@@ -1263,13 +1528,20 @@ func _customer(actor:Dictionary) -> void:
  var col=[1,2,3,2][int(actor["step"])%4] if actor["walking"] else 0
  var cellsize=Vector2(owner_sheet.get_width()/4.0,owner_sheet.get_height()/4.0)
  var region=Rect2(Vector2(col,int(actor["face"]))*cellsize,cellsize)
- var size=Vector2(108,108)*zoom
- draw_texture_rect_region(owner_sheet,Rect2(p-Vector2(size.x*.5,size.y*.965),size),region,[Color("ffcfad"),Color("edcaff"),Color("d5f1b1")][actor["variant"]])
  var index=int(actor["order"])
+ # Each visiting customer gets a stable look; waiting customers shift gently.
+ var look=Look.look(str(actor.get("name",""))+":"+str(sim.order(index).get("id","")),true)
+ var bob=0.0
+ if actor["phase"]=="waiting" and not sim.state["settings"].get("reduce_motion",false): bob=(sin(time*2.0+float(look["phase"]))+1.0)*0.8
+ var size=Vector2(108,108)*zoom*float(look["scale"])
+ Look.draw(self,owner_sheet,Rect2(p-Vector2(size.x*.5,size.y*.965+bob*zoom),size),region,look)
+ if look.has("bag"): Look.draw_bag(self,p,int(actor["face"]),look["bag"],zoom)
  if sim.order(index).get("paid",false) and actor["purpose"]=="exit":
   _panel(Rect2(p+Vector2(11,-46)*zoom,Vector2(23,18)*zoom),Color("d5a467"),NAVY,2)
   if not (photo_render or photo_active) and sim.now()-float(sim.order(index).get("finished_at",-1))<.03:
    _text(p+Vector2(-24,-118)*zoom,"+$%d" % sim.order(index).get("payment",0),int(17*zoom),GREEN)
+   var review=sim.order(index).get("review",{})
+   if not review.is_empty(): _text(p+Vector2(-30,-138)*zoom,"★".repeat(int(review["stars"]))+"☆".repeat(5-int(review["stars"])),int(17*zoom),Color("e0a800"))
  customer_hits.append({"order":index,"rect":Rect2(p-Vector2(31,99)*zoom,Vector2(62,103)*zoom)})
  if not (photo_render or photo_active) and actor["phase"]=="waiting":
   _oval(p+Vector2(24,-89)*zoom,Vector2(14,13)*zoom,CREAM)
@@ -1280,6 +1552,11 @@ func _customer(actor:Dictionary) -> void:
   _panel(Rect2(p+Vector2(-width*.5,8)*zoom,Vector2(width,24)*zoom),NAVY)
   _text(p+Vector2(-width*.5+9,25)*zoom,label,int(13*zoom),CREAM)
 
+# "24 Shirts", "6 Hoodies", "12 Mugs": the plural shown on order cards.
+func _units_name(o:Dictionary) -> String:
+ if o["type"]=="apparel": return str(C.BLANKS[C.blank_of(o)]["units"])
+ return {"transfer":"Transfers","sticker":"Stickers","banner":"Banners","cnc":"Signs","decal":"Decals","mug":"Mugs","hat":"Hats"}.get(o["type"],"Jobs")
+
 func _product(type:String,p:Vector2,size:float) -> void:
  var r=Rect2(p-Vector2(size/2,size/2),Vector2(size,size))
  if type=="apparel":
@@ -1289,6 +1566,32 @@ func _product(type:String,p:Vector2,size:float) -> void:
   return
  elif type=="cnc":
   _panel(r,Color("ffd38b"),BLUE,2); _poly([p+Vector2(-0.25,0.3)*size,p+Vector2(-0.25,0)*size,p+Vector2(-0.35,0)*size,p+Vector2(-0.35,-0.22)*size,p+Vector2(-0.18,-0.22)*size,p+Vector2(-0.18,-0.05)*size,p+Vector2(-0.04,-0.05)*size,p+Vector2(-0.04,-0.4)*size,p+Vector2(0.13,-0.4)*size,p+Vector2(0.13,0.05)*size,p+Vector2(0.25,0.05)*size,p+Vector2(0.25,-0.2)*size,p+Vector2(0.4,-0.2)*size,p+Vector2(0.4,0.2)*size,p+Vector2(0.13,0.2)*size,p+Vector2(0.13,0.3)*size],GREEN,GREEN,0)
+  return
+ elif type=="mug":
+  # A white mug with a printed band and a handle.
+  _panel(r,Color("e9f6ff"),BLUE,3)
+  var body=Rect2(p+Vector2(-0.28,-0.26)*size,Vector2(0.46,0.56)*size)
+  draw_arc(p+Vector2(0.22,0.02)*size,size*0.13,-PI*0.5,PI*0.5,10,BLUE,size*0.07)
+  draw_rect(body,Color("fffdf8"));draw_rect(Rect2(body.position+Vector2(0,body.size.y*0.3),Vector2(body.size.x,body.size.y*0.34)),MAGENTA)
+  draw_rect(body,BLUE,false,1.6)
+  return
+ elif type=="hat":
+  # A baseball cap with a stitched badge.
+  _panel(r,Color("e9f6ff"),BLUE,3)
+  var crown=[]
+  for k in 9: crown.append(p+Vector2(cos(PI+k*PI/8.0)*0.3,sin(PI+k*PI/8.0)*0.28+0.08)*size)
+  _poly(crown,Color("2a3f8f"),INK,1.4)
+  _poly([p+Vector2(0.2,0.06)*size,p+Vector2(0.46,0.12)*size,p+Vector2(0.44,0.2)*size,p+Vector2(0.16,0.15)*size],Color("2a3f8f"),INK,1.2)
+  draw_circle(p+Vector2(-0.02,-0.06)*size,size*0.09,YELLOW)
+  return
+ elif type=="decal":
+  # Weeded vinyl star on its transfer-tape backing.
+  _panel(r,Color("e9f6ff"),BLUE,3)
+  var star=[]
+  for k in 10:
+   var rad=size*(0.36 if k%2==0 else 0.16)
+   star.append(p+Vector2(cos(-PI/2+k*PI/5),sin(-PI/2+k*PI/5))*rad)
+  _poly(star,MAGENTA,INK,1)
   return
  else: _panel(r,CREAM,BLUE,4)
  var s=size*0.45 if type=="apparel" else size*0.73
@@ -1337,7 +1640,7 @@ func _ui_docks() -> void:
 func _hud() -> void:
  var extra=_screen_size().x-1600
  _panel(Rect2(278,7,258,49),NAVY,NAVY,8)
- _text(Vector2(292,25),"PAUSED / SPACE TO RESUME" if sim.state["paused"] else ("DEMO SHOP / SEPARATE SAVE" if sim.state.get("demo",false) else ("NEIGHBORHOOD SHOP" if sim.state["location"]==1 else "INDUSTRIAL PRINT SHOP")),14,CYAN,-1,true)
+ _text(Vector2(292,25),"PAUSED / SPACE TO RESUME" if sim.state["paused"] else ("DEMO SHOP / SEPARATE SAVE" if sim.state.get("demo",false) else sim.premises_title()+(" / "+str(Customers.season(sim)["name"]).to_upper() if Customers.active(sim) else "")),14,CYAN,240,true)
  _text(Vector2(292,47),"DAY %d  %s" % [sim.state["day"],_clock(sim.state["clock"])],20,CREAM)
  _panel(Rect2(546,7,166,49),NAVY,NAVY,8)
  draw_circle(Vector2(568,31),11,YELLOW)
@@ -1346,9 +1649,11 @@ func _hud() -> void:
  _panel(Rect2(722,7,117,49),NAVY,NAVY,8)
  _text(Vector2(733,26),"TRUST",12,CYAN)
  _text(Vector2(733,47),"%d%%" % sim.state["reputation"],22,CREAM,-1,true)
- _panel(Rect2(849,7,132,49),NAVY,NAVY,8)
- _text(Vector2(861,29),"%d ORDERS" % sim.active_orders().size(),20,CREAM,-1,true)
- _text(Vector2(861,47),"%d fulfilled" % sim.state["completed"],12,CYAN)
+ # Shop level with its XP bar; opens Goals + Awards.
+ var lv=Progress.span(sim)
+ _button(Rect2(849,7,132,49),"LEVEL %d" % int(lv["level"]),"goals",NAVY,true,18)
+ draw_rect(Rect2(861,45,108,6),Color("23395f"))
+ draw_rect(Rect2(861,45,108*float(lv["fraction"]),6),YELLOW)
  _button(Rect2(995,9,43,45),">" if sim.state["paused"] else "II","pause",NAVY,true,19)
  for i in 3:
   var speed=[1,2,4][i]
@@ -1361,7 +1666,7 @@ func _orders() -> void:
  var rows=sim.active_orders()
  var pages=maxi(1,ceili(rows.size()/3.0))
  order_page=order_page%pages
- _text(Vector2(17,464),"ACTIVE ORDERS",19,BLUE,-1,true)
+ _text(Vector2(17,464),"ACTIVE ORDERS  %d" % sim.active_orders().size(),19,BLUE,-1,true)
  _button(Rect2(14,790+_screen_size().y-900,235,27),"CAPACITY + CASH  [Q]","capacity",CYAN,true,13)
  if rows.is_empty():_text(Vector2(17,489),"New inquiries appear here.",14,MUTED,230)
  for n in 3:
@@ -1370,9 +1675,10 @@ func _orders() -> void:
   var i=rows[j];var o=sim.order(i);var r=Rect2(13,477+n*94,237,86)
   _panel(r,CREAM,Color("c3d0d5"),8)
   _product(o["type"],r.position+Vector2(27,26),30)
-  _text(r.position+Vector2(50,22),"%d %s" % [o["quantity"],{"transfer":"Transfers","sticker":"Stickers","apparel":"Shirts","banner":"Banners","cnc":"Signs"}[o["type"]]],21,BLUE,-1,true)
+  _text(r.position+Vector2(50,22),"%d %s" % [o["quantity"],_units_name(o)],21,BLUE,-1,true)
   var stage={"queued":"Needs operator","waiting_stock":"Needs supplies","prepress":"Artwork preparation","production":"Printing / curing","press":"Ready to press","inspecting":"Quality check","delivering":"Pickup / shipping"}.get(o["stage"],_stage(o["stage"]))
-  if o["stage"]=="production": stage={"transfer":"DTF print / powder / cure","apparel":"DTF transfer production","sticker":"Print / laminate / cut","banner":"Wide-format printing","cnc":"Cutting rigid panels"}[o["type"]]
+  if o["stage"]=="production": stage={"transfer":"DTF print / powder / cure","apparel":"DTF transfer production","sticker":"Print / laminate / cut","banner":"Wide-format printing","cnc":"Cutting rigid panels","decal":"Cut / weed / tape vinyl","mug":"Print / wrap / press mugs","hat":"Hoop / stitch / trim hats"}.get(o["type"],"Production")
+  if o["stage"]=="production" and C.is_htv(o): stage="Cut / weed heat-transfer vinyl"
   _text(r.position+Vector2(50,47),stage,12,RED if sim.now()>o["due"] else MUTED)
   _text(r.position+Vector2(12,69),"$%d  /  %s" % [o["reward"],_due(o)],12,INK)
   draw_rect(Rect2(r.position+Vector2(12,80),Vector2(212,5)),Color("c4d9f2"))
@@ -1390,6 +1696,8 @@ func _toolbar() -> void:
  draw_rect(Rect2(276,775,_screen_size().x-288,21),RED if placing and not drag_valid.get("valid",false) else NAVY)
  _text(Vector2(286,791),notice,14,CREAM,_screen_size().x-310)
  var entries=[[0,"DTF LINE","machine:dtf"],[2,"STICKER PRINT / CUT","machine:sticker"],[3,"HEAT PRESS","machine:heat"],[7,"ADD EQUIPMENT","equipment"],[9,"STAFF + UPGRADES","staff"],[6,"BUILD / ARRANGE","build"],[11,"EXPAND SHOP","move"]]
+ if not sim.state["machines"].has("dtf") and sim.state["machines"].has("dtfmini"):entries[0]=[100,"DESKTOP DTF","machine:dtfmini"]
+ if not sim.state["machines"].has("sticker") and sim.state["machines"].has("cutter"):entries[1]=[101,"VINYL CUTTER","machine:cutter"]
  if sim.state["location"]==2:entries[2]=[4,"ROLL-TO-ROLL","machine:banner"];entries[6]=[11,"SHOP GROWTH","move"]
  for i in entries.size():
   var entry=entries[i]
@@ -1397,7 +1705,7 @@ func _toolbar() -> void:
   var step=133+extra_width/7.0
   var r=Rect2(276+i*step,803,step-8,66)
   _panel(r,Color("e7fbff") if i==0 else CREAM,BLUE,8)
-  var kind={0:"dtf",2:"sticker",3:"heat",4:"banner",5:"cnc",6:"art",7:"storage",11:"dock"}.get(entry[0],"")
+  var kind={0:"dtf",2:"sticker",3:"heat",4:"banner",5:"cnc",6:"art",7:"storage",11:"dock",100:"dtfmini",101:"cutter"}.get(entry[0],"")
   if kind!="":_illustrated_icon(kind,Rect2(r.position+Vector2(21,2),Vector2(83,44)))
   else:
    var texture:Texture2D=atlas_tiles[entry[0]]
@@ -1411,9 +1719,40 @@ func _toolbar() -> void:
  _button(Rect2(1406+extra_width,840,182,29),"HOW TO PLAY","help",NAVY,true,13)
  _set_ui_offset(Vector2.ZERO)
 
+func _welcome_gift_panel() -> void:
+ _header("A GIFT FOR YOUR NEW SHOP","Almost every print shop starts the same way.")
+ _panel(Rect2(389,215,300,230),Color("eef9e4"),Color("8dc63f"),10)
+ _illustrated_icon("cutter",Rect2(404,232,270,196))
+ _text(Vector2(712,250),"YOUR FIRST VINYL CUTTER",24,BLUE,-1,true)
+ _text(Vector2(712,282),"One small vinyl cutter in a garage. That is how most of us began.\n\nCut heat-transfer vinyl, weed it, and press it onto shirts. Add a heat press, make your first sales, and grow from there.\n\nWhen the sales add up, upgrade to a desktop DTF kit and then the full DTF line.",17,INK,490)
+ _text(Vector2(389,486),"WALKTHROUGH",19,BLUE,-1,true)
+ _text(Vector2(389,512),"1. Place your gifted cutter (free)     2. Buy and place a heat press\n3. Place the free artwork, inspection and packing benches     4. Open the shop\n5. Make and deliver your first vinyl T-shirt order",16,INK,818)
+ _button(Rect2(389,690,397,52),"PLACE MY CUTTER","place:cutter",GREEN,true,18)
+ _button(Rect2(801,690,406,52),"SKIP WALKTHROUGH","walkthrough_skip",CREAM,true,15)
+
+func _walkthrough_card(step:String) -> void:
+ var title={"gift":"YOUR FIRST CUTTER","press":"ADD A HEAT PRESS","benches":"WORK BENCHES","open":"OPEN THE SHOP","done":"FIRST SALE!"}.get(step,"WALKTHROUGH")
+ var body={"gift":"Place your gifted vinyl\ncutter on clear floor.\nIt is free.","press":"Shirts need heat. Buy the\n$250 heat press and place it\nnear your cutter.","benches":"Place the free artwork,\ninspection and packing\nbenches.","open":"Press Space or Open Shop.\nYour first customer wants\nvinyl T-shirts.","done":"Every paid job earns XP.\nDesktop DTF unlocks at\nshop level %d." % int(Progress.UNLOCK_LEVEL["dtfmini"])}.get(step,"")
+ _text(Vector2(25,146),title,23,BLUE,-1,true)
+ _text(Vector2(25,173),body,14,INK,211)
+ match step:
+  "gift": _button(Rect2(24,233,140,27),"PLACE CUTTER","place:cutter",GREEN,true,12)
+  "press": _button(Rect2(24,233,140,27),"HEAT PRESS  $250","place:heat",GREEN,sim.state["cash"]>=sim.Ops.equipment_cost(sim,"heat"),12)
+  "benches":
+   var next_bench="art"
+   for id in ["art","finish","pack"]:
+    if not sim.state["machines"].has(id): next_bench=id;break
+   _button(Rect2(24,233,140,27),{"art":"ARTWORK DESK","finish":"INSPECT BENCH","pack":"PACKING BENCH"}[next_bench],"place:"+next_bench,GREEN,true,12)
+  "open": _button(Rect2(24,233,140,27),"OPEN SHOP","pause",GREEN,true,12)
+  "done": _button(Rect2(24,233,140,27),"GOT IT","walkthrough_done",GREEN,true,12)
+ if step!="done": _button(Rect2(172,233,66,27),"SKIP","walkthrough_skip",CREAM,true,11)
+
 func _setup_card() -> void:
  _panel(Rect2(13,119,237,152),CREAM,Color("c3d0d5"),8)
- if sim.state["machines"].is_empty():
+ var step=sim.walkthrough_step()
+ if step!="" and step!="job":
+  _walkthrough_card(step)
+ elif sim.state["machines"].is_empty():
   _text(Vector2(25,146),"YOUR EMPTY SHOP",23,BLUE,-1,true)
   _text(Vector2(25,173),"Choose your first station.\nPlace it on clear floor.\nPaused: Space to walk.",14,INK,211)
   _button(Rect2(24,233,213,27),"ADD YOUR FIRST STATION","equipment",CYAN,true,12)
@@ -1429,8 +1768,125 @@ func _setup_card() -> void:
   _button(Rect2(24,233,104,27),"OPEN JOB","order:%d" % i,CYAN,true,12)
   _button(Rect2(138,233,100,27),"SKIP TUTORIAL","skip",CREAM,true,11)
  else:
-  _text(Vector2(25,146),"YOUR WORKSHOP",23,BLUE,-1,true)
-  _text(Vector2(25,174),"WASD / arrows: walk\nClick a clear floor tile: move\nE: use a nearby station\nB: arrange equipment",14,INK,211)
+  var goal=Progress.next_goal(sim)
+  if goal.is_empty():
+   _text(Vector2(25,146),"PRINT SHOP TYCOON",21,BLUE,-1,true)
+   _text(Vector2(25,174),"Every goal is done.\nThe shop is yours to run.\nAwards are still out there.",14,INK,211)
+  else:
+   _text(Vector2(25,146),"NEXT GOAL",23,BLUE,-1,true)
+   _text(Vector2(25,172),str(goal["title"]),15,INK,211,true)
+   _text(Vector2(25,208),"%s   +%d XP" % [Progress.progress_text(goal),int(goal["xp"])],13,MUTED,211)
+  _button(Rect2(24,233,214,27),"GOALS + AWARDS","goals",CYAN,true,12)
+
+func _toasts() -> void:
+ # Goal and award banners over the shop floor, one at a time.
+ while not toasts.is_empty() and time>float(toasts[0]["until"]): toasts.pop_front()
+ if toasts.is_empty() or photo_active or photo_render: return
+ var label=str(toasts[0]["text"])
+ var width=minf(SHOP_VIEW.size.x-40,bold.get_string_size(label,HORIZONTAL_ALIGNMENT_LEFT,-1,18).x+44)
+ var rect=Rect2(SHOP_VIEW.get_center().x-width*.5,SHOP_VIEW.position.y+12,width,38)
+ _panel(rect,NAVY,YELLOW,10)
+ _text(rect.position+Vector2(22,25),label,18,YELLOW,width-40,true)
+
+func _goals_panel() -> void:
+ var lv=Progress.span(sim)
+ var paid_jobs=int(Progress.ensure(sim)["stats"]["jobs"])
+ _header("GOALS + AWARDS","Level %d  •  %s  •  %d %s paid" % [int(lv["level"]),Progress.title(sim),paid_jobs,"job" if paid_jobs==1 else "jobs"])
+ _button(Rect2(389,206,396,40),"GOALS","goals_list",CYAN if goals_page==0 else CREAM,true,17)
+ _button(Rect2(801,206,406,40),"AWARDS","goals_awards",CYAN if goals_page==1 else CREAM,true,17)
+ draw_rect(Rect2(389,258,818,14),Color("d7e2ee"))
+ draw_rect(Rect2(389,258,818*float(lv["fraction"]),14),YELLOW)
+ _text(Vector2(389,292),"Shop level is at its highest." if lv["max"] else "%d / %d XP to level %d. Paid jobs, on-time delivery and goals earn XP." % [int(lv["xp"]),int(lv["next"]),int(lv["level"])+1],15,MUTED,818)
+ if goals_page==0:
+  var rows=Progress.goals(sim)
+  for i in rows.size():
+   var row=rows[i];var y=306+i*25
+   var done=bool(row["done"])
+   draw_circle(Vector2(401,y+10),9,GREEN if done else Color("c8d3de"))
+   if done: _text(Vector2(395,y+16),"✓",15,CREAM,-1,true)
+   _text(Vector2(420,y+16),str(row["title"]),16,MUTED if done else INK,520)
+   _text(Vector2(948,y+16),Progress.progress_text(row),15,GREEN if done else BLUE,150)
+   _text(Vector2(1120,y+16),"+%d XP" % int(row["xp"]),15,MUTED,90)
+  var next=Progress.next_goal(sim)
+  _text(Vector2(389,700),"Next: "+str(next["hint"]) if not next.is_empty() else "Every goal is done. You built a Print Shop Tycoon.",15,BLUE,818)
+ else:
+  var rows=Progress.awards(sim)
+  for i in rows.size():
+   var row=rows[i];var column=i%2;var y=310+int(i/2.0)*42
+   var x=389+column*414
+   var done=bool(row["done"])
+   _panel(Rect2(x,y,404,37),Color("fff3c4") if done else Color("eef2f6"),Color("e0b93a") if done else Color("c8d3de"),8)
+   draw_circle(Vector2(x+20,y+18),11,YELLOW if done else Color("c8d3de"))
+   _text(Vector2(x+14,y+24),"★",16,Color("ab6400") if done else CREAM,-1,true)
+   _text(Vector2(x+40,y+16),str(row["title"]),14,INK if done else MUTED,250,true)
+   _text(Vector2(x+40,y+31),str(row["text"]),11,MUTED,290)
+   if not done and float(row["need"])>1 and row["id"]!="rating45": _text(Vector2(x+322,y+23),"%d / %d" % [int(row["value"]),int(row["need"])],12,BLUE,78)
+ _button(Rect2(389,722,818,36),"BACK TO SHOP","close",NAVY,true,16)
+
+func _levelup_panel() -> void:
+ var lv=int(progress_card.get("level",Progress.level(sim)))
+ _header("SHOP LEVEL %d" % lv,"Your shop is growing.")
+ draw_circle(Vector2(800,330),78,YELLOW)
+ draw_circle(Vector2(800,330),66,Color("fff3c4"))
+ var number=str(lv)
+ _text(Vector2(800-bold.get_string_size(number,HORIZONTAL_ALIGNMENT_LEFT,-1,84).x*.5,360),number,84,BLUE,-1,true)
+ var rank=str(progress_card.get("title",Progress.title(sim))).to_upper()
+ _text(Vector2(800-bold.get_string_size(rank,HORIZONTAL_ALIGNMENT_LEFT,-1,30).x*.5,455),rank,30,BLUE,-1,true)
+ var unlocks=progress_card.get("unlocks",[])
+ if unlocks.is_empty():
+  _text(Vector2(389,510),"Keep delivering good work on time. Bigger equipment and a bigger shop are ahead.",17,INK,818)
+ else:
+  _text(Vector2(389,505),"NOW IN ADD EQUIPMENT",17,BLUE,-1,true)
+  for i in unlocks.size(): _text(Vector2(389,535+i*27),"•  "+str(unlocks[i]),18,INK,818)
+ var next=Progress.next_goal(sim)
+ if not next.is_empty(): _text(Vector2(389,640),"Next goal: "+str(next["title"]),16,MUTED,818)
+ _button(Rect2(389,690,397,52),"KEEP GOING","close",GREEN,true,18)
+ _button(Rect2(801,690,406,52),"GOALS + AWARDS","goals",CREAM,true,16)
+
+func _ending_panel() -> void:
+ var p=Progress.ensure(sim);var st=p["stats"]
+ _header("YOU BUILT A PRINT SHOP TYCOON","From one small vinyl cutter to a real production shop.")
+ _illustrated_icon("cutter",Rect2(389,212,150,116))
+ _text(Vector2(556,246),"Every goal is complete.",24,BLUE,-1,true)
+ _text(Vector2(556,280),"It started with a gifted cutter and a heat press. Look at it now.",17,INK,650)
+ var facts=[["Days open",str(int(sim.state["day"]))],["Jobs delivered",str(int(st["jobs"]))],["Money earned from jobs","$%d" % int(st["revenue"])],["Shirts made",str(int(st["shirts"]))],["Team","%d %s" % [sim.state["workers"].size(),"person" if sim.state["workers"].size()==1 else "people"]],["Customer trust","%d%%" % int(sim.state["reputation"])],["Best on-time streak",str(int(st["best_streak"]))],["Awards","%d of %d" % [p["awards"].size(),Progress.AWARDS.size()]]]
+ for i in facts.size():
+  var x=389+(i%2)*414;var y=356+int(i/2.0)*62
+  _panel(Rect2(x,y,404,52),Color("edf5ff"),Color("c5d8ee"),8)
+  _text(Vector2(x+16,y+22),str(facts[i][0]),14,MUTED,250)
+  _text(Vector2(x+16,y+44),str(facts[i][1]),20,BLUE,360,true)
+ _text(Vector2(389,636),"The shop is still yours. Keep playing as long as you like: awards, a bigger team and bigger days are all still there.",16,INK,818)
+ _button(Rect2(389,690,397,52),"KEEP PLAYING","close",GREEN,true,18)
+ _button(Rect2(801,690,406,52),"GOALS + AWARDS","goals",CREAM,true,16)
+
+# Turns finished goals, awards and new levels into banners, pop-ups and sounds.
+func _progress_events() -> void:
+ if Customers.active(sim):
+  var season_now=Customers.season_index(int(sim.state["day"]))
+  if season_seen>=0 and season_now!=season_seen:
+   var season=Customers.season(sim)
+   toasts.append({"text":"NEW SEASON: %s  •  %s" % [str(season["name"]).to_upper(),season["note"]],"until":maxf(time,float(toasts[-1]["until"]) if not toasts.is_empty() else time)+6.0})
+   _play("levelup",.6)
+  season_seen=season_now
+ Progress.refresh(sim)
+ for event in Progress.pop_events(sim):
+  match str(event["kind"]):
+   "goal":
+    toasts.append({"text":"GOAL DONE:  %s   +%d XP" % [event["title"],int(event["xp"])],"until":maxf(time,float(toasts[-1]["until"]) if not toasts.is_empty() else time)+4.0})
+    _play("done")
+   "award":
+    toasts.append({"text":"AWARD:  %s   +%d XP" % [event["title"],int(event["xp"])],"until":maxf(time,float(toasts[-1]["until"]) if not toasts.is_empty() else time)+4.0})
+    _play("levelup",.7)
+   "level","ending": pending_cards.append(event)
+ if modal=="" and not build and not pending_cards.is_empty() and pending_equipment=="" and dragging=="":
+  progress_card=pending_cards.pop_front()
+  # Several levels at once show only the newest card.
+  while not pending_cards.is_empty() and str(pending_cards[0]["kind"])=="level" and str(progress_card["kind"])=="level":
+   var newer=pending_cards.pop_front()
+   newer["unlocks"]=progress_card.get("unlocks",[])+newer.get("unlocks",[])
+   progress_card=newer
+  modal="ending" if str(progress_card["kind"])=="ending" else "levelup"
+  _play("fanfare" if modal=="ending" else "levelup")
 
 func _build_panel() -> void:
  _panel(Rect2(13,119,237,222),CREAM,BLUE,8)
@@ -1466,15 +1922,57 @@ func _customer_card() -> void:
   if o["stage"]=="intake":waiting+=1
   if o["stage"]=="ready" and sim.customer_ready_for_handoff(o):pickup+=1
  var detail="%d inquiries / %d ready" % [waiting,pickup]
+ if Customers.review_count(sim)>0: detail+="  •  ★ %.1f" % Customers.rating(sim)
  if sim.state["paused"] and _setup_pending():detail="Set up, then open your shop."
  _text(Vector2(25,338),detail,13,INK,211)
  _button(Rect2(24,354,214,30),"CUSTOMERS + RECEIPTS","customers",NAVY,true,12)
- _button(Rect2(24,396,214,30),"MARKETING + LEADS","marketing",CYAN,true,12)
+ if Merch.unlocked(sim):
+  _button(Rect2(24,396,104,30),"MARKETING","marketing",CYAN,true,12)
+  _button(Rect2(134,396,104,30),"MERCH","merch",GREEN,true,12)
+ else: _button(Rect2(24,396,214,30),"MARKETING + LEADS","marketing",CYAN,true,12)
+
+func _merch_panel() -> void:
+ var m=Merch.ensure(sim)
+ var last=m.get("last_day",{})
+ _header("MERCH + STORE","Your own designs, printed on your machines and sold online or at the weekend craft market.")
+ _text(Vector2(389,222),"THIS WEEK'S TREND: %s (double demand)  •  Cash $%d" % [Merch.trend(sim).to_upper(),sim.state["cash"]],16,BLUE,818)
+ _button(Rect2(389,236,260,36),"CLOSE ONLINE STORE" if m["store_open"] else "OPEN ONLINE STORE  $%d/day" % Merch.STORE_FEE,"merch_store",NAVY if m["store_open"] else GREEN,true,13)
+ var booked=int(m["booth_day"])==int(sim.state["day"])
+ var booth="BOOTH BOOKED TODAY" if booked else ("BOOK MARKET BOOTH  $%d" % Merch.BOOTH_FEE if Merch.weekend(sim) else "MARKET: WEEKENDS ONLY")
+ _button(Rect2(661,236,260,36),booth,"merch_booth",CYAN,Merch.weekend(sim) and not booked,13)
+ _text(Vector2(935,259),"Sold %d all-time  •  $%d" % [int(m["sold_total"]),int(m["revenue_total"])],14,MUTED,270)
+ var kinds=Merch.makeable(sim)
+ if merch_kind=="" or not merch_kind in kinds: merch_kind=kinds[0] if not kinds.is_empty() else ""
+ _panel(Rect2(389,284,818,58),Color("eef8ee"),Color("bfdcc0"),8)
+ if kinds.is_empty(): _text(Vector2(407,318),"Install a cutter, press, printer or other machine to make merch.",15,INK,780)
+ else:
+  _button(Rect2(399,294,190,38),"MAKE: "+str(Merch.KINDS[merch_kind]["label"]).to_upper(),"merch_kind",CREAM,kinds.size()>1,13)
+  _button(Rect2(599,294,300,38),"THEME: "+str(Merch.THEMES[merch_theme]).to_upper(),"merch_theme",CREAM,true,13)
+  _button(Rect2(909,294,288,38),"NEW DESIGN  $%d" % Merch.DESIGN_FEE,"merch_new",GREEN,sim.state["cash"]>=Merch.DESIGN_FEE,14)
+ var designs=m["designs"]
+ if designs.is_empty(): _text(Vector2(389,380),"No designs yet. Pick a product and theme, then make a design and print a batch.",16,MUTED,818)
+ for n in mini(designs.size(),5):
+  var d=designs[designs.size()-1-n]
+  var y=352+n*66
+  _panel(Rect2(389,y,818,58),Color("edf5ff"),Color("c5d8ee"),8)
+  var tag="  ★ TRENDING" if d["theme"]==Merch.trend(sim) else ""
+  _text(Vector2(403,y+24),str(d["name"])+tag,17,BLUE,420,true)
+  _text(Vector2(403,y+47),"Stock %d  •  Sold %d  •  ~%.1f/day" % [int(d["stock"]),int(d["sold"]),Merch.demand(sim,d)],13,INK,330)
+  _button(Rect2(745,y+12,34,34),"-","merch_price:%s:-1" % d["id"],CREAM,true,16)
+  _text(Vector2(786,y+36),"$%d" % int(d["price"]),17,INK,60)
+  _button(Rect2(840,y+12,34,34),"+","merch_price:%s:1" % d["id"],CREAM,true,16)
+  var busy=Merch.batch_open(sim,d["id"])
+  _button(Rect2(887,y+12,306,34),"BATCH PRINTING..." if busy else "PRINT BATCH OF %d" % int(Merch.KINDS[d["kind"]]["batch"]),"merch_batch:"+str(d["id"]),GREEN,not busy and sim.can_produce(str(Merch.KINDS[d["kind"]]["type"])),13)
+ var summary="Stock sells at the close of each day."
+ if not last.is_empty(): summary="Day %d: sold %d for $%d (fees $%d)." % [int(last["day"]),int(last["units"]),int(last["revenue"]),int(last["fee"])]
+ _text(Vector2(389,697),summary,15,BLUE,808)
+ _button(Rect2(389,712,397,43),"BACK TO SHOP","close",NAVY)
+ _button(Rect2(801,712,406,43),"MARKETING","marketing",CREAM)
 
 func _marketing_panel() -> void:
  sim._ensure_marketing()
  _header("GROW YOUR PRINT SHOP","Campaigns bring equipment-matched inquiries. Clock paused while this panel is open.")
- var names={"transfer":"transfers","sticker":"stickers","apparel":"shirts","banner":"banners","cnc":"signs"}
+ var names={"transfer":"transfers","sticker":"stickers","apparel":"shirts","banner":"banners","cnc":"signs","decal":"decals","mug":"mugs","hat":"hats"}
  var types=sim.Marketing.supported(sim.state["machines"])
  var products=[]
  for type in types: products.append(names[type])
@@ -1513,8 +2011,40 @@ func _marketing_panel() -> void:
  _button(Rect2(389,710,397,43),"BACK TO SHOP","close",NAVY)
  _button(Rect2(801,710,406,43),"VIEW CUSTOMERS","customers",CREAM)
 
+func _reviews_panel() -> void:
+ var count=Customers.review_count(sim)
+ _header("REVIEWS + REGULARS","★ %.1f average from %d %s" % [Customers.rating(sim),count,"review" if count==1 else "reviews"] if count>0 else "Every paid job leaves a star review.")
+ _button(Rect2(930,122,230,37),"RECEIPTS","reviews_view",CREAM,true,15)
+ var season=Customers.season(sim)
+ _text(Vector2(389,222),"%s  •  %s" % [str(season["name"]).to_upper(),season["note"]],15,BLUE,818)
+ var list=Customers.reviews(sim)
+ var pages=maxi(1,ceili(list.size()/6.0))
+ customer_page=customer_page%pages
+ if list.is_empty(): _text(Vector2(389,290),"No reviews yet. Deliver good work on time and customers will say so.",17,MUTED,818)
+ for n in 6:
+  var j=customer_page*6+n
+  if j>=list.size(): break
+  var r=list[j];var y=242+n*62
+  _panel(Rect2(386,y,822,54),Color("fff8e1") if int(r["stars"])>=4 else Color("edf2f6"),Color("e6cf8a") if int(r["stars"])>=4 else Color("d0dbe6"),8)
+  _text(Vector2(402,y+23),"★".repeat(int(r["stars"]))+"☆".repeat(5-int(r["stars"])),20,Color("e0a800"))
+  _line(Vector2(530,y+22),"%s%s  •  %s  •  day %d" % [r["customer"],"  (regular)" if r.get("regular",false) else "",r["product"],int(r["day"])],15,BLUE,660,true)
+  _line(Vector2(530,y+43),"\""+str(r["text"])+"\"",15,INK,660)
+ var regulars=Customers.regulars(sim)
+ _line(Vector2(389,627),"REGULARS (tip 10% on good work, wait longer): "+(", ".join(regulars) if not regulars.is_empty() else "none yet. A customer's fourth paid job makes them a regular."),14,INK,818)
+ var rival=People.rival(sim)
+ if not rival.is_empty():
+  var rival_text="RIVAL: %s  ★ %.1f  •  " % [rival["name"],float(rival["rating"])]
+  if rival["beaten"]: rival_text+="You are the top shop in town."
+  elif People.ahead(sim): rival_text+="You are ahead (%d / %d days to win the town)." % [int(rival["streak"]),People.BEAT_DAYS]
+  else: rival_text+="They win one inquiry a day until your rating (5+ reviews) beats theirs. Lost so far: %d." % int(rival["lost"])
+  _line(Vector2(389,665),rival_text,14,Color("b03a2e") if not People.ahead(sim) else BLUE,818,true)
+ _button(Rect2(389,703,397,48),"BACK TO SHOP","close",NAVY)
+ _button(Rect2(801,703,406,48),"PAGE %d / %d  >" % [customer_page+1,pages],"more_customers",CREAM,pages>1)
+
 func _customers_panel() -> void:
+ if reviews_view and Customers.active(sim): _reviews_panel();return
  _header("CUSTOMERS + RECEIPTS","Inquiries, production commitments and paid jobs. Clock paused while this book is open.")
+ if Customers.active(sim): _button(Rect2(930,122,230,37),"REVIEWS  ★ %.1f" % Customers.rating(sim) if Customers.review_count(sim)>0 else "REVIEWS","reviews_view",CYAN,true,15)
  var rows=[]
  for i in sim.state["orders"].size():
   if sim.order(i)["stage"] not in ["completed","declined","abandoned"]: rows.append(i)
@@ -1530,10 +2060,11 @@ func _customers_panel() -> void:
   var y=215+n*112
   _panel(Rect2(386,y,822,99),Color("edf5ff"),Color("d0e1f6"),8)
   _product(o["type"],Vector2(426,y+45),43)
-  _line(Vector2(468,y+26),o["customer"],20,BLUE,490,true)
+  _line(Vector2(468,y+26),str(o["customer"])+("   ★ REGULAR" if Customers.is_regular(sim,str(o["customer"])) else ""),20,BLUE,490,true)
   _text(Vector2(468,y+52),"%d %s  •  %s" % [o["quantity"],o["product"],_stage(o["stage"])],15,INK,495)
   var detail=_customer_detail(o)
   if o["stage"]=="completed": detail="Paid $%d  •  Satisfaction %d%%" % [o.get("payment",o["reward"]),o.get("satisfaction",o["quality"])]
+  if o["stage"]=="completed" and o.has("review"): detail+="  •  "+"★".repeat(int(o["review"]["stars"]))+("  •  tip $%d" % int(o["tip"]) if int(o.get("tip",0))>0 else "")
   elif o["stage"]=="intake" and sim.customer_patience(o)>=0: detail+="  •  %d shop minutes to respond" % ceili(sim.customer_patience(o)*60)
   _line(Vector2(468,y+80),detail,15,MUTED,495)
   _button(Rect2(1000,y+26,190,47),"RECEIPT" if o["stage"]=="completed" else "VIEW JOB","order:%d" % i,CYAN,true,16)
@@ -1542,12 +2073,13 @@ func _customers_panel() -> void:
 
 func _customer_detail(o:Dictionary) -> String:
  if o["stage"]=="scheduled":
-  if o["id"]=="DTF-001" and not sim.state["machines"].has("dtf") and sim.state["machines"].has("sticker"):
+  if o["id"]=="DTF-001" and not sim.state["machines"].has("dtf") and not sim.state["machines"].has("dtfmini") and (sim.state["machines"].has("sticker") or sim.state["machines"].has("cutter")):
    return "First inquiry adapts to your starter printer"
-  var required={"transfer":["dtf"],"apparel":["dtf","heat"],"sticker":["sticker"],"banner":["banner"],"cnc":["cnc"]}[o["type"]]
+  var required={"transfer":["dtf"],"apparel":["dtf","heat"],"sticker":["sticker"],"banner":["banner"],"cnc":["cnc"],"decal":["cutter"],"mug":["mug"],"hat":["embroidery"]}.get(o["type"],[])
   var missing=[]
   for id in required:
-   if not sim.state["machines"].has(id): missing.append({"dtf":"DTF line","heat":"heat press","sticker":"sticker station","banner":"banner printer","cnc":"CNC cutter"}[id])
+   if id=="dtf" and (sim.state["machines"].has("dtfmini") or (o["type"]=="apparel" and sim.state["machines"].has("cutter"))): continue
+   if not sim.state["machines"].has(id): missing.append({"dtf":"DTF line or desktop DTF","heat":"heat press","sticker":"sticker station","banner":"banner printer","cnc":"CNC cutter","cutter":"vinyl cutter","mug":"mug press","embroidery":"embroidery machine"}.get(id,id))
   if not missing.is_empty(): return "Available after adding "+" + ".join(missing)
   if o.has("campaign"): return "Campaign inquiry expected in %d shop minutes" % maxi(0,ceili((float(o["visit"]["arrival_at"])-sim.now())*60))
   return "Expected after the shop clock resumes"
@@ -1562,6 +2094,13 @@ func _tutorial_index() -> int:
  return -1
 
 func _tutorial_hint(o:Dictionary) -> String:
+ if o["type"]=="decal":
+  var d={"plan":"Approve the cut file and queue the vinyl.","queued":"Work this job: Sam walks to the vinyl cutter.","production":"Watch the cutter cut, weed and tape the decals.","pack":"Pack your finished decals."}
+  if d.has(o["stage"]): return d[o["stage"]]
+ if o["stage"]=="queued" and sim.machine_for(o)=="dtfmini": return "Work this job: Sam walks to the desktop DTF kit."
+ if C.is_htv(o):
+  var t={"plan":"Approve the mirrored vinyl cut and queue it.","queued":"Work this job: Sam walks to the vinyl cutter.","production":"Watch Sam cut and weed the heat-transfer vinyl.","press":"Take the vinyl and blank shirts to the heat press.","pressing":"Sam presses the vinyl onto the shirts, then peels it warm.","inspecting":"Checking every pressed shirt.","packing":"Folding and boxing the shirts.","ready":"Hand the box over at the pickup counter.","delivering":"The customer is paying for their shirts.","qc":"Check the pressed shirts at the inspection bench.","pack":"Fold and pack the finished shirts.","completed":"Paid! Keep selling shirts to unlock the desktop DTF kit."}
+  if t.has(o["stage"]): return t[o["stage"]]
  return {"intake":"Accept the %d-%s order." % [o["quantity"],o["product"]],"preflight":"Check artwork and fix the background.","plan":"Open the gang sheet and auto-pack designs.","queued":"Work this job: Sam walks to the DTF line.","production":"Watch film print, powder, cure and wind.","qc":"Take output to the inspection bench.","pack":"Cut / roll and pack your finished transfers.","ready":"Deliver the box at the pickup counter.","completed":"Paid! Try stickers, then buy an upgrade."}.get(o["stage"],"Follow the highlighted next step in this job.")
 
 func _modal() -> void:
@@ -1575,11 +2114,13 @@ func _modal() -> void:
   "workshop": Workshop.draw(self)
   "intervention": _intervention_panel()
   "marketing": _marketing_panel()
+  "merch": _merch_panel()
   "capacity": _capacity_panel()
   "difficulty": _difficulty_panel()
   "roster": _roster_panel()
   "accessibility": _accessibility_panel()
   "updates": _updates_panel()
+  "welcome_gift": _welcome_gift_panel()
   "customers": _customers_panel()
   "order": _order_panel()
   "machine": _machine_panel()
@@ -1592,6 +2133,9 @@ func _modal() -> void:
   "report": _report_panel()
   "settings": _settings_panel()
   "help": _help_panel()
+  "goals": _goals_panel()
+  "levelup": _levelup_panel()
+  "ending": _ending_panel()
   "confirm_new": _new_panel()
   "confirm_demo":
    _header("RESET THE DEMO SHOP?","Your current demo will be archived. Your career is unchanged.")
@@ -1627,9 +2171,9 @@ func _order_panel() -> void:
  _product(o["type"],Vector2(1160,249),73)
  _text(Vector2(389,233),("$%d  •  "+("Proposed" if o["stage"]=="intake" else "Committed")+" %s  •  %s") % [roundi(o["reward"]*(0.76 if o.get("quality_accepted",false) else 1.0)),_due(o),o["fulfillment"].to_upper()] if o["stage"]!="scheduled" else "$%d  •  Deadline starts when the customer arrives" % o["reward"],22,INK)
  _text(Vector2(389,266),_stage(o["stage"])+"  •  "+sim.customer_status(o),18,RED if o["stage"]=="fault" else BLUE,710,true)
- var routes={"transfer":"ART > GANG SHEET > CMYK + WHITE > POWDER > CURE > TAKE-UP > QC > PACK","apparel":"ART > DTF TRANSFER > GARMENT BLANKS > HEAT PRESS / PEEL > QC > PACK","sticker":"BLEED / CUT PATH > PRINT > LAMINATE > REGISTRATION > CONTOUR CUT > QC","banner":"MEDIA WIDTH > WIDE PRINT > TRIM / GROMMETS > INSPECT > PACK > SHIP","cnc":"TOOLPATH > PANEL / TOOL PRESET > LOAD > GANTRY CUT > UNLOAD > QC"}
+ var routes={"mug":"ART CHECK > PRINT TRANSFERS > WRAP MUGS > MUG PRESS > QC > PACK","hat":"DIGITIZE ART > HOOP CAPS > STITCH > TRIM THREADS > QC > PACK","decal":"ART CHECK > VINYL CUT > WEED > TRANSFER TAPE > QC > PACK","transfer":"ART > GANG SHEET > CMYK + WHITE > POWDER > CURE > TAKE-UP > QC > PACK","apparel":"ART > DTF TRANSFER > GARMENT BLANKS > HEAT PRESS / PEEL > QC > PACK","sticker":"BLEED / CUT PATH > PRINT > LAMINATE > REGISTRATION > CONTOUR CUT > QC","banner":"MEDIA WIDTH > WIDE PRINT > TRIM / GROMMETS > INSPECT > PACK > SHIP","cnc":"TOOLPATH > PANEL / TOOL PRESET > LOAD > GANTRY CUT > UNLOAD > QC"}
  _panel(Rect2(385,287,823,53),Color("edf5ff"),Color("d0e1f6"),6)
- _text(Vector2(400,309),routes[o["type"]],15,INK,790)
+ _text(Vector2(400,309),"ART CHECK > MIRRORED VINYL CUT > WEED > HEAT PRESS / PEEL > QC > PACK" if C.is_htv(o) else routes[o["type"]],15,INK,790)
  if o["type"] in ["sticker","apparel"] and o["stage"] in ["plan","queued","press"]:_button(Rect2(1015,348,192,29),"OPTIONAL TIMING","intervene",CYAN,true,12)
  _text(Vector2(389,375),"Artwork: %s  •  Physical design: %.1f x %.1f in" % ["ready" if o["art_ready"] else "needs a fix",o["art_w"],o["art_h"]],18,INK)
  var recipe=C.recipe(o)
@@ -1652,19 +2196,20 @@ func _order_panel() -> void:
    _text(Vector2(389,645),"One rush premium per day. "+(normal["reason"] if not normal["valid"] else "Review capacity, supplies and finish estimate."),16,MUTED,805)
    _button(Rect2(389,665,818,29),"VIEW COMMITMENT FORECAST","capacity",CREAM,true,14)
   "preflight":
-   _text(pos,{"transfer":"Check size, transparency, white layer and film layout.","apparel":"Check transfer size, garment quantities and cotton press preset.","sticker":"Check bleed, cut path and registration marks.","banner":"Check final banner dimensions, roll width and finishing allowance.","cnc":"Check panel dimensions, material and cutter toolpath."}[o["type"]],17,INK,805)
+   _text(pos,{"mug":"Check the wrap size, colours and handle side.","hat":"Check the stitch file, thread colours and cap position.","decal":"Check decal size, vinyl color and weeding detail.","transfer":"Check size, transparency, white layer and film layout.","apparel":"Check transfer size, garment quantities and cotton press preset.","sticker":"Check bleed, cut path and registration marks.","banner":"Check final banner dimensions, roll width and finishing allowance.","cnc":"Check panel dimensions, material and cutter toolpath."}[o["type"]],17,INK,805)
    _button(Rect2(389,522,396,51),"APPROVE ARTWORK" if o["art_ready"] else "REPAIR ARTWORK  $30","preflight",GREEN)
    _button(Rect2(801,522,406,51),"REQUEST CUSTOMER REVISION","revision",CREAM)
   "revision": _text(pos,"Corrected artwork arrives in %d shop minutes." % maxi(0,ceili((o["revision_eta"]-sim.now())*60)),19,BLUE)
   "plan":
    var feedback=sim.preset_feedback(o)
    _line(Vector2(389,654 if o["type"]=="sticker" else 606),feedback["text"],15,RED if feedback["warning"] else BLUE,810)
-   if o["type"] in ["transfer","apparel"]:
+   if o["type"] in ["transfer","apparel"] and o.get("method",sim.shirt_method(o))!="htv":
     var batch=sim.batch_preview(selected_order)
     _button(Rect2(389,633,818,40),"MIXED BATCH: SAVE %d FT FILM" % batch.get("saved",0) if batch["valid"] else "BATCH: "+batch.get("reason","No match"),"batch",CREAM,batch["valid"],14)
-   if o["type"] in ["transfer","apparel"]:
+   if o["type"] in ["transfer","apparel"] and o.get("method",sim.shirt_method(o))!="htv":
     _button(Rect2(389,511,396,54),"OPEN GANG SHEET","gang",CYAN)
     _button(Rect2(801,511,406,54),"WHITE: "+o["settings"]["white"].to_upper(),"white",CREAM)
+   elif o["type"]=="apparel": _button(Rect2(389,512,818,51),"APPROVE MIRRORED VINYL CUT + QUEUE","queue",GREEN)
    elif o["type"]=="sticker":
     _button(Rect2(389,504,256,43),"LAMINATE: "+("ON" if o["settings"]["laminate"] else "OFF"),"laminate",CREAM,true,16)
     _button(Rect2(660,504,259,43),"MARKS: "+("ALIGNED" if o["settings"]["registration"] else "SKIP"),"registration",CREAM,true,16)
@@ -1673,6 +2218,9 @@ func _order_panel() -> void:
    elif o["type"]=="cnc":
     _button(Rect2(389,512,397,49),"PANEL / TOOL: "+o["settings"]["media"],"media",CREAM)
     _button(Rect2(801,512,406,49),"APPROVE TOOLPATH + QUEUE","queue",GREEN)
+   elif o["type"]=="mug": _button(Rect2(389,512,818,51),"APPROVE MUG WRAP + QUEUE","queue",GREEN)
+   elif o["type"]=="hat": _button(Rect2(389,512,818,51),"APPROVE STITCH FILE + QUEUE","queue",GREEN)
+   elif o["type"]=="decal": _button(Rect2(389,512,818,51),"APPROVE CUT FILE + QUEUE VINYL","queue",GREEN)
    else: _button(Rect2(389,512,818,51),"SELECT 36-IN MEDIA + QUEUE PRINT","queue",GREEN)
   "queued","waiting_stock","press","qc","pack","ready":
    var m=sim.machine_for(o)
@@ -1722,6 +2270,10 @@ func _machine_panel() -> void:
   _button(Rect2(969,370,239,40),"EQUIPMENT VIEWS","dtf_views",CREAM,true,16)
  elif m["kind"]=="cnc": _text(Vector2(389,355),"Rigid stock %d panels • PVC / ACM compatible tool presets" % sim.state["stock"]["rigid"],19,INK)
  elif m["kind"]=="heat": _text(Vector2(389,355),"Finished apparel only. Transfer orders skip this station.",19,INK)
+ elif m["kind"]=="cutter": _text(Vector2(389,355),"Shirt vinyl %d ft  /  Decal vinyl %d ft  /  Tape %d ft  •  Cut and weed shirts and decals" % [sim.state["stock"].get("htv",0),sim.state["stock"].get("vinyl",0),sim.state["stock"].get("transfer_tape",0)],18,INK)
+ elif m["kind"]=="mug": _text(Vector2(389,355),"Blank mugs %d  /  Transfer paper %d  •  Print, wrap and press mugs and tumblers" % [sim.state["stock"].get("mugs",0),sim.state["stock"].get("subpaper",0)],18,INK)
+ elif m["kind"]=="embroidery": _text(Vector2(389,355),"Blank caps %d  /  Thread %d cones  •  Hoop, stitch and trim embroidered hats" % [sim.state["stock"].get("caps",0),sim.state["stock"].get("thread",0)],18,INK)
+ elif m["kind"]=="dtfmini": _text(Vector2(389,355),"Film %d ft  /  White %d  /  Powder %d  •  Desktop: slower than the full line" % [sim.state["stock"]["film"],sim.state["stock"]["white"],sim.state["stock"]["powder"]],19,INK)
  elif m["kind"]=="storage": _text(Vector2(389,355),"Storage receives delivered supplies. Check forecast before ordering.",19,INK)
  else: _text(Vector2(389,355),"Prepared jobs wait for a free operator and the correct stock.",19,INK)
  var station=selected_machine
@@ -1730,7 +2282,7 @@ func _machine_panel() -> void:
  for i in sim.active_orders():
   var o=sim.order(i)
   var target=sim.machine_for(o)
-  if target==station or (target=="dtf" and station=="dtf2"): jobs.append(i)
+  if target==station or (sim.dtf_family(target) and sim.dtf_family(station)): jobs.append(i)
  _text(Vector2(389,445),"WAITING / ACTIVE JOBS",20,BLUE,-1,true)
  for n in mini(jobs.size(),3):
   var o=sim.order(jobs[n])
@@ -1743,22 +2295,26 @@ func _machine_panel() -> void:
 
 func _equipment_panel() -> void:
  _header("ADD EQUIPMENT","Choose a station, then click the shop floor. Cash: $%d" % sim.state["cash"])
- var ids=["dtf","sticker","heat","art","finish","pack","storage","banner","cnc","dock"]
- var titles={"dtf":"DTF PRINTER + SHAKER","sticker":"STICKER PRINT / CUT","heat":"HEAT PRESS","art":"ARTWORK DESK","finish":"INSPECT / FINISH BENCH","pack":"PACKING / PICKUP BENCH","storage":"MATERIAL STORAGE","banner":"BANNER PRINTER","cnc":"CNC FLATBED","dock":"SHIPPING DOCK"}
+ var ids=["cutter","heat","dtfmini","mug","sticker","dtf","embroidery","art","finish","pack","storage","banner","cnc","dock"]
+ var titles={"cutter":"VINYL CUTTER BENCH","mug":"MUG + TUMBLER PRESS","embroidery":"EMBROIDERY MACHINE","dtfmini":"DESKTOP DTF KIT","dtf":"DTF PRINTER + SHAKER","sticker":"STICKER PRINT / CUT","heat":"HEAT PRESS","art":"ARTWORK DESK","finish":"INSPECT / FINISH BENCH","pack":"PACKING / PICKUP BENCH","storage":"MATERIAL STORAGE","banner":"BANNER PRINTER","cnc":"CNC FLATBED","dock":"SHIPPING DOCK"}
  for n in range(equipment_page*5,mini(equipment_page*5+5,ids.size())):
   var id=ids[n]
   var y=220+(n%5)*83
-  var station=C.layout(2 if id in ["banner","cnc","dock"] else 1)[id]
+  var station=C.catalog_station(id)
   _illustrated_icon(id,Rect2(394,y-12,90,68))
   _text(Vector2(500,y+10),titles[id],21,BLUE,-1,true)
   var price=C.EQUIPMENT_PRICES[id]
-  _text(Vector2(500,y+37),"Included starter bench" if price==0 else "$%d" % price,17,MUTED)
+  var blurb={"dock":"  •  Loading bay at an open door; the truck parks outside","mug":"  •  Printed mugs and tumblers","embroidery":"  •  Embroidered hats","cutter":"  •  Vinyl shirts (with a heat press) + decals","dtfmini":"  •  Transfers + shirts. Slower than the full DTF line"}.get(id,"")
+  if sim.equipment_locked(id): blurb="  •  Unlocks at shop level %d" % int(Progress.UNLOCK_LEVEL[id])
+  _text(Vector2(500,y+37),("GIFT  •  FREE" if sim.is_gift(id) else ("Included starter bench" if price==0 else "$%d" % price))+blurb,17,GREEN if sim.is_gift(id) else MUTED)
   var installed=sim.state["machines"].has(id)
   Strategy.ensure(sim)
   var locked=id in ["banner","cnc","dock"] and (sim.state["location"]==1 or (int(sim.state["rules"]["version"])>0 and not sim.state["fit_out"]))
-  _button(Rect2(989,y-9,218,49),"INSTALLED" if installed else (("PREMISES REQUIRED" if sim.state["location"]==1 else "FIT-OUT  $350") if locked else "PLACE"),"move" if locked else "place:"+id,CYAN if locked else GREEN,not installed and (locked or sim.state["cash"]>=sim.Ops.equipment_cost(sim,id)),15)
+  if sim.equipment_locked(id) and not installed: _button(Rect2(989,y-9,218,49),"LEVEL %d" % int(Progress.UNLOCK_LEVEL[id]),"equipment",CREAM,false,15)
+  else: _button(Rect2(989,y-9,218,49),"INSTALLED" if installed else (("PREMISES REQUIRED" if sim.state["location"]==1 else "FIT-OUT  $350") if locked else "PLACE"),"move" if locked else "place:"+id,CYAN if locked else GREEN,not installed and (locked or sim.state["cash"]>=sim.Ops.equipment_cost(sim,id)),15)
  _button(Rect2(389,710,397,43),"BACK TO SHOP","close",NAVY)
- _button(Rect2(801,710,406,43),"MORE EQUIPMENT" if equipment_page==0 else "STARTER EQUIPMENT","equipment_page",CYAN)
+ var equipment_pages=ceili(ids.size()/5.0)
+ _button(Rect2(801,710,406,43),("MORE EQUIPMENT  %d / %d" % [equipment_page+1,equipment_pages]) if equipment_page<equipment_pages-1 else "STARTER EQUIPMENT","equipment_page",CYAN)
 
 func _dtf_views_panel() -> void:
  _header("DTF PRINTER + SHAKER","Approved illustrated equipment - 16 viewing angles")
@@ -1826,8 +2382,9 @@ func _staff_panel() -> void:
    var y=270+i*53
    _text(Vector2(389,y+27),C.ROLES[i],20,INK)
    _text(Vector2(688,y+27),"$%d / $45 day" % C.HIRE_COST[i],17,MUTED)
-   _button(Rect2(1002,y,206,43),"HIRE "+C.NAMES[i],"hire:%d" % i,GREEN,sim.state["cash"]>=C.HIRE_COST[i] and sim.state["workers"].size()<9 and sim.hiring_buffer(i),16)
-  _text(Vector2(389,677),"Team %d / 9. Daily bills $%.0f. Hiring requires the fee plus the next day's bill buffer." % [sim.state["workers"].size(),sim.daily_obligations()],16,INK,808)
+   _button(Rect2(1002,y,206,43),"HIRE "+C.NAMES[i],"hire:%d" % i,GREEN,sim.state["cash"]>=C.HIRE_COST[i] and sim.state["workers"].size()<sim.staff_cap() and sim.hiring_buffer(i),16)
+  var team_note="" if sim.state["workers"].size()<sim.staff_cap() else " "+sim.staff_cap_reason()
+  _text(Vector2(389,677),("Team %d / %d. Daily bills $%.0f." % [sim.state["workers"].size(),sim.staff_cap(),sim.daily_obligations()])+(team_note if team_note!="" else " Hiring requires the fee plus the next day's bill buffer."),16,INK,808)
  else:
   var upgrades=[["auto_feeder","AUTO FEEDER",350,"30% faster printing on both DTF lanes."],["training","STAFF TRAINING",400,"25% faster work for Sam and current / future staff."],["quality_sensor","QUALITY SENSORS",450,"Detect risky ink / registration presets before starting."]]
   for i in 3:
@@ -1849,21 +2406,31 @@ func _team_names() -> String:
 
 func _stock_panel() -> void:
  _header("SUPPLIES + DELIVERIES","Production uses owned stock; purchases arrive after a visible lead time.")
- var keys=["film","white","powder","sticker","laminate","banner","rigid","packaging","maintenance"]
+ # The core supplies, then whatever the installed machines need.
+ var keys=["film","white","powder","sticker","laminate","packaging","maintenance"]
+ if sim.state["machines"].has("banner") or sim.state["location"]==2: keys.append("banner")
+ if sim.state["machines"].has("cnc") or sim.state["location"]==2: keys.append("rigid")
+ if sim.state["machines"].has("cutter"): keys.append_array(["htv","vinyl","transfer_tape"])
+ if sim.state["machines"].has("mug"): keys.append_array(["mugs","subpaper"])
+ if sim.state["machines"].has("embroidery"): keys.append_array(["caps","thread"])
+ var row_gap=44 if keys.size()<=9 else floori(392.0/keys.size())
+ var row_h=mini(35,row_gap-3)
  var f=sim.forecast()
  for i in keys.size():
   var key=keys[i]
-  var y=215+i*44
-  _text(Vector2(389,y+26),key.capitalize(),19,INK)
+  var y=215+i*row_gap
+  _text(Vector2(389,y+26),{"htv":"Heat-transfer vinyl","mugs":"Blank mugs","subpaper":"Sublimation paper","caps":"Blank caps","thread":"Embroidery thread"}.get(key,key.capitalize()),19 if row_gap>=36 else 16,INK,160)
   _text(Vector2(555,y+26),"%d %s" % [sim.state["stock"][key],C.UNITS[key]],16,MUTED)
   _text(Vector2(770,y+26),"Queue needs %d" % f["required"].get(key,0),16,RED if f["shortages"].has(key) else BLUE)
-  var qty={"film":48,"white":60,"powder":40,"sticker":60,"laminate":40,"banner":30,"rigid":12,"packaging":25,"maintenance":5}[key]
-  _button(Rect2(1001,y,206,35),"+%d / $%d" % [qty,ceili(qty*C.PRICES[key])],"restock:"+key,CREAM,true,16)
- _button(Rect2(389,618,396,42),"NAVY BLANKS S / M / L: +6 EACH  $72","garments",CYAN,true,14)
- _button(Rect2(801,618,406,42),"CMYK INK: +40 EACH  $64","ink",CYAN,true,15)
+  var qty={"film":48,"white":60,"powder":40,"sticker":60,"laminate":40,"banner":30,"rigid":12,"packaging":25,"maintenance":5,"vinyl":24,"transfer_tape":24,"htv":24,"mugs":24,"subpaper":20,"caps":24,"thread":8}[key]
+  _button(Rect2(1001,y,206,row_h),"+%d / $%d" % [qty,ceili(qty*C.PRICES[key])],"restock:"+key,CREAM,true,16 if row_h>=33 else 14)
+ _button(Rect2(389,618,262,42),"TEES S/M/L +6 EACH  $72","garments",CYAN,true,13)
+ _button(Rect2(659,618,262,42),"HOODIES S/M/L +3  $81","hoodies",CYAN,true,13)
+ _button(Rect2(929,618,278,42),"TOTE BAGS +12  $30","totes",CYAN,true,13)
+ _button(Rect2(389,666,262,32),"CMYK INK +40 EACH  $64","ink",CYAN,true,13)
  var deliveries=[]
  for d in sim.state["deliveries"]: deliveries.append("%s: %d min" % [sim.missing_all(d["items"]),maxi(0,ceili((d["eta"]-sim.now())*60))])
- _line(Vector2(389,686),"Incoming: "+("none" if deliveries.is_empty() else "; ".join(deliveries)),16,INK,808)
+ _line(Vector2(667,688),"Incoming: "+("none" if deliveries.is_empty() else "; ".join(deliveries)),15,INK,540)
  _button(Rect2(389,714,818,42),"BACK TO SHOP","close",NAVY)
 
 func _move_panel() -> void:
@@ -1904,8 +2471,14 @@ func _report_panel() -> void:
 func _settings_panel() -> void:
  _header("SETTINGS + LOCAL SAVE","Mouse and keyboard • Windows executable • No account or connection required")
  var settings=sim.state["settings"]
- _button(Rect2(389,230,396,51),"SOUND: "+("ON" if settings["sound"] else "OFF"),"sound",CREAM)
- _button(Rect2(801,230,406,51),"MUSIC: "+("ON" if settings["music"] else "OFF"),"music",CREAM)
+ _button(Rect2(389,230,236,51),"SOUND: "+("ON" if settings["sound"] else "OFF"),"sound",CREAM)
+ _button(Rect2(633,230,46,51),"-","sound_down",CREAM,_volume("sound_volume",0.8)>0.01,24)
+ _text(Vector2(684,262),"%d%%" % roundi(_volume("sound_volume",0.8)*100),17,BLUE)
+ _button(Rect2(739,230,46,51),"+","sound_up",CREAM,_volume("sound_volume",0.8)<0.99,24)
+ _button(Rect2(801,230,246,51),"MUSIC: "+("ON" if settings["music"] else "OFF"),"music",CREAM)
+ _button(Rect2(1055,230,46,51),"-","music_down",CREAM,_volume("music_volume",0.6)>0.01,24)
+ _text(Vector2(1106,262),"%d%%" % roundi(_volume("music_volume",0.6)*100),17,BLUE)
+ _button(Rect2(1161,230,46,51),"+","music_up",CREAM,_volume("music_volume",0.6)<0.99,24)
  _button(Rect2(389,301,396,51),"FULLSCREEN / WINDOW  F11","fullscreen",CREAM)
  _button(Rect2(801,301,406,51),"REPLAY TUTORIAL","tutorial",CYAN,screen=="shop")
  _button(Rect2(389,359,396,36),"DIFFICULTY + RULES","difficulty",CYAN,true,16)
@@ -1922,7 +2495,7 @@ func _settings_panel() -> void:
 
 func _help_panel() -> void:
  _header("HOW TO PLAY","Hands-on workshop play with a growing tycoon business")
- var lines=["1. Add a printer, inspection and pickup benches to your empty shop.","2. Launch a marketing campaign to bring equipment-matched inquiries.","3. Open the shop clock. Accept customer inquiries before they leave.","4. Walk with WASD / arrows, click floor, or use owner Auto Assist.","5. Check artwork. Transfers need a gang sheet; stickers use presets.","6. Queue the job and choose Work as Sam or enable Auto Assist.","7. Print, inspect and pack. Correct faults or accept reduced payment.","8. Shirts also need garment blanks and the heat press.","9. Complete pickup to get paid. Find receipts in the Customer Desk.","10. Marketing costs appear in the daily profit report.","11. Restock supplies, hire staff and improve your shop as sales grow.","12. Complete garage goals to unlock banners, CNC signs and shipping."]
+ var lines=["1. Place your gifted vinyl cutter, a heat press and the free benches.","2. Open the shop. Marketing campaigns bring more inquiries.","3. Open the shop clock. Accept customer inquiries before they leave.","4. Walk with WASD / arrows, click floor, or use owner Auto Assist.","5. Check artwork. Vinyl shirts are cut mirrored, weeded, then pressed.","6. Queue the job and choose Work as Sam or enable Auto Assist.","7. Print, inspect and pack. Correct faults or accept reduced payment.","8. Shirts need garment blanks, vinyl or transfers, and the heat press.","9. Complete pickup to get paid. Find receipts in the Customer Desk.","10. Marketing costs appear in the daily profit report.","11. Paid jobs and goals earn XP. New shop levels unlock DTF and more.","12. Restock supplies, hire help and grow into bigger premises."]
  for i in lines.size(): _text(Vector2(389,222+i*33),lines[i],16,INK,810)
  _text(Vector2(389,635),"Tab / Shift+Tab: select. Enter: activate / confirm placement.\nArrow keys: place equipment. Q: capacity. Space: pause.",16,BLUE,810)
  _text(Vector2(389,689),"Every saved shop stays on this Windows computer. Closing the game autosaves.",15,MUTED)
@@ -1982,8 +2555,14 @@ func _growth_panel() -> void:
  _header("GROW AT YOUR OWN PACE","Premises, fit-out and equipment are separate investments. Your existing layout is retained.")
  var board=_preview_board();var p=sim.garage_progress()
  _text(Vector2(389,235),"Cash $%d / daily bills $%.0f / buffer after bills $%.0f" % [sim.state["cash"],board["obligations"],board["cash_after_bills"]],20,BLUE,810)
- _text(Vector2(389,283),"Premises unlock: 3 paid jobs, 60 trust, 75% on time, 85% quality and $1,500 cash.",17,INK,810)
- _button(Rect2(389,315,818,49),"LARGER PREMISES  $900","move_garage",YELLOW,p["ready"] and sim.state["location"]==1,19)
+ # Garage > storefront > warehouse > factory. The next step is always shown here.
+ if sim.premises()=="garage":
+  var lease=sim.storefront_status()
+  _text(Vector2(389,283),"Storefront lease: shop level %d (you are level %d) and $%d. Your equipment moves with you." % [sim.STOREFRONT_LEVEL,int(lease["level"]),sim.STOREFRONT_COST],17,INK,810)
+  _button(Rect2(389,315,818,49),"LEASE A STOREFRONT  $%d" % sim.STOREFRONT_COST,"storefront",YELLOW,lease["ready"],19)
+ else:
+  _text(Vector2(389,283),"Warehouse unlock: 3 paid jobs, 60 trust, 75% on time, 85% quality and $1,500 cash.",17,INK,810)
+  _button(Rect2(389,315,818,49),"MOVE TO THE WAREHOUSE  $900","move_garage",YELLOW,p["ready"] and sim.state["location"]==1,19)
  _button(Rect2(389,380,397,49),"INDUSTRIAL FIT-OUT  $350","fit_out",CYAN,sim.state["location"]==2 and not sim.state["fit_out"] and sim.state["cash"]>=350,17)
  _button(Rect2(801,380,406,49),"PURCHASE EQUIPMENT","equipment",CREAM,true,17)
  _button(Rect2(389,439,818,32),"SECOND DTF LINE  $900 / PLACE IN A CLEAR AISLE","second_line",CREAM,sim.state["fit_out"] and not sim.state["machines"].has("dtf2") and sim.state["cash"]>=900,14)
@@ -1991,7 +2570,7 @@ func _growth_panel() -> void:
  var names=["General","Stickers","Apparel","Signs"]
  for i in names.size(): _button(Rect2(389+i*207,526,197,47),names[i],"specialty:"+names[i],CYAN if names[i]==sim.state["specialty"] else CREAM,true,17)
  _text(Vector2(389,610),"Your focus favors the next day's first inquiry when its equipment is installed. Diversify whenever useful. No accepted order changes.",19,INK,810)
- _button(Rect2(389,661,818,34),"PRODUCTION ANNEX  $2,200 / +$75 DAILY","annex",CREAM,sim.state["location"]==2 and sim.state["fit_out"] and not sim.state.get("production_annex",false),15)
+ _button(Rect2(389,661,818,34),"PRINT FACTORY: PRODUCTION ANNEX  $2,200 / +$75 DAILY","annex",CREAM,sim.state["location"]==2 and sim.state["fit_out"] and not sim.state.get("production_annex",false),15)
  _button(Rect2(389,710,818,43),"BACK TO SHOP","close",NAVY)
 
 func _roster_panel() -> void:
@@ -2000,7 +2579,8 @@ func _roster_panel() -> void:
   var w=sim.state["workers"][i];var y=214+i*49
   var activity=sim.worker_status(w)
   var utilization=0 if float(w.get("shift_seconds",0))==0 else roundi(float(w.get("work_seconds",0))*100/float(w["shift_seconds"]))
-  _text(Vector2(389,y+19),"%s (%s) / %s / skill %.2f / $%d day" % [w["name"],w["id"],w["role"],w["skill"],w["wage"]],17,BLUE,810)
+  var personality=(" / "+str(w["trait"])) if w.has("trait") else ""
+  _text(Vector2(389,y+19),"%s (%s) / %s%s / skill %.2f / $%d day" % [w["name"],w["id"],w["role"],personality,w["skill"],w["wage"]],17,BLUE,810)
   _text(Vector2(409,y+39),"%s / working %d%% of this shift" % [activity,utilization],15,MUTED,790)
  _button(Rect2(389,710,818,43),"BACK TO STAFF","staff",NAVY)
 
@@ -2026,7 +2606,7 @@ func _action(action:String) -> void:
  status=""
  forecast_preview={}
  var parts=action.split(":")
- if action in ["settings","help","stock","move","marketing","staff","customers","dtf_views","gang","capacity","difficulty","roster","updates"] or parts[0] in ["order","machine"]:
+ if action in ["settings","help","stock","move","marketing","merch","staff","customers","dtf_views","gang","capacity","difficulty","roster","updates"] or parts[0] in ["order","machine"]:
   _cancel_world_drag()
  if parts.size()>1:
   match parts[0]:
@@ -2039,10 +2619,12 @@ func _action(action:String) -> void:
    "specialty": sim.select_specialty(parts[1])
    "order": selected_order=int(parts[1]); modal="order"
    "campaign": sim.start_campaign(parts[1])
+   "merch_batch": Merch.make_batch(sim,parts[1])
+   "merch_price": Merch.set_price(sim,parts[1],int(parts[2]))
    "machine": selected_machine=parts[1]; modal="machine"; build=false
    "place":
     moving_equipment="";dragging="";drag_id="";drag_offset=Vector2.ZERO
-    pending_equipment=parts[1];placement_rotation=0;placement_facing=0;drag_point=Vector2i(5,3);drag_valid=sim.install_feedback(pending_equipment,drag_point);modal="";build=true
+    pending_equipment=parts[1];placement_rotation=0;placement_facing=0;drag_point=Vector2i(sim.bounds().x-2,3) if parts[1]=="dock" else Vector2i(5,3);drag_valid=sim.install_feedback(pending_equipment,drag_point);modal="";build=true
     var ms=_render_machines()
     preview_center_offset=sim.equipment_center(pending_equipment,ms)-Vector2(drag_point) if ms.has(pending_equipment) else Vector2.ZERO
    "dtf_view": dtf_view_index=int(parts[1]); modal="dtf_views"
@@ -2051,7 +2633,7 @@ func _action(action:String) -> void:
    "upgrade": sim.buy_upgrade(parts[1])
    "restock":
     var key=parts[1]
-    var qty={"film":48,"white":60,"powder":40,"sticker":60,"laminate":40,"banner":30,"rigid":12,"packaging":25,"maintenance":5}[key]
+    var qty={"film":48,"white":60,"powder":40,"sticker":60,"laminate":40,"banner":30,"rigid":12,"packaging":25,"maintenance":5,"vinyl":24,"transfer_tape":24,"htv":24,"mugs":24,"subpaper":20,"caps":24,"thread":8}[key]
     sim.restock({key:qty})
   _sfx(); return
  var o=sim.order(selected_order)
@@ -2087,6 +2669,7 @@ func _action(action:String) -> void:
     sim=career_sim;career_sim=null
    if not sim.backup_before_new_shop(): status=sim.last_save_error;return
    sim.start_shop(draft_rules["preset"],draft_rules); screen="shop"; modal="";build=false;pending_equipment="";moving_equipment="";dragging="";drag_valid={};order_page=0;customer_page=0;reset_camera(); _load_music_preference();sim.save_game(); _start_music()
+   if sim.walkthrough_step()!="": modal="welcome_gift"
   "continue":
    if sim.load_game(): Ops.settle_offline(sim); screen="shop"; modal="report" if not sim.state["report"].is_empty() else ""; reset_camera(); _load_music_preference();_start_music()
    else: status=sim.state["notices"][0] if not sim.state["notices"].is_empty() else "No valid shop save was found. Your save and backup could not be loaded."
@@ -2097,7 +2680,7 @@ func _action(action:String) -> void:
   "back_machine": modal="machine"
   "equipment":
    modal="equipment";equipment_page=0;pending_equipment="";moving_equipment="";dragging="";drag_id="";drag_valid={};drag_offset=Vector2.ZERO
-  "equipment_page": equipment_page=1-equipment_page
+  "equipment_page": equipment_page=(equipment_page+1)%ceili(14/5.0)
   "move_equipment":
    var id="dtf2" if selected_machine=="shaker2" else ("dtf" if selected_machine=="shaker" else selected_machine)
    if sim.state["machines"].has(id):
@@ -2128,6 +2711,9 @@ func _action(action:String) -> void:
   "report":modal="report"
   "settings","help","stock","move","marketing": _cancel_world_drag();modal=action
   "capacity": board_page=0;modal="capacity"
+  "goals": _cancel_world_drag();goals_page=0;modal="goals"
+  "goals_list": goals_page=0
+  "goals_awards": goals_page=1
   "board_page": board_page+=1
   "board_sort": board_sort="Margin" if board_sort=="Due" else "Due"
   "roster": modal="roster"
@@ -2160,7 +2746,16 @@ func _action(action:String) -> void:
   "camera": reset_camera()
   "more_orders": order_page+=1
   "customers": customer_page=0;modal="customers"
+  "merch": _cancel_world_drag();modal="merch"
+  "merch_store": Merch.toggle_store(sim)
+  "merch_booth": Merch.book_booth(sim)
+  "merch_theme": merch_theme=(merch_theme+1)%Merch.THEMES.size()
+  "merch_new": Merch.create_design(sim,merch_kind,Merch.THEMES[merch_theme])
+  "merch_kind":
+   var kinds=Merch.makeable(sim)
+   if not kinds.is_empty(): merch_kind=kinds[(kinds.find(merch_kind)+1)%kinds.size()]
   "more_customers": customer_page+=1
+  "reviews_view": reviews_view=not reviews_view;customer_page=0
   "build": build=not build; modal="";pending_equipment="";moving_equipment="";dragging="";drag_valid={}
   "snap":
    var target="shaker2" if selected_machine in ["dtf2","shaker2"] else "shaker"
@@ -2220,6 +2815,10 @@ func _action(action:String) -> void:
    if not added: status="No room for another full-size design."
   "ink": sim.restock({"cyan":40,"magenta":40,"yellow":40,"black":40})
   "garments": sim.restock({"garment:navy:S":6,"garment:navy:M":6,"garment:navy:L":6})
+  "hoodies": sim.restock({"garment:hoodie:S":3,"garment:hoodie:M":3,"garment:hoodie:L":3})
+  "totes": sim.restock({"garment:tote:One":12})
+  "storefront":
+   if sim.move_to_storefront(): modal=""; reset_camera(); order_page=0;_play("levelup",.8)
   "move_garage":
    if sim.move_garage(): modal=""; reset_camera(); order_page=0
   "end_day": sim.end_day(); modal="report"
@@ -2231,18 +2830,34 @@ func _action(action:String) -> void:
    sim.state["settings"]["music"]=not sim.state["settings"]["music"]
    _start_music()
    _save_audio_preferences()
+  "sound_down","sound_up","music_down","music_up":
+   var key="sound_volume" if action.begins_with("sound") else "music_volume"
+   var current=_volume(key,0.8 if key=="sound_volume" else 0.6)
+   sim.state["settings"][key]=snappedf(clampf(current+(-0.1 if action.ends_with("down") else 0.1),0.0,1.0),0.1)
+   if key=="music_volume":
+    if _volume(key,0.6)<=0.01: music.stop()
+    elif music.playing: music.volume_db=_music_db()
+    else: _start_music()
+   _save_audio_preferences()
   "fullscreen":
    var full=DisplayServer.window_get_mode()==DisplayServer.WINDOW_MODE_FULLSCREEN
    DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MAXIMIZED if full else DisplayServer.WINDOW_MODE_FULLSCREEN)
    sim.state["settings"]["fullscreen"]=not full
    _save_window_preference()
   "skip": sim.state["tutorial"]=false
+  "walkthrough_skip": sim.end_walkthrough(); modal=""; status="Walkthrough skipped. Your gifted cutter is still free in ADD EQUIPMENT."
+  "walkthrough_done":
+   sim.end_walkthrough()
+   # The guided first job is over; the goal card takes its place.
+   var first=_tutorial_index()
+   if first>=0 and sim.order(first)["stage"]=="completed": sim.state["tutorial"]=false
   "tutorial":
    var tutorial_type=""
-   if sim.state["machines"].has("dtf"): tutorial_type="transfer"
+   if sim.state["machines"].has("dtf") or sim.state["machines"].has("dtfmini"): tutorial_type="transfer"
    elif sim.state["machines"].has("sticker"): tutorial_type="sticker"
    elif sim.state["machines"].has("banner"): tutorial_type="banner"
    elif sim.state["machines"].has("cnc"): tutorial_type="cnc"
+   elif sim.state["machines"].has("cutter"): tutorial_type="decal"
    if tutorial_type=="":
     sim.state["tutorial"]=false
     status="Place a printer or cutter before starting the production tutorial."
@@ -2250,7 +2865,7 @@ func _action(action:String) -> void:
    sim.state["tutorial"]=true
    var i=_tutorial_index()
    var id="TUTORIAL-%d" % sim.state["orders"].size()
-   var quantity=12 if tutorial_type=="sticker" else (2 if tutorial_type=="cnc" else 3)
+   var quantity=12 if tutorial_type in ["sticker","decal"] else (2 if tutorial_type=="cnc" else 3)
    if i>=0 and sim.order(i)["type"]!=tutorial_type and sim.order(i)["stage"] not in ["completed","declined"]:
     # A tutorial job belongs to the tutorial system; replace it in place when
     # the shop's available equipment changes so no impossible job is stranded.
@@ -2267,8 +2882,71 @@ func _action(action:String) -> void:
    modal=""
  _sfx()
 
-func _sfx() -> void:
+func _load_audio() -> void:
+ for name in SFX_NAMES:
+  var path="res://assets/audio/sfx-%s.wav" % name
+  if ResourceLoader.exists(path): sfx_streams[name]=load(path)
+ for name in MUSIC_SHOP+[MUSIC_TITLE]:
+  var path="res://assets/audio/music-%s.ogg" % name
+  if ResourceLoader.exists(path): music_tracks[name]=load(path)
+ for i in 6:
+  var player=AudioStreamPlayer.new();add_child(player);sfx_players.append(player)
+ music.finished.connect(_next_track)
+
+func _volume(key:String,fallback:float) -> float:
+ return clampf(float(sim.state["settings"].get(key,fallback)),0.0,1.0)
+
+func _music_db() -> float:
+ return linear_to_db(maxf(0.001,_volume("music_volume",0.6)))-6.0
+
+func _play(name:String,gain:float=1.0) -> void:
  if not sim.state["settings"]["sound"]: return
+ var level=_volume("sound_volume",0.8)*gain
+ if level<=0.01: return
+ if not sfx_streams.has(name):
+  if name=="click": _fallback_click()
+  return
+ # At 4x speed with several staff the same sound can fire many times at once.
+ if time-float(sfx_last.get(name,-9.0))<0.12: return
+ sfx_last[name]=time
+ if not audio_output: return
+ var player=sfx_players[0]
+ for candidate in sfx_players:
+  if not candidate.playing: player=candidate;break
+ player.stream=sfx_streams[name];player.volume_db=linear_to_db(level)-3.0;player.play()
+
+func _sfx() -> void:
+ _play("click")
+
+# Sounds follow what the simulation did since the last frame: a sale, a visitor
+# at the door, a job ready, a fault, a machine starting work, the day closing.
+func _audio_events() -> void:
+ var s=sim.state
+ var working={};var faults=0;var ready=0
+ for w in s["workers"]:
+  if not w["task"].is_empty() and w["task"]["working"] and s["machines"].has(w["task"]["machine"]):
+   working[w["id"]]=str(w["task"]["machine"])+":"+str(w["task"]["order"])+":"+str(w["task"]["stage"])
+ for o in s["orders"]:
+  if o["stage"]=="fault": faults+=1
+  elif o["stage"]=="ready": ready+=1
+ var seen={"state":s,"completed":int(s["completed"]),"visitors":sim.visible_customers().size(),"report":not s["report"].is_empty(),"step":sim.walkthrough_step(),"working":working,"faults":faults,"ready":ready,"machines":s["machines"].size()}
+ # A new or loaded shop starts a fresh comparison instead of replaying sounds.
+ if not audio_watch.is_empty() and is_same(audio_watch["state"],s):
+  if seen["completed"]>audio_watch["completed"]: _play("cash")
+  if seen["visitors"]>audio_watch["visitors"]: _play("door",.8)
+  if seen["report"] and not audio_watch["report"]: _play("day")
+  if seen["faults"]>audio_watch["faults"]: _play("error")
+  if seen["ready"]>audio_watch["ready"]: _play("done",.8)
+  if seen["step"]=="done" and audio_watch["step"]=="job": _play("fanfare")
+  if seen["machines"]>audio_watch["machines"]: _play("place")
+  for id in working:
+   if audio_watch["working"].get(id,"")==working[id]: continue
+   var kind=str(s["machines"][working[id].get_slice(":",0)]["kind"])
+   var sound={"cutter":"cutter","sticker":"cutter","cnc":"cutter","dtf":"print","dtfmini":"print","banner":"print","heat":"press","mug":"press","embroidery":"cutter","pack":"pack","dock":"pack"}.get(kind,"")
+   if sound!="": _play(sound,.7)
+ audio_watch=seen
+
+func _fallback_click() -> void:
  var stream=AudioStreamWAV.new()
  stream.format=AudioStreamWAV.FORMAT_16_BITS
  stream.mix_rate=22050
@@ -2285,6 +2963,7 @@ func _save_audio_preferences() -> void:
  var preferences=ConfigFile.new()
  preferences.load(_preference_save_path()+".preferences.cfg")
  for key in ["music","sound"]: preferences.set_value("audio",key,sim.state["settings"][key])
+ preferences.set_value("audio","music_volume",_volume("music_volume",0.6));preferences.set_value("audio","sound_volume",_volume("sound_volume",0.8))
  preferences.set_value("display","reduce_motion",sim.state["settings"].get("reduce_motion",false))
  for key in movement_bindings: preferences.set_value("input",key,movement_bindings[key])
  if preferences.save(_preference_save_path()+".preferences.cfg")!=OK: sim.notice("Audio changed; preference could not be saved.")
@@ -2294,6 +2973,8 @@ func _load_music_preference() -> void:
  if preferences.load(_preference_save_path()+".preferences.cfg")==OK:
   for key in ["music","sound"]:
    sim.state["settings"][key]=bool(preferences.get_value("audio",key,sim.state["settings"][key]))
+  sim.state["settings"]["music_volume"]=clampf(float(preferences.get_value("audio","music_volume",0.6)),0.0,1.0)
+  sim.state["settings"]["sound_volume"]=clampf(float(preferences.get_value("audio","sound_volume",0.8)),0.0,1.0)
   sim.state["settings"]["reduce_motion"]=bool(preferences.get_value("display","reduce_motion",false))
   for key in movement_bindings: movement_bindings[key]=int(preferences.get_value("input",key,movement_bindings[key]))
   var mode=int(preferences.get_value("display","mode",DisplayServer.window_get_mode()))
@@ -2339,22 +3020,26 @@ func _preview_board() -> Dictionary:
 
 func _start_music() -> void:
  music.stop()
- if not sim.state["settings"]["music"]: return
- var stream=AudioStreamWAV.new()
- stream.format=AudioStreamWAV.FORMAT_16_BITS
- stream.mix_rate=22050
- var frames=22050*16
- var bytes=PackedByteArray(); bytes.resize(frames*2)
- var notes=[261.63,329.63,392.0,329.63,220.0,261.63,329.63,261.63,174.61,220.0,261.63,220.0,196.0,246.94,293.66,246.94]
- for i in frames:
-  var t=i/22050.0
-  var n=int(t)%notes.size()
-  var phase=fmod(t,1.0)
-  var envelope=sin(phase*PI)*exp(-phase*3)
-  var value=(sin(t*TAU*notes[n])+sin(t*TAU*notes[n]*2)*0.15)*envelope*360
-  bytes.encode_s16(i*2,int(value))
- stream.data=bytes; stream.loop_mode=AudioStreamWAV.LOOP_FORWARD; stream.loop_begin=0; stream.loop_end=frames
- music.stream=stream; music.volume_db=-9; music.play()
+ music_context="shop" if screen=="shop" else "title"
+ if not audio_output: return
+ if not sim.state["settings"]["music"] or music_tracks.is_empty() or _volume("music_volume",0.6)<=0.01: return
+ var track=MUSIC_TITLE
+ if music_context=="shop" or not music_tracks.has(MUSIC_TITLE):
+  # The shop shuffles its tunes and never plays the same one twice in a row.
+  if music_queue.is_empty():
+   for candidate in MUSIC_SHOP:
+    if music_tracks.has(candidate): music_queue.append(candidate)
+   music_queue.shuffle()
+   if music_queue.size()>1 and music_queue[0]==music_last: music_queue.push_back(music_queue.pop_front())
+  if music_queue.is_empty(): return
+  track=music_queue.pop_front()
+ music_last=track
+ var stream=music_tracks[track]
+ if stream is AudioStreamOggVorbis: stream.loop=music_context!="shop"
+ music.stream=stream; music.volume_db=_music_db(); music.play()
+
+func _next_track() -> void:
+ if sim.state["settings"]["music"]: _start_music()
 
 func _load_illustrated() -> void:
  illustrated_info=JSON.parse_string(FileAccess.get_file_as_string("res://assets/equipment/equipment.json"))
@@ -2411,11 +3096,15 @@ func _illustrated_machine(id:String) -> void:
  var size=Vector2(info["size"][0],info["size"][1])*zoom
  var anchor=Vector2(info["origin"][0],info["origin"][1])
  var rect=Ground.rect_at(p,size,anchor)
- var floor_poly=[]
- var center=sim.equipment_center(target,ms)
- for point in sim.equipment_polygon(target,ms):floor_poly.append(iso(center+(point-center)*.75))
- _poly(floor_poly,Color(0.1,.06,.02,.12),Color.TRANSPARENT,0)
- draw_texture_rect(illustrated[kind][frame],rect,false)
+ if kind=="dock":
+  # The truck parks outside; inside, the dock is the loading bay by the door.
+  rect=_loading_bay(target,ms)
+ else:
+  var floor_poly=[]
+  var center=sim.equipment_center(target,ms)
+  for point in sim.equipment_polygon(target,ms):floor_poly.append(iso(center+(point-center)*.75))
+  _poly(floor_poly,Color(0.1,.06,.02,.12),Color.TRANSPARENT,0)
+  draw_texture_rect(illustrated[kind][frame],rect,false)
  if sim.state["machines"].has(target): _station_work_animation(target,p)
  world_hits.append({"id":target,"printer":target if kind=="dtf" else "","rect":rect,"sprite":kind+":"+str(frame),"flip":false,"illustrated":true,"facing":facing})
  var activity=sim.station_activity(target) if sim.state["machines"].has(target) else {"working":false}
@@ -2438,23 +3127,34 @@ func _station_work_animation(id:String,p:Vector2) -> void:
  var center=p+Vector2(0,-42)*zoom
  var scan=sin(elapsed*2.5)
  match kind:
-  "dtf","shaker","banner":
+  "dtf","shaker","banner","dtfmini":
    # Visible material and a bounded scan/take-up cue share the task clock.
    _panel(Rect2(center+Vector2(-32,-5)*zoom,Vector2(64,18)*zoom),CREAM,BLUE,2)
    for n in 4:
     var x=-27+n*16
     draw_line(center+Vector2(x,-2)*zoom,center+Vector2(x+10,8)*zoom,[CYAN,MAGENTA,YELLOW,NAVY][n],3*zoom)
    draw_line(center+Vector2(scan*26,-8)*zoom,center+Vector2(scan*26,13)*zoom,CYAN,2*zoom)
+  "cutter","sticker","embroidery":
+   # Cutting mat with a blade tracing the design outline.
+   _panel(Rect2(center+Vector2(-30,-15)*zoom,Vector2(60,30)*zoom),Color("8fe3c2"),BLUE,2)
+   draw_rect(Rect2(center+Vector2(-22,-11)*zoom,Vector2(44,22)*zoom),MAGENTA if kind=="cutter" else CREAM)
+   var outline=[]
+   for k in 11:
+    var rad=(10.0 if k%2==0 else 4.5)
+    outline.append(center+Vector2(cos(-PI/2+k*PI/5)*rad*1.6,sin(-PI/2+k*PI/5)*rad)*zoom)
+   draw_polyline(PackedVector2Array(outline),CREAM if kind=="cutter" else MAGENTA,1.5*zoom)
+   var t=fmod(elapsed*.6,10.0)
+   draw_circle(outline[int(t)].lerp(outline[int(t)+1],fmod(t,1.0)),3.5*zoom,NAVY)
   "cnc":
    var u=fmod(elapsed*.22,4)
    var corners=[Vector2(-32,-13),Vector2(32,-13),Vector2(32,13),Vector2(-32,13),Vector2(-32,-13)]
    var at=corners[int(u)].lerp(corners[int(u)+1],fmod(u,1))
    draw_polyline(PackedVector2Array(corners.map(func(q):return center+q*zoom)),YELLOW,2*zoom)
    draw_circle(center+at*zoom,5*zoom,NAVY)
-  "heat":
-   var closed="Heat press" in a["phase"]
+  "heat","mug":
+   var closed="Heat press" in a["phase"] or "Press mugs" in a["phase"]
    draw_line(center+Vector2(-24,-15 if closed else -28)*zoom,center+Vector2(24,-15 if closed else -28)*zoom,RED if closed else BLUE,7*zoom)
-   _product("apparel",center+Vector2(0,4)*zoom,30*zoom)
+   _product("mug" if kind=="mug" else "apparel",center+Vector2(0,4)*zoom,30*zoom)
   "art":
    _panel(Rect2(center+Vector2(-24,-16)*zoom,Vector2(48,30)*zoom),CREAM,BLUE,2)
    draw_line(center+Vector2(-16,0)*zoom,center+Vector2(16*scan,4)*zoom,MAGENTA,3*zoom)
@@ -2582,9 +3282,10 @@ func _draw_world_labels() -> void:
  var used=[]
  for label in world_labels:
   var at=label["at"];var height=38 if label["progress"]>=0 else 24
-  var size=Vector2(156,height);var rect=Rect2(at+Vector2(-78,22),size);var found=false
+  var w=clampf(font.get_string_size(str(label["text"]),HORIZONTAL_ALIGNMENT_LEFT,-1,12).x+16,120,250)
+  var size=Vector2(w,height);var rect=Rect2(at+Vector2(-w*.5,22),size);var found=false
   for n in 24:
-   var candidate=Rect2(at+Vector2(-78+(n%3-1)*170,20+floori(n/3.0)*43),size)
+   var candidate=Rect2(at+Vector2(-w*.5+(n%3-1)*(w+14),20+floori(n/3.0)*43),size)
    if not SHOP_VIEW.encloses(candidate):continue
    var blocked=false
    for hit in worker_hits:
@@ -2596,8 +3297,8 @@ func _draw_world_labels() -> void:
   used.append(rect)
   draw_line(at,rect.get_center(),Color(.1,.2,.3,.3),1)
   _panel(rect,NAVY,NAVY,4)
-  _line(rect.position+Vector2(7,17),label["text"],12,CREAM,142)
-  if label["progress"]>=0:draw_rect(Rect2(rect.position+Vector2(7,27),Vector2(142*label["progress"],5)),GREEN)
+  _line(rect.position+Vector2(7,17),label["text"],12,CREAM,w-14)
+  if label["progress"]>=0:draw_rect(Rect2(rect.position+Vector2(7,27),Vector2((w-14)*label["progress"],5)),GREEN)
 
 func _cash_bridge_panel() -> void:
  var report=sim.end_day();var stats=report["stats"];var bridge=report.get("cash_bridge",{})

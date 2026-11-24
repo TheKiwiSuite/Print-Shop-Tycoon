@@ -21,6 +21,8 @@ func run():
  game.sim.save_path=ProjectSettings.globalize_path("res://../../../work/rotation-stability-profile.json")
  root.add_child(game);game.set_process(false);game.screen="shop";game.build=true
  for kind in game.C.EQUIPMENT_PRICES:
+  # The shipping dock is a fixed loading bay on the outside wall (premises_check).
+  if kind=="dock": continue
   reset_shop(kind)
   var center=game.sim.equipment_center(kind,game.sim.state["machines"])
   var max_drift=0.0

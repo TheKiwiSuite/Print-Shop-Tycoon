@@ -4,6 +4,10 @@ const C = preload("res://scripts/catalog.gd")
 const Marketing = preload("res://scripts/marketing.gd")
 const Strategy = preload("res://scripts/shop_strategy.gd")
 const Ops=preload("res://scripts/shop_operations.gd")
+const Progress=preload("res://scripts/shop_progress.gd")
+const Customers=preload("res://scripts/shop_customers.gd")
+const Merch=preload("res://scripts/shop_merch.gd")
+const People=preload("res://scripts/shop_people.gd")
 const SHOP_HOURS_PER_SECOND=0.009
 const SAVE = "user://native-shop-v3.json"
 var save_path=SAVE
@@ -20,7 +24,44 @@ func start_shop(preset:String="Standard",custom:Dictionary={}) -> void:
  state["day_open_cash"]=state["cash"]
  Strategy.ensure(self)
  Ops.ensure(self)
+ # Most shops start with one small vinyl cutter: gift it, walk the player
+ # through their first heat-transfer vinyl shirts, then unlock DTF with sales.
+ state["gifts"]=["cutter"]
+ state["walkthrough"]={"active":true}
+ state["starter_path"]=true
+ # New careers begin in the home garage: a small room with a roll-up door.
+ state["premises"]="garage"
+ state["workers"][0]["pos"]=[3.0,4.0]
  notice("%s shop. Starting cash $%d. Forecast commitments before accepting work." % [state["rules"]["preset"],state["cash"]])
+
+# New careers unlock equipment by shop level (see shop_progress.gd).
+
+func equipment_locked(id:String) -> bool:
+ return Progress.locked(self,id)
+
+func equipment_lock_reason(id:String) -> String:
+ return Progress.lock_reason(self,id)
+
+func is_gift(id:String) -> bool:
+ return id in state.get("gifts",[])
+
+# Current step of the new-shop walkthrough, or "" when it is finished/skipped.
+func walkthrough_step() -> String:
+ if not state.get("walkthrough",{}).get("active",false): return ""
+ var ms=state["machines"]
+ if not ms.has("cutter"): return "gift"
+ if not ms.has("heat"): return "press"
+ if not ms.has("art") or not ms.has("finish") or not ms.has("pack"): return "benches"
+ var first=-1
+ for i in state["orders"].size():
+  if order(i)["id"]==String(state.get("tutorial_order","")): first=i
+ if first<0 or order(first)["stage"]=="scheduled": return "open"
+ if order(first)["stage"]=="completed" or order(first).get("paid",false): return "done"
+ if order(first)["stage"] in ["declined","abandoned"]: return "done"
+ return "job"
+
+func end_walkthrough() -> void:
+ if state.get("walkthrough") is Dictionary: state["walkthrough"]["active"]=false
 
 func start_demo() -> void:
  state=C.fresh()
@@ -64,13 +105,13 @@ func missing_all(items:Dictionary) -> String:
 
 func daily_obligations(extra_wage:int=0) -> float:
  Strategy.ensure(self)
- var bills=(75 if state.get("production_annex",false) else 0)+Ops.daily_debt(self)+roundi((125 if int(state["location"])==1 else 200)*float(state["rules"]["overhead"]))+extra_wage+mini(50,int(state.get("loan_remaining",0)))
+ var bills=(75 if state.get("production_annex",false) else 0)+Ops.daily_debt(self)+roundi(base_overhead()*float(state["rules"]["overhead"]))+extra_wage+mini(50,int(state.get("loan_remaining",0)))
  for w in state["workers"]: bills+=int(w["wage"])
  return bills
 
 func hiring_buffer(role_index:int) -> bool:
  Strategy.ensure(self)
- return int(state["rules"]["version"])==0 or float(state["cash"])-C.HIRE_COST[role_index]>=daily_obligations(45)
+ return int(state["rules"]["version"])==0 or float(state["cash"])-C.HIRE_COST[role_index]>=daily_obligations(52 if state.get("starter_path",false) else 45)
 
 func reprint_cost(o:Dictionary) -> float:
  var p=Strategy.planned(o)
@@ -84,10 +125,10 @@ func reprint_cost(o:Dictionary) -> float:
 func preset_feedback(o:Dictionary) -> Dictionary:
  var p=Strategy.planned(o);var recipe=C.recipe(p);var cost=0.0;var seconds=0.0
  for key in recipe: cost+=float(recipe[key])*C.PRICES[key]
- var kind={"transfer":"dtf","apparel":"dtf","sticker":"sticker","banner":"banner","cnc":"cnc"}[o["type"]]
+ var kind=state["machines"].get(station_for(o),{}).get("kind",TYPE_STATION.get(o["type"],"dtf"))
  for phase in C.phases(kind,p): seconds+=float(phase[1])
  var risks=[]
- if kind=="dtf" and p["settings"]["white"]=="economy": risks.append("Economy white causes low-opacity recovery")
+ if kind in ["dtf","dtfmini"] and p["settings"]["white"]=="economy": risks.append("Economy white causes low-opacity recovery")
  if kind=="sticker" and not p["settings"]["registration"]: risks.append("Skipped marks cause registration recovery")
  if o["type"]=="apparel" and p["settings"]["press"]!="cotton_warm": risks.append("Cotton blanks require warm peel")
  var note="Print inputs $%.1f / base machine work %.1f shop min. Pressing, handling and packing are additional." % [cost,seconds*SHOP_HOURS_PER_SECOND*60]
@@ -158,6 +199,7 @@ func rescue_loan() -> bool:
  return true
 
 func expand_premises() -> bool:
+ if premises()=="garage": notice("Lease a storefront before moving to the warehouse."); return false
  if int(state["location"])==2 or not garage_progress()["ready"]: return false
  for w in state["workers"]:
   if not w["task"].is_empty(): notice("Finish active work before moving.");return false
@@ -209,10 +251,10 @@ func dispatch_recipe(o:Dictionary) -> Dictionary:
 
 func batch_preview(i:int) -> Dictionary:
  var base=order(i);var members=[]
- if base.is_empty() or base["type"] not in ["transfer","apparel"]: return {"valid":false,"reason":"Select a planned DTF job."}
+ if base.is_empty() or base["type"] not in ["transfer","apparel"] or C.is_htv(base): return {"valid":false,"reason":"Select a planned DTF job."}
  for j in active_orders():
   var o=order(j)
-  if o["type"] not in ["transfer","apparel"] or o["stage"] not in ["plan","queued"] or o["consumed"] or o.has("batch_leader"): continue
+  if o["type"] not in ["transfer","apparel"] or C.is_htv(o) or o["stage"] not in ["plan","queued"] or o["consumed"] or o.has("batch_leader"): continue
   if o["film_width"]!=base["film_width"] or o["sheet_length"]!=base["sheet_length"] or o["settings"]["white"]!=base["settings"]["white"] or not o["art_ready"]: continue
   var busy=false
   for w in state["workers"]:
@@ -263,11 +305,49 @@ func notice(text:String) -> void:
 func now() -> float:
  return (int(state["day"])-1)*9.0 + float(state["clock"])-8.0
 
+# Premises ladder: home garage, neighborhood storefront, warehouse, print factory.
+# Only the garage is a new saved value; the others follow the existing location
+# and annex fields, so older saves stay exactly where they were.
+const PREMISES=["garage","storefront","warehouse","factory"]
+const PREMISES_TITLES={"garage":"HOME GARAGE","storefront":"NEIGHBORHOOD SHOP","warehouse":"INDUSTRIAL PRINT SHOP","factory":"PRINT FACTORY"}
+const STOREFRONT_COST=600
+const STOREFRONT_LEVEL=4
+
+func premises() -> String:
+ if int(state["location"])==1: return "garage" if String(state.get("premises",""))=="garage" else "storefront"
+ return "factory" if state.get("production_annex",false) else "warehouse"
+
+func premises_title() -> String:
+ return PREMISES_TITLES[premises()]
+
+func base_overhead() -> int:
+ return {"garage":60,"storefront":125}.get(premises(),200)
+
+func storefront_status() -> Dictionary:
+ var lv=Progress.level(self)
+ return {"level":lv,"cash":state["cash"],"ready":premises()=="garage" and lv>=STOREFRONT_LEVEL and state["cash"]>=STOREFRONT_COST}
+
+# Leaving the garage keeps every machine where it stands: the storefront is the
+# same floor grown wider and deeper.
+func move_to_storefront() -> bool:
+ if premises()!="garage": return false
+ if Progress.level(self)<STOREFRONT_LEVEL: notice("A storefront lease needs shop level %d." % STOREFRONT_LEVEL); return false
+ if state["cash"]<STOREFRONT_COST: notice("The storefront lease costs $%d." % STOREFRONT_COST); return false
+ for w in state["workers"]:
+  if not w["task"].is_empty(): notice("Finish active work before moving."); return false
+ state["cash"]-=STOREFRONT_COST;state["premises"]="storefront"
+ state["stats"]["capex"]=state["stats"].get("capex",0)+STOREFRONT_COST
+ _reroute_customers()
+ notice("You moved out of the garage into a neighborhood storefront. Your equipment came with you. Daily overhead is now $%d." % roundi(base_overhead()*float(state["rules"]["overhead"])))
+ save_game();return true
+
 func bounds() -> Vector2i:
+ if premises()=="garage": return Vector2i(10,9)
  if state.get("production_annex",false):return Vector2i(22,16)
  return Vector2i(14,12) if state["location"] == 1 else Vector2i(18,14)
 
 func entrance() -> Vector2i:
+ if premises()=="garage": return Vector2i(0,4)
  return Vector2i(0,9) if state["location"] == 1 else Vector2i(0,11)
 
 func room_props() -> Array:
@@ -355,7 +435,7 @@ func _lead_count(types:Array) -> int:
  var count=0
  for o in state["orders"]:
   if o["stage"] in ["completed","declined","abandoned"]: continue
-  var starter_adapts=o["id"]=="DTF-001" and "sticker" in types and not state["machines"].has("dtf")
+  var starter_adapts=o["id"]=="DTF-001" and ("sticker" in types or "decal" in types) and not state["machines"].has("dtf") and not state["machines"].has("dtfmini")
   if o["stage"]!="scheduled" or o["type"] in types or starter_adapts: count+=1
  return count
 
@@ -396,21 +476,38 @@ func _update_visits() -> void:
   _ensure_visit(o)
   if o["stage"]=="scheduled" and now()>=float(o["visit"]["arrival_at"]):
    # Let a sticker-only beginner receive achievable first work.
-   if o["id"]=="DTF-001" and not state["machines"].has("dtf") and state["machines"].has("sticker"):
+   var no_dtf=not state["machines"].has("dtf") and not state["machines"].has("dtfmini")
+   if o["id"]=="DTF-001" and no_dtf and state["machines"].has("cutter") and state["machines"].has("heat"):
+    # The classic start: a vinyl cutter and a heat press making club shirts.
+    var visit=o["visit"]
+    o=C.make_order("SHIRT-START","apparel",6,C.CUSTOMERS[2],now()+6.5,210)
+    o["visit"]=visit
+    o["method"]="htv"
+    state["orders"][i]=o
+    if String(state.get("tutorial_order",""))=="DTF-001": state["tutorial_order"]="SHIRT-START"
+    _ensure_visit(o)
+   elif o["id"]=="DTF-001" and no_dtf and state["machines"].has("sticker"):
     var visit=o["visit"]
     o=C.make_order("STK-START","sticker",36,C.CUSTOMERS[0],now()+6.5,150)
     o["visit"]=visit
     state["orders"][i]=o
     state["tutorial"]=false
     _ensure_visit(o)
-   var station={"transfer":"dtf","apparel":"dtf","sticker":"sticker","banner":"banner","cnc":"cnc"}[o["type"]]
-   if not state["machines"].has(station): continue
-   if o["type"]=="apparel" and not state["machines"].has("heat"): continue
+   elif o["id"]=="DTF-001" and no_dtf and state["machines"].has("cutter"):
+    # A vinyl-cutter beginner gets achievable first work too.
+    var visit=o["visit"]
+    o=C.make_order("DEC-START","decal",30,C.CUSTOMERS[0],now()+6.5,120)
+    o["visit"]=visit
+    state["orders"][i]=o
+    state["tutorial"]=false
+    _ensure_visit(o)
+   if not can_produce(o["type"]): continue
+   assign_method(o)
    o["stage"]="intake"
    o["due"]=now()+6.5
    o["visit"]["status"]="inquiry"
    o["visit"]["arrived_at"]=now()
-   o["visit"]["patience_until"]=now()+3.0*float(state["rules"]["patience"])
+   o["visit"]["patience_until"]=now()+3.0*float(state["rules"]["patience"])*Customers.patience_scale(self,String(o["customer"]))
    notice("%s arrived: %d %s. Respond within %d shop minutes." % [o["customer"],o["quantity"],o["product"],roundi(180*float(state["rules"]["patience"]))])
   elif o["stage"]=="intake" and float(o["visit"].get("patience_until",-1.0))>=0 and now()>=float(o["visit"]["patience_until"]):
    o["stage"]="abandoned"
@@ -472,27 +569,48 @@ func _customer_obstacles(actor:Dictionary) -> Dictionary:
  occupied.erase(Vector2i(roundi(actor["pos"][0]),roundi(actor["pos"][1])))
  return occupied
 
+# Visitors pause this long so staff can step around them, and anyone blocked by
+# people for the longer time may slip past (shop seconds at 1x speed).
+const YIELD_SECONDS=1.2
+const SQUEEZE_SECONDS=2.5
+
 func _walk_customer(actor:Dictionary,dt:float) -> void:
  actor["walking"]=false
  if actor["path"].is_empty(): return
  var pos=v(actor["pos"])
  var target=v(actor["path"][0])
  var next=pos.move_toward(target,dt*2.2)
- var occupied=false
+ var squeeze=float(actor.get("blocked_for",0.0))>=SQUEEZE_SECONDS
+ var by_customer=false
  for other in visible_customers():
-  if other["order"]!=actor["order"] and actor["purpose"]!="exit" and next.distance_to(v(other["pos"]))<0.55: occupied=true;break
- if not occupied:
+  if other["order"]!=actor["order"] and actor["purpose"]!="exit" and not squeeze and next.distance_to(v(other["pos"]))<0.55: by_customer=true;break
+ var by_staff=false
+ if not by_customer and not squeeze:
   for w in state["workers"]:
-   if next.distance_to(v(w["pos"]))<0.55: occupied=true;break
- if occupied:
+   if next.distance_to(v(w["pos"]))<0.55: by_staff=true;break
+ if by_staff:
+  # Staff have right of way. The visitor pauses so staff can step around; when
+  # both sides re-routed at once they mirrored each other and stalled the shop.
+  actor["blocked_for"]=float(actor.get("blocked_for",0.0))+dt
+  if float(actor["blocked_for"])<YIELD_SECONDS: return
+ if by_customer or by_staff:
   var start=Vector2i(roundi(pos.x),roundi(pos.y))
-  actor["path"]=path(start,cell(actor["goal"]),{},_customer_obstacles(actor))
+  var detour=path(start,cell(actor["goal"]),{},_customer_obstacles(actor))
+  # With no way around, keep the route and wait; after SQUEEZE_SECONDS the
+  # visitor slips past instead of blocking the aisle for good.
+  if not detour.is_empty(): actor["path"]=detour
   return
  _walk(actor,dt)
+ if actor.has("blocked_for") and actor["walking"]:
+  var clear=true
+  for w in state["workers"]:
+   if v(actor["pos"]).distance_to(v(w["pos"]))<0.8: clear=false;break
+  if clear: actor.erase("blocked_for")
 
 func _update_customer_actors(dt:float) -> void:
  for i in state["orders"].size():
   var o=order(i)
+  if o.has("merch"): continue
   _ensure_visit(o)
   var visit=o["visit"]
   var actor=visit.get("actor",{})
@@ -707,6 +825,7 @@ func configure_dtf(ms:Dictionary,id:String,pos:Vector2i,r:int) -> void:
 func install_feedback(id:String,pos:Vector2i,rotation:int=0,facing:int=-1,center:Vector2=Vector2(INF,INF)) -> Dictionary:
  if not C.EQUIPMENT_PRICES.has(id): return {"valid":false,"reason":"Unknown equipment."}
  if state["machines"].has(id): return {"valid":false,"reason":"This station is already installed."}
+ if equipment_locked(id): return {"valid":false,"reason":equipment_lock_reason(id)}
  if state["cash"]<Ops.equipment_cost(self,id): return {"valid":false,"reason":"Not enough cash for this station."}
  if id in ["banner","cnc","dock"] and state["location"]==1: return {"valid":false,"reason":"Expand to the industrial shop for this equipment."}
  Strategy.ensure(self)
@@ -714,7 +833,7 @@ func install_feedback(id:String,pos:Vector2i,rotation:int=0,facing:int=-1,center
  var previous=state["machines"]
  var candidate=previous.duplicate(true)
  var source=C.layout(2 if id in ["banner","cnc","dock"] else 1)
- candidate[id]=source[id].duplicate(true)
+ candidate[id]=C.catalog_station(id).duplicate(true)
  if id=="dtf": candidate["shaker"]=source["shaker"].duplicate(true)
  state["machines"]=candidate
  var result=placement_feedback(id,pos,rotation,facing,center)
@@ -731,7 +850,19 @@ func install_equipment(id:String,pos:Vector2i,rotation:int=0,facing:int=-1,cente
  state["cash"]-=purchase_cost
  state["stats"]["capex"]=state["stats"].get("capex",0)+purchase_cost
  Ops.commit_equipment(self,id)
+ var gifted=is_gift(id)
+ if gifted: state["gifts"].erase(id)
  notice("Placed "+state["machines"][id]["title"]+". Add more stations or resume the clock when ready.")
+ if id=="cutter":
+  # The bench ships with a starter pack so the first decal job is possible.
+  for key in ["vinyl","transfer_tape","htv"]: state["stock"][key]=maxi(int(state["stock"].get(key,0)),24)
+  notice(("Your gifted vinyl cutter is set up" if gifted else "Placed Vinyl cutter bench")+", with a starter pack of shirt vinyl, decal vinyl and transfer tape.")
+ if id=="mug":
+  state["stock"]["mugs"]=maxi(int(state["stock"].get("mugs",0)),24);state["stock"]["subpaper"]=maxi(int(state["stock"].get("subpaper",0)),12)
+  notice("Placed Mug + tumbler press with a starter case of blank mugs and transfer paper.")
+ if id=="embroidery":
+  state["stock"]["caps"]=maxi(int(state["stock"].get("caps",0)),24);state["stock"]["thread"]=maxi(int(state["stock"].get("thread",0)),8)
+  notice("Placed Embroidery machine with a starter box of blank caps and thread.")
  save_game()
  return true
 
@@ -781,6 +912,14 @@ func placement_feedback(id:String, pos:Vector2i, rotation:int=0,facing:int=-1,ce
    occupied[decor_cell]="decor"
  for prop in room_props():
   if occupied.has(prop["pos"]): return {"valid":false,"reason":"Equipment overlaps a fixed shelf or plant.","machines":ms}
+ # The shipping dock is a loading bay at the open door in the outside wall:
+ # the truck parks outside, so the bay must touch that wall and cannot turn.
+ for key in ms:
+  if ms[key]["kind"]!="dock": continue
+  if facing_of(ms[key])!=0: return {"valid":false,"reason":"The loading bay lines up with the truck door, so it does not turn.","machines":ms}
+  var outer=-1
+  for p in footprint(key,ms): outer=maxi(outer,p.x)
+  if outer!=bounds().x-1: return {"valid":false,"reason":"Put the shipping dock against the outside wall on the right, where the truck backs up to the open door.","machines":ms}
  for printer in ["dtf","dtf2"]:
   if not ms.has(printer): continue
   var shake="shaker2" if printer=="dtf2" else "shaker"
@@ -821,6 +960,24 @@ func move_equipment(id:String, p:Vector2i, rotation:int=0,facing:int=-1,center:V
    w["path"]=path(Vector2i(roundi(w["pos"][0]),roundi(w["pos"][1])),goal)
  save_game()
  return true
+
+# Keeps the shipping dock against the outside wall when the building changes
+# size (moving to the warehouse, adding the annex) or an older save placed it
+# elsewhere. It tries the rows nearest its old spot; if none fits it stays put.
+func rehome_dock() -> void:
+ if not state["machines"].has("dock") or int(state["machines"]["dock"]["active"])>=0: return
+ var m=state["machines"]["dock"]
+ var old=cell(m["pos"])
+ if placement_feedback("dock",old,0,0)["valid"]: return
+ var depth=int(m["size"][1]) if int(m["rotation"])%2 else int(m["size"][0])
+ var rows=[]
+ for y in bounds().y: rows.append(y)
+ rows.sort_custom(func(a,b): return absi(a-old.y)<absi(b-old.y))
+ for y in rows:
+  var result=placement_feedback("dock",Vector2i(bounds().x-depth,y),0,0)
+  if result["valid"]:
+   state["machines"]=result["machines"];state["machines"]["dock"].erase("floor_offset")
+   _reroute_customers();return
 
 func rotate_equipment(id:String) -> bool:
  var m=state["machines"][id]
@@ -933,7 +1090,8 @@ func _consume(recipe:Dictionary, o:Dictionary) -> void:
 func queue_order(i:int) -> bool:
  var o=order(i)
  if o.is_empty() or o["stage"] not in ["plan","waiting_stock"] or not o.get("artwork_offer",{}).is_empty(): return false
- if o["type"] in ["transfer","apparel"] and not gang_valid(i,o["gang"]): notice("Lay out a valid gang sheet first."); return false
+ assign_method(o)
+ if o["type"] in ["transfer","apparel"] and not C.is_htv(o) and not gang_valid(i,o["gang"]): notice("Lay out a valid gang sheet first."); return false
  if o["type"]=="cnc" and o["settings"]["media"] not in ["PVC","ACM"]: notice("Incompatible cutter preset: select PVC or ACM panel stock."); return false
  o["recipe"]=order_recipe(o)
  o["stage"]="queued" if materials_available(o["recipe"]) else "waiting_stock"
@@ -945,13 +1103,55 @@ func machine_for(o:Dictionary) -> String:
  if o["stage"]=="preflight": return "art"
  if o["stage"] in ["press","qc","pack","ready"]:
   return {"press":"heat","qc":"finish","pack":"pack","ready":"dock" if o["fulfillment"]=="ship" and state["location"]==2 else "pack"}[o["stage"]]
- return {"transfer":"dtf","apparel":"dtf","sticker":"sticker","banner":"banner","cnc":"cnc"}.get(o["type"],"dtf")
+ return station_for(o)
+
+# Production station for each order type. Transfers and shirts use the DTF line,
+# or the desktop DTF kit when that is the only DTF equipment installed.
+const TYPE_STATION={"transfer":"dtf","apparel":"dtf","sticker":"sticker","banner":"banner","cnc":"cnc","decal":"cutter","mug":"mug","hat":"embroidery"}
+
+func dtf_family(m:String) -> bool:
+ return m in ["dtf","dtf2","dtfmini"]
+
+func print_station(type:String) -> String:
+ var m=TYPE_STATION.get(type,"dtf")
+ if m=="dtf" and not state["machines"].has("dtf") and state["machines"].has("dtfmini"): return "dtfmini"
+ return m
+
+func can_produce(type:String) -> bool:
+ if type=="apparel" and state["machines"].has("heat") and not has_dtf() and state["machines"].has("cutter"): return true
+ return state["machines"].has(print_station(type)) and (type!="apparel" or state["machines"].has("heat"))
+
+func has_dtf() -> bool:
+ return state["machines"].has("dtf") or state["machines"].has("dtfmini")
+
+# Shirts in a shop without DTF are made with heat-transfer vinyl on the cutter.
+# The method is decided when the job arrives and fixed when it is queued.
+func shirt_method(o:Dictionary) -> String:
+ if o["type"]!="apparel": return ""
+ return "htv" if not has_dtf() and state["machines"].has("cutter") else "dtf"
+
+func assign_method(o:Dictionary) -> void:
+ if o["type"]=="apparel" and not o.get("consumed",false): o["method"]=shirt_method(o)
+
+func station_for(o:Dictionary) -> String:
+ if C.is_htv(o): return "cutter"
+ return print_station(o["type"])
+
+# Installed stations that can do the same print step, in preference order.
+func station_options(m:String) -> Array:
+ if not dtf_family(m): return [m]
+ var out=[]
+ for id in ["dtf","dtf2","dtfmini"]:
+  if not state["machines"].has(id): continue
+  if id=="dtf2" and int(state["location"])!=2: continue
+  out.append(id)
+ return out if not out.is_empty() else [m]
 
 func role_matches(w:Dictionary, m:String) -> bool:
  if not state["machines"].has(m): return false
  if w["id"]=="owner": return true
  var kind=state["machines"][m]["kind"]
- return kind in {"Prepress artist":["art"],"DTF operator":["dtf"],"Print / cut operator":["sticker","banner"],"Finisher":["heat","finish"],"CNC operator":["cnc"],"Packer":["pack","finish"],"Shipping worker":["dock","pack"]}.get(w["role"],[])
+ return kind in {"Prepress artist":["art"],"DTF operator":["dtf","dtfmini"],"Print / cut operator":["sticker","banner","cutter","embroidery"],"Finisher":["heat","finish","mug"],"CNC operator":["cnc"],"Packer":["pack","finish"],"Shipping worker":["dock","pack"]}.get(w["role"],[])
 
 func _dispatch(i:int, w:Dictionary, m:String) -> bool:
  if w.has("service_job") or int(w.get("absent_until_day",0))>int(state["day"]):return false
@@ -1000,10 +1200,12 @@ func work_order(i:int, station_override:String="") -> bool:
  var m=machine_for(o)
  if station_override!="": m=station_override
  var required=machine_for(o)
- if m!=required and not (required=="dtf" and m=="dtf2"):
+ if m!=required and not (dtf_family(required) and dtf_family(m)):
   notice("This job needs "+required+" at its current stage.");return false
  if not state["machines"].has(m): notice("Place the required station first: "+m+"."); return false
- if m=="dtf" and state["machines"].has("dtf2") and int(state["machines"]["dtf"]["active"])>=0: m="dtf2"
+ if dtf_family(m) and int(state["machines"][m]["active"])>=0:
+  for alt in station_options(m):
+   if int(state["machines"][alt]["active"])<0: m=alt; break
  var result=_dispatch(i,owner(),m)
  if result: notice("Sam is walking to "+state["machines"][m]["title"]+".")
  return result
@@ -1013,7 +1215,7 @@ func available_order(m:String) -> int:
   var o=order(i)
   if o["stage"] not in ["preflight","queued","waiting_stock","press","qc","pack","ready"]: continue
   var desired=machine_for(o)
-  if desired==m or (desired=="dtf" and m=="dtf2"): return i
+  if desired==m or (dtf_family(desired) and dtf_family(m)): return i
  return -1
 
 func work_station(m:String) -> bool:
@@ -1034,6 +1236,7 @@ func interrupt_owner() -> void:
    m["active"]=-1
    m["elapsed"]=0.0
    m["phase"]="Paused job"
+   _sync_shaker(t["machine"])
   w["task"]={}
  w["path"]=[]
  w["manual"]=true
@@ -1068,8 +1271,7 @@ func _auto_dispatch() -> void:
   for i in active_orders():
    var o=order(i)
    if o["stage"] not in ["preflight","queued","waiting_stock","press","qc","pack","ready"]: continue
-   var options=[machine_for(o)]
-   if options[0]=="dtf" and state["location"]==2: options.append("dtf2")
+   var options=station_options(machine_for(o))
    var done=false
    for m in options:
     if not state["machines"].has(m): continue
@@ -1127,8 +1329,8 @@ func _begin_task(w:Dictionary) -> void:
   if not o.get("garments_consumed",false):
    for key in o["garments"]:
     state["garments"][key]-=o["garments"][key]
-    o["material_cost"]+=o["garments"][key]*4
-    state["stats"]["materials"]+=o["garments"][key]*4
+    o["material_cost"]+=o["garments"][key]*C.blank_cost(key)
+    state["stats"]["materials"]+=o["garments"][key]*C.blank_cost(key)
    o["garments_consumed"]=true
   o["stage"]="pressing"
  elif t["stage"]=="qc": o["stage"]="inspecting"
@@ -1143,6 +1345,7 @@ func _begin_task(w:Dictionary) -> void:
  m["active"]=t["order"]
  m["elapsed"]=0.0
  m["phase"]="Starting"
+ _sync_shaker(t["machine"])
 
 func _phases(w:Dictionary) -> Array:
  var t=w["task"]
@@ -1161,13 +1364,18 @@ func task_duration(w:Dictionary) -> float:
   duration*=maxf(1.0,float(quantity)/maxf(1,float(o["quantity"])))
  if state.has("operations") and state["machines"][w["task"]["machine"]]["condition"]<65:duration*=1.15
  if o.get("intervention_bonus",false):duration*=.95
- return duration / float(w["skill"])
+ return duration / (float(w["skill"])*People.speed(w))
 
 func machine_progress(id:String) -> float:
  for w in state["workers"]:
   if not w["task"].is_empty() and w["task"]["machine"]==id and w["task"]["working"]:
    return clampf(state["machines"][id]["elapsed"]/maxf(1.0,task_duration(w)),0,1)
  return 0.0
+
+# The shaker is part of its DTF line: keep its saved status in step with the printer.
+func _sync_shaker(id:String) -> void:
+ var shake="shaker2" if id=="dtf2" else "shaker"
+ if id in ["dtf","dtf2"] and state["machines"].has(id) and state["machines"].has(shake): state["machines"][shake]["phase"]=state["machines"][id]["phase"]
 
 func station_activity(id:String) -> Dictionary:
  var target="dtf2" if id=="shaker2" else ("dtf" if id=="shaker" else id)
@@ -1203,6 +1411,7 @@ func _finish_task(w:Dictionary) -> void:
  m["active"]=-1
  m["elapsed"]=0.0
  m["phase"]="Idle"
+ _sync_shaker(t["machine"])
  o["output_machine"]=t["machine"]
  match t["stage"]:
   "preflight":
@@ -1237,11 +1446,15 @@ func _finish_task(w:Dictionary) -> void:
  w["walking"]=false
 
 func _quality_issue(o:Dictionary, m:Dictionary) -> String:
- if o["type"] in ["transfer","apparel"]:
+ if C.is_htv(o) and m["condition"]<65: return "Lifted heat-transfer vinyl: blade and mat need maintenance"
+ if o["type"] in ["transfer","apparel"] and not C.is_htv(o):
   if o["settings"]["white"]=="economy": return "Low white opacity: economy white-ink setting"
-  if m["condition"]<65: return "Nozzle dropout: printer needs cleaning"
-  var shaker=state["machines"]["shaker2" if o["route_machine"]=="dtf2" else "shaker"]
-  if shaker["condition"]<65: return "Uneven powder / incomplete cure: shaker needs service"
+  if m["condition"]<65: return "Nozzle dropout: printer needs cleaning" if m["kind"]!="dtfmini" else "Uneven powder / incomplete cure: desktop printer and oven need service"
+  var shake_id="shaker2" if o["route_machine"]=="dtf2" else "shaker"
+  if o["route_machine"] in ["dtf","dtf2"] and state["machines"].has(shake_id) and state["machines"][shake_id]["condition"]<65: return "Uneven powder / incomplete cure: shaker needs service"
+ if o["type"]=="decal" and m["condition"]<65: return "Torn or lifted vinyl: blade and mat need maintenance"
+ if o["type"]=="mug" and m["condition"]<65: return "Faded mug print: press wrap needs service"
+ if o["type"]=="hat" and m["condition"]<65: return "Thread breaks and loose stitches: needle and tension need service"
  if o["type"]=="sticker" and not o["settings"]["registration"]: return "Sticker misregistration: marks were not aligned"
  if o["type"]=="banner" and m["condition"]<65: return "Media skew: roll-feed calibration is low"
  if o["type"]=="cnc" and m["condition"]<65: return "Rough cut edge: cutter tool needs maintenance"
@@ -1261,7 +1474,10 @@ func recover(i:int, reprint:bool) -> bool:
   notice("Accepted reduced quality. Payment and customer trust will reflect it.")
   return true
  var m_id=o.get("production_machine",o["route_machine"])
- if m_id in ["finish","pack","heat"]: m_id={"transfer":"dtf","apparel":"dtf","sticker":"sticker","banner":"banner","cnc":"cnc"}[o["type"]]
+ if m_id in ["finish","pack","heat"]:
+  var output=String(o.get("output_machine",""))
+  m_id=output if state["machines"].has(output) and output not in ["finish","pack","heat"] else station_for(o)
+ if not state["machines"].has(m_id): notice("Place the production station again before reprinting: "+m_id+"."); return false
  if state["stock"]["maintenance"]<=0: notice("A maintenance kit is required to fix the cause before reprinting."); return false
  _consume({"maintenance":1},o)
  state["machines"][m_id]["condition"]=100
@@ -1283,12 +1499,18 @@ func recover(i:int, reprint:bool) -> bool:
 func _fulfill(o:Dictionary) -> void:
  if o.get("paid",false) or o["stage"]=="completed": return
  if o["stage"] not in ["ready","delivering"]: return
+ if o.has("merch"): Merch.finish_batch(self,o); return
  _ensure_visit(o)
  var punctual=now()<=float(o["due"])
  var reward=roundi(o["reward"]*(0.76 if o["quality_accepted"] else 1.0))
  # Original print-shop design: quality and lateness determine satisfaction.
  var lateness=maxf(0.0,now()-float(o["due"]))
  var satisfaction=clampi(roundi(float(o["quality"])-minf(40.0,lateness*10.0)),0,100)
+ # Regulars tip on good work; every paid job leaves a star review (new careers).
+ var tip=Customers.tip(self,o,reward,satisfaction)
+ reward+=tip
+ o["tip"]=tip
+ Customers.on_paid(self,o,punctual,satisfaction)
  o["paid"]=true
  o["payment"]=reward
  o["satisfaction"]=satisfaction
@@ -1306,6 +1528,7 @@ func _fulfill(o:Dictionary) -> void:
  o["stage"]="completed"
  o["finished_at"]=now()
  state["customers"][o["customer"]]=state["customers"].get(o["customer"],0)+1
+ Progress.paid(self,o,punctual)
  notice("Delivered %d %s%s. +$%d / Satisfaction %d%%" % [o["quantity"],o["product"]," on time" if punctual else " late",reward,satisfaction])
  save_game()
 
@@ -1325,23 +1548,35 @@ func _walk(w:Dictionary, delta:float) -> void:
  var amount=minf(distance,delta*2.2)
  var next=pos+direction.normalized()*amount
  var b=blocked()
+ var staff=w.has("role")
+ # Leaving visitors keep right of way so doorways and aisles clear, and anyone
+ # blocked for SQUEEZE_SECONDS slips past people rather than stalling the shop.
+ var ignore_people=(not staff and String(w.get("purpose",""))=="exit") or float(w.get("blocked_for",0.0))>=SQUEEZE_SECONDS
  var crowd={}
- for actor in visible_customers():
-  if is_same(actor,w): continue
-  crowd[cell(actor["pos"])]=true
- var next_cell=Vector2i(roundi(next.x),roundi(next.y))
  var collides=false
- for actor in visible_customers():
-  if is_same(actor,w): continue
-  if next.distance_to(v(actor["pos"]))<0.55: collides=true;break
- if b.has(next_cell) or crowd.has(next_cell) or collides or not walk_segment_clear(pos,next):
-  w["path"]=path(Vector2i(roundi(pos.x),roundi(pos.y)),cell(w["path"][-1]),{},crowd)
+ if not ignore_people:
+  for actor in visible_customers():
+   if is_same(actor,w): continue
+   crowd[cell(actor["pos"])]=true
+   if next.distance_to(v(actor["pos"]))<0.55: collides=true
+ var next_cell=Vector2i(roundi(next.x),roundi(next.y))
+ var solid=b.has(next_cell) or not walk_segment_clear(pos,next)
+ if solid or crowd.has(next_cell) or collides:
+  if not solid and staff: w["blocked_for"]=float(w.get("blocked_for",0.0))+delta
+  var detour=path(Vector2i(roundi(pos.x),roundi(pos.y)),cell(w["path"][-1]),{},crowd)
+  # Blocked only by people with no way around: keep the route and wait.
+  if solid or not detour.is_empty(): w["path"]=detour
   return
  w["pos"]=[next.x,next.y]
  w["step"]+=amount*5.0
  w["walking"]=true
  _face(w,direction)
  if amount>=distance: w["pos"]=[target.x,target.y]; w["path"].pop_front()
+ if staff and w.has("blocked_for"):
+  var clear=true
+  for actor in visible_customers():
+   if next.distance_to(v(actor["pos"]))<0.8: clear=false;break
+  if clear: w.erase("blocked_for")
 
 func tick(delta:float) -> void:
  if state["paused"]: return
@@ -1397,16 +1632,21 @@ func tick(delta:float) -> void:
   for phase in phases:
    if phase_time<=float(phase[1]): m["phase"]=phase[0]; break
    phase_time-=float(phase[1])
+  _sync_shaker(w["task"]["machine"])
   if m["elapsed"]>=duration: _finish_task(w)
+ Progress.refresh(self)
  if state["clock"]>=17: state["paused"]=true; end_day()
 
 func restock(items:Dictionary={}) -> bool:
  if items.is_empty():
   items={"film":48,"white":60,"powder":40,"sticker":60,"laminate":40,"cyan":40,"magenta":40,"yellow":40,"black":40,"packaging":20,"maintenance":4,"garment:navy:S":6,"garment:navy:M":6,"garment:navy:L":6}
+  if state["machines"].has("cutter"): items["vinyl"]=24;items["transfer_tape"]=24;items["htv"]=24
+  if state["machines"].has("mug"): items["mugs"]=24;items["subpaper"]=12
+  if state["machines"].has("embroidery"): items["caps"]=24;items["thread"]=6
  var cost=0.0
  for key in items:
   if items[key]<=0: return false
-  cost+=items[key]*(4.0 if key.begins_with("garment:") else C.PRICES.get(key,1.0))
+  cost+=items[key]*(C.blank_cost(key.trim_prefix("garment:")) if key.begins_with("garment:") else C.PRICES.get(key,1.0))
  cost=ceilf(cost)
  if state["cash"]<cost: notice("This delivery needs $%d." % int(cost)); return false
  state["cash"]-=int(cost)
@@ -1416,8 +1656,28 @@ func restock(items:Dictionary={}) -> bool:
  notice("Supplies ordered for $%d. Arrival in %d shop minutes." % [int(cost),roundi(27*float(state["rules"]["supply"]))])
  return true
 
+# Team size grows with the business: a garage print shop is the owner plus one
+# helper; more people need bigger premises. The demo and older-economy shops keep
+# their previous nine-person limit.
+func staff_cap() -> int:
+ Strategy.ensure(self)
+ if state.get("demo",false) or int(state["rules"].get("version",0))<=0: return 9
+ if state.get("production_annex",false): return 9
+ if int(state["location"])==2 and state.get("fit_out",false): return 6
+ if int(state["location"])==2: return 4
+ return 2 if premises()=="garage" else 3
+
+func staff_cap_reason() -> String:
+ var cap=staff_cap()
+ if cap>=9: return "The team is full at nine people."
+ if premises()=="garage": return "A garage has room for you and one helper. Lease a storefront to grow the team."
+ if int(state["location"])==1: return "The storefront fits a team of three. Move to the warehouse to hire more."
+ if not state.get("fit_out",false): return "These premises fit a team of four. Complete the industrial fit-out to hire more."
+ return "The fitted-out shop fits a team of six. Add the production annex for a full team."
+
 func hire(role_index:int) -> bool:
  if role_index<0 or role_index>=C.ROLES.size() or state["workers"].size()>=9: return false
+ if state["workers"].size()>=staff_cap(): notice(staff_cap_reason()); return false
  var cost=C.HIRE_COST[role_index]
  if state["cash"]<cost: notice("Hiring needs $%d." % cost); return false
  if not hiring_buffer(role_index): notice("Hiring would leave less than the next daily bills, including this worker's $45 wage. Build a cash buffer first.");return false
@@ -1428,6 +1688,7 @@ func hire(role_index:int) -> bool:
  var point=nearest_floor(entrance()+Vector2i(1,state["workers"].size()%2))
  state["workers"].append({"id":id,"name":C.NAMES[role_index]+" #"+str(int(state["next_worker"])),"role":C.ROLES[role_index],"pos":[float(point.x),float(point.y)],"path":[],"task":{},"manual":false,"face":1,"step":0.0,"walking":false,"skill":1.25 if state["upgrades"]["training"] else 1.0,"wage":45})
  notice("%s joined as %s. They automatically take suitable prepared work." % [C.NAMES[role_index],C.ROLES[role_index]])
+ People.apply_trait(self,state["workers"][-1])
  return true
 
 func buy_upgrade(key:String) -> bool:
@@ -1475,6 +1736,28 @@ func garage_progress() -> Dictionary:
  var on_time=100.0 if count==0 else float(state["on_time"])*100/count
  return {"cash":state["cash"],"trust":state["reputation"],"orders":count,"quality":quality,"on_time":on_time,"ready":state["cash"]>=1500 and state["reputation"]>=60 and count>=3 and on_time>=75 and quality>=85}
 
+# Starter benches bought in the garage move into the supplied industrial layout
+# at the first clear spot. If none fits, the purchase price is refunded.
+func _rehome_starters(carried:Dictionary) -> void:
+ for id in carried:
+  var previous=state["machines"]
+  var station=carried[id]
+  station["rotation"]=0;station["active"]=-1;station["elapsed"]=0.0;station["phase"]="Idle"
+  station["size"]=C.catalog_station(id)["size"].duplicate();station["service"]=C.catalog_station(id)["service"].duplicate()
+  var candidate=previous.duplicate(true)
+  candidate[id]=station
+  state["machines"]=candidate
+  var placed=false
+  for y in range(1,12):
+   for x in range(1,16):
+    var result=placement_feedback(id,Vector2i(x,y))
+    if result["valid"]: state["machines"]=result["machines"];placed=true;break
+   if placed: break
+  if not placed:
+   state["machines"]=previous
+   state["cash"]+=int(C.EQUIPMENT_PRICES[id])
+   notice("%s did not fit the new layout and was refunded." % station["title"])
+
 func move_garage() -> bool:
  Strategy.ensure(self)
  if int(state["rules"]["version"])>0: return expand_premises()
@@ -1485,7 +1768,11 @@ func move_garage() -> bool:
  state["cash"]-=900
  state["location"]=2
  state["empty_start"]=false
+ var carried={}
+ for id in C.STARTER_KINDS:
+  if state["machines"].has(id): carried[id]=state["machines"][id].duplicate(true)
  state["machines"]=C.layout(2)
+ _rehome_starters(carried)
  for o in C.garage_orders(now()): state["orders"].append(o)
  for w in state["workers"]:
   var point=nearest_floor(entrance()+Vector2i(1,0))
@@ -1503,10 +1790,11 @@ func end_day() -> Dictionary:
  if not state["report"].is_empty(): return state["report"]
  state["clock"]=17.0
  state["paused"]=true
+ if state.get("merch") is Dictionary: Merch.close_day(self)
  var s=state["stats"].duplicate(true)
  for w in state["workers"]: s["wages"]+=w["wage"]
  Strategy.ensure(self)
- s["overhead"]=roundi((125 if state["location"]==1 else 200)*float(state["rules"]["overhead"]))+(75 if state.get("production_annex",false) else 0)
+ s["overhead"]=roundi(base_overhead()*float(state["rules"]["overhead"]))+(75 if state.get("production_annex",false) else 0)
  s["loan_payment"]=mini(50,int(state.get("loan_remaining",0)))
  s["equipment_finance"]=Ops.daily_debt(self)
  var net=s["sales"]+s.get("recovery",0)-s["materials"]-s["art_fees"]-s.get("marketing",0)-s["wages"]-s["overhead"]-s.get("hurdles",0)
@@ -1535,12 +1823,19 @@ func next_day() -> void:
  state["day_open_cash"]=state["cash"]
  for w in state["workers"]: w["shift_seconds"]=0.0;w["work_seconds"]=0.0
  var types=["transfer","sticker","apparel"] if state["location"]==1 else ["transfer","sticker","apparel","banner","cnc"]
+ # Vinyl decal work is offered only to shops that own a cutter, so existing
+ # shops keep their previous inquiry rotation.
+ if state["machines"].has("cutter"): types.append("decal")
+ if state["machines"].has("mug"): types.append("mug")
+ if state["machines"].has("embroidery"): types.append("hat")
  if state.get("customer_flow",false):
   var available=[]
   for type in types:
-   var station={"transfer":"dtf","sticker":"sticker","apparel":"dtf","banner":"banner","cnc":"cnc"}[type]
-   if state["machines"].has(station) and (type!="apparel" or state["machines"].has("heat")): available.append(type)
+   if can_produce(type): available.append(type)
   types=available
+ People.new_day(self)
+ var stolen=People.steals(self)
+ var first_today=state["orders"].size()
  var count=_lead_count(types)
  for n in types.size():
   if count>=6: break
@@ -1548,15 +1843,24 @@ func next_day() -> void:
   if int(state["rules"]["version"])>0 and state["specialty"]!="General" and n==0:
    for favorite in Strategy.SPECIALTIES[state["specialty"]]:
     if types.has(favorite): type=favorite;break
-  var q={"transfer":12,"sticker":60,"apparel":12,"banner":2,"cnc":6}[type]
-  q+=(int(state["day"])%3)*({"transfer":6,"sticker":20,"apparel":0,"banner":0,"cnc":1}[type])
+  # Seasonal demand: the second inquiry of the day favors what is in season.
+  if Customers.active(self) and n==1:
+   for seasonal in Customers.season(self)["boost"]:
+    if types.has(seasonal): type=seasonal;break
+  var q={"transfer":12,"sticker":60,"apparel":12,"banner":2,"cnc":6,"decal":24,"mug":12,"hat":8}[type]
+  q+=(int(state["day"])%3)*({"transfer":6,"sticker":20,"apparel":0,"banner":0,"cnc":1,"decal":12,"mug":6,"hat":4}[type])
   if int(state["rules"]["version"])>0:
    # Partial sheets create a real material-saving / waiting tradeoff for batches.
    if type=="transfer": q=10+(int(state["day"])%4)*3
    if type=="apparel": q=9+(int(state["day"])%3)*2
   var customer=C.CUSTOMERS[(n+int(state["day"]))%C.CUSTOMERS.size()]
-  var reward=roundi(q*{"transfer":20.0,"sticker":4.2,"apparel":50.0,"banner":380.0,"cnc":118.0}[type])
+  var reward=roundi(q*{"transfer":20.0,"sticker":4.2,"apparel":50.0,"banner":380.0,"cnc":118.0,"decal":4.0,"mug":9.0,"hat":16.0}[type])
+  reward=Customers.seasonal_reward(self,type,reward)
   var o=C.make_order("DAY%d-%d" % [state["day"],n],type,q,customer,now()+5.5+n*0.5,reward)
+  # New careers also get hoodie and tote-bag versions of shirt work as they grow.
+  if type=="apparel" and state.get("starter_path",false):
+   var blank=["tee","tote","tee","hoodie"][absi(String(o["id"]).hash())%4]
+   if (blank=="tote" and Progress.level(self)>=2) or (blank=="hoodie" and Progress.level(self)>=3): C.apply_blank(o,blank)
   if state["customers"].has(customer): o["returning"]=true; o["reward"]+=35
   if state["reputation"]>=80 and n==0:
    o["wholesale"]=true; o["quantity"]*=2; o["reward"]*=2
@@ -1566,6 +1870,8 @@ func next_day() -> void:
    o["stage"]="scheduled"
    o["visit"]={"status":"scheduled","arrival_at":now()+float(n)*0.75,"arrived_at":-1.0,"patience_until":-1.0,"settled_at":-1.0,"satisfaction":-1}
   count+=1
+ if stolen>0 and state["orders"].size()-first_today>=2: state["orders"].pop_back();People.note_lost(self,1)
+ elif People.active(self): People.note_lost(self,0)
  notice("Day %d begins. Paid wages / overhead; unfinished jobs retain their deadlines." % state["day"])
  save_game()
 
@@ -1679,6 +1985,9 @@ func load_game() -> bool:
   var fresh=C.fresh()
   for key in fresh:
    if not state.has(key): state[key]=fresh[key]
+  # Supplies added in later versions start empty in older saves.
+  for key in C.STOCK:
+   if not state["stock"].has(key): state["stock"][key]=0
   _ensure_marketing()
   Strategy.ensure(self)
   Ops.ensure(self)
@@ -1698,6 +2007,7 @@ func load_game() -> bool:
      var station=state["machines"][task["machine"]]
      if int(station["active"])==int(task.get("order",-1)): station["active"]=-1;station["elapsed"]=0.0;station["phase"]="Idle"
     w["task"]={};w["path"]=[];w["walking"]=false
+  rehome_dock()
   manual_input=Vector2.ZERO
   notice("Local shop restored: cash, jobs, staff, inventory, and layout.")
   return true

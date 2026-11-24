@@ -1,0 +1,330 @@
+{
+  "events": [
+    {
+      "route": "transfer",
+      "shop_time": 0.0,
+      "speed": 1,
+      "stage": "queued"
+    },
+    {
+      "route": "transfer",
+      "shop_time": 0.0360000000000582,
+      "speed": 1,
+      "stage": "production"
+    },
+    {
+      "route": "transfer",
+      "shop_time": 0.287550000000465,
+      "speed": 1,
+      "stage": "qc"
+    },
+    {
+      "route": "transfer",
+      "shop_time": 0.355050000000574,
+      "speed": 1,
+      "stage": "inspecting"
+    },
+    {
+      "route": "transfer",
+      "shop_time": 0.400050000000647,
+      "speed": 1,
+      "stage": "pack"
+    },
+    {
+      "route": "transfer",
+      "shop_time": 0.418050000000676,
+      "speed": 1,
+      "stage": "packing"
+    },
+    {
+      "route": "transfer",
+      "shop_time": 0.472050000000763,
+      "speed": 1,
+      "stage": "ready"
+    },
+    {
+      "route": "transfer",
+      "shop_time": 0.472500000000764,
+      "speed": 1,
+      "stage": "delivering"
+    },
+    {
+      "route": "transfer",
+      "shop_time": 0.499500000000808,
+      "speed": 1,
+      "stage": "completed"
+    },
+    {
+      "route": "cnc",
+      "shop_time": 0.0,
+      "speed": 1,
+      "stage": "queued"
+    },
+    {
+      "route": "cnc",
+      "shop_time": 0.0585000000000946,
+      "speed": 1,
+      "stage": "production"
+    },
+    {
+      "route": "cnc",
+      "shop_time": 0.283050000000458,
+      "speed": 1,
+      "stage": "qc"
+    },
+    {
+      "route": "cnc",
+      "shop_time": 0.310050000000501,
+      "speed": 1,
+      "stage": "inspecting"
+    },
+    {
+      "route": "cnc",
+      "shop_time": 0.355050000000574,
+      "speed": 1,
+      "stage": "pack"
+    },
+    {
+      "route": "cnc",
+      "shop_time": 0.373050000000603,
+      "speed": 1,
+      "stage": "packing"
+    },
+    {
+      "route": "cnc",
+      "shop_time": 0.42705000000069,
+      "speed": 1,
+      "stage": "ready"
+    },
+    {
+      "route": "cnc",
+      "shop_time": 0.485550000000785,
+      "speed": 1,
+      "stage": "delivering"
+    },
+    {
+      "route": "cnc",
+      "shop_time": 0.512550000000829,
+      "speed": 1,
+      "stage": "completed"
+    },
+    {
+      "route": "transfer",
+      "shop_time": 0.0,
+      "speed": 2,
+      "stage": "queued"
+    },
+    {
+      "route": "transfer",
+      "shop_time": 0.0359999999999872,
+      "speed": 2,
+      "stage": "production"
+    },
+    {
+      "route": "transfer",
+      "shop_time": 0.287099999999898,
+      "speed": 2,
+      "stage": "qc"
+    },
+    {
+      "route": "transfer",
+      "shop_time": 0.354599999999873,
+      "speed": 2,
+      "stage": "inspecting"
+    },
+    {
+      "route": "transfer",
+      "shop_time": 0.399599999999857,
+      "speed": 2,
+      "stage": "pack"
+    },
+    {
+      "route": "transfer",
+      "shop_time": 0.417599999999851,
+      "speed": 2,
+      "stage": "packing"
+    },
+    {
+      "route": "transfer",
+      "shop_time": 0.471599999999832,
+      "speed": 2,
+      "stage": "ready"
+    },
+    {
+      "route": "transfer",
+      "shop_time": 0.472499999999831,
+      "speed": 2,
+      "stage": "delivering"
+    },
+    {
+      "route": "transfer",
+      "shop_time": 0.498599999999822,
+      "speed": 2,
+      "stage": "completed"
+    },
+    {
+      "route": "cnc",
+      "shop_time": 0.0,
+      "speed": 2,
+      "stage": "queued"
+    },
+    {
+      "route": "cnc",
+      "shop_time": 0.0584999999999791,
+      "speed": 2,
+      "stage": "production"
+    },
+    {
+      "route": "cnc",
+      "shop_time": 0.282599999999899,
+      "speed": 2,
+      "stage": "qc"
+    },
+    {
+      "route": "cnc",
+      "shop_time": 0.30959999999989,
+      "speed": 2,
+      "stage": "inspecting"
+    },
+    {
+      "route": "cnc",
+      "shop_time": 0.354599999999873,
+      "speed": 2,
+      "stage": "pack"
+    },
+    {
+      "route": "cnc",
+      "shop_time": 0.372599999999867,
+      "speed": 2,
+      "stage": "packing"
+    },
+    {
+      "route": "cnc",
+      "shop_time": 0.426599999999848,
+      "speed": 2,
+      "stage": "ready"
+    },
+    {
+      "route": "cnc",
+      "shop_time": 0.485099999999827,
+      "speed": 2,
+      "stage": "delivering"
+    },
+    {
+      "route": "cnc",
+      "shop_time": 0.511199999999818,
+      "speed": 2,
+      "stage": "completed"
+    },
+    {
+      "route": "transfer",
+      "shop_time": 0.0,
+      "speed": 4,
+      "stage": "queued"
+    },
+    {
+      "route": "transfer",
+      "shop_time": 0.0431999999999846,
+      "speed": 4,
+      "stage": "production"
+    },
+    {
+      "route": "transfer",
+      "shop_time": 0.295199999999895,
+      "speed": 4,
+      "stage": "qc"
+    },
+    {
+      "route": "transfer",
+      "shop_time": 0.376199999999866,
+      "speed": 4,
+      "stage": "inspecting"
+    },
+    {
+      "route": "transfer",
+      "shop_time": 0.41939999999985,
+      "speed": 4,
+      "stage": "pack"
+    },
+    {
+      "route": "transfer",
+      "shop_time": 0.440999999999843,
+      "speed": 4,
+      "stage": "packing"
+    },
+    {
+      "route": "transfer",
+      "shop_time": 0.493199999999824,
+      "speed": 4,
+      "stage": "ready"
+    },
+    {
+      "route": "transfer",
+      "shop_time": 0.494999999999823,
+      "speed": 4,
+      "stage": "delivering"
+    },
+    {
+      "route": "transfer",
+      "shop_time": 0.520199999999814,
+      "speed": 4,
+      "stage": "completed"
+    },
+    {
+      "route": "cnc",
+      "shop_time": 0.0,
+      "speed": 4,
+      "stage": "queued"
+    },
+    {
+      "route": "cnc",
+      "shop_time": 0.0701999999999749,
+      "speed": 4,
+      "stage": "production"
+    },
+    {
+      "route": "cnc",
+      "shop_time": 0.295199999999895,
+      "speed": 4,
+      "stage": "qc"
+    },
+    {
+      "route": "cnc",
+      "shop_time": 0.327599999999883,
+      "speed": 4,
+      "stage": "inspecting"
+    },
+    {
+      "route": "cnc",
+      "shop_time": 0.370799999999868,
+      "speed": 4,
+      "stage": "pack"
+    },
+    {
+      "route": "cnc",
+      "shop_time": 0.39239999999986,
+      "speed": 4,
+      "stage": "packing"
+    },
+    {
+      "route": "cnc",
+      "shop_time": 0.444599999999841,
+      "speed": 4,
+      "stage": "ready"
+    },
+    {
+      "route": "cnc",
+      "shop_time": 0.514799999999816,
+      "speed": 4,
+      "stage": "delivering"
+    },
+    {
+      "route": "cnc",
+      "shop_time": 0.539999999999807,
+      "speed": 4,
+      "stage": "completed"
+    }
+  ],
+  "failures": 0,
+  "scope": "Rendered transfer and CNC routes at 1x, 2x and 4x with two-second pause; remaining routes covered by automated state checks."
+}

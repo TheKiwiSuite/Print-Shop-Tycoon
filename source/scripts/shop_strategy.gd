@@ -7,7 +7,7 @@ const PRESETS={
  "Standard":[1.0,1.0,1.0,1.0,1.0,1.0],
  "Expert":[0.85,0.85,1.15,1.15,0.85,1.15]}
 const BASE_CASH=1600
-const SPECIALTIES={"General":["transfer","sticker","apparel","banner","cnc"],"Stickers":["sticker"],"Apparel":["transfer","apparel"],"Signs":["banner","cnc"]}
+const SPECIALTIES={"General":["transfer","sticker","apparel","banner","cnc","decal","mug","hat"],"Stickers":["sticker","decal","mug"],"Apparel":["transfer","apparel","hat"],"Signs":["banner","cnc"]}
 
 static func rules(preset:String,custom:Dictionary={}) -> Dictionary:
  var result={"preset":preset if PRESETS.has(preset) else "Custom","version":1}
@@ -29,7 +29,7 @@ static func ensure(s) -> void:
 
 static func planned(o:Dictionary) -> Dictionary:
  var p=o.duplicate(true)
- if p["type"] in ["transfer","apparel"] and p["gang"].is_empty():
+ if p["type"] in ["transfer","apparel"] and not C.is_htv(p) and p["gang"].is_empty():
   var best=[]
   for turn in [false,true]:
    var w=float(p["art_h"] if turn else p["art_w"])
@@ -54,7 +54,7 @@ static func inputs(o:Dictionary) -> Dictionary:
  return required
 
 static func route(o:Dictionary) -> Array:
- var print_station={"transfer":"dtf","apparel":"dtf","sticker":"sticker","banner":"banner","cnc":"cnc"}[o["type"]]
+ var print_station="cutter" if C.is_htv(o) else {"transfer":"dtf","apparel":"dtf","sticker":"sticker","banner":"banner","cnc":"cnc","decal":"cutter","mug":"mug","hat":"embroidery"}.get(o["type"],"dtf")
  var stages=["art",print_station]
  if o["type"]=="apparel": stages.append("heat")
  stages.append_array(["finish","pack","handoff"])
@@ -114,7 +114,7 @@ static func board(s,include_inquiries:bool=false) -> Dictionary:
    inventory[key]=int(inventory.get(key,0))-need
   # Track delivery reservation across earlier rows using negative on-hand quantities.
   if not missing.is_empty(): reasons.append("Needs supplies: "+s.missing_all(missing))
-  if p["type"] in ["transfer","apparel"] and p["gang"].is_empty(): reasons.append("Artwork does not fit the selected sheet")
+  if p["type"] in ["transfer","apparel"] and not C.is_htv(p) and p["gang"].is_empty(): reasons.append("Artwork does not fit the selected sheet")
   if not o.get("artwork_offer",{}).is_empty():reasons.append("Artwork change awaiting agreement")
   if o["stage"]=="fault": reasons.append("Choose reprint or reduced-quality payment")
   if o["stage"] in ["intake","preflight","revision","plan"]: reasons.append("Needs player approval")
@@ -127,7 +127,7 @@ static func board(s,include_inquiries:bool=false) -> Dictionary:
    var target=requested
    if target=="handoff": target="dock" if o["fulfillment"]=="ship" and int(s.state["location"])==2 else "pack"
    var candidates=[target]
-   if target=="dtf" and s.state["machines"].has("dtf2"): candidates.append("dtf2")
+   if target=="dtf": candidates=s.station_options("dtf")
    var best={};var best_end=INF
    for id in candidates:
     if not s.state["machines"].has(id): continue
@@ -172,7 +172,7 @@ static func board(s,include_inquiries:bool=false) -> Dictionary:
   rows.append({"index":i,"id":o["id"],"required":required,"missing":missing,"reasons":reasons,"finish":-1.0 if blocked else finish,"risk":"BLOCKED" if blocked else ("OVERDUE" if clock>float(o["due"]) else ("AT RISK" if finish>float(o["due"]) else "ON TRACK")),"operator":operator_name,"station":station_name,"remaining_cost":cost,"payout":payout,"margin":payout-float(o["material_cost"])-cost,"assumptions":"Estimate assumes prompt approvals, uninterrupted operators and normal quality; customer return can add time."})
  var wages=0.0
  for w in s.state["workers"]: wages+=float(w["wage"])
- var overhead=roundi((125 if int(s.state["location"])==1 else 200)*float(s.state["rules"]["overhead"]))
+ var overhead=roundi(s.base_overhead()*float(s.state["rules"]["overhead"]))
  var loan=mini(50,int(s.state.get("loan_remaining",0)))
  var receipts=0
  for row in rows:

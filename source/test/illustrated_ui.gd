@@ -15,6 +15,8 @@ func run():
  root.add_child(game);game.set_process(false);game.qa_ui=true
  game.screen="shop";game.build=true
  for kind in game.C.EQUIPMENT_PRICES:
+  # The shipping dock is a fixed loading bay on the outside wall (premises_check).
+  if kind=="dock": continue
   game.sim.state=game.C.empty_shop();game.sim.state["location"]=2;game.sim.state["cash"]=100000
   check(game.sim.install_equipment(kind,Vector2i(7,5)),"Install "+kind)
   game.selected_machine=kind

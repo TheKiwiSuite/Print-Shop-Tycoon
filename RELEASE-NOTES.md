@@ -1,3 +1,118 @@
+# v1.0.0 — Print Shop Tycoon 1.0
+
+The full game: start in your home garage with a gifted vinyl cutter, press your first shirts, and grow into a print factory with a loading yard.
+
+- **Grow:** garage, neighborhood storefront, warehouse, then a factory with a production annex and a shipping dock.
+- **Machines:** vinyl cutter, heat press, desktop DTF, full DTF line, roll-to-roll, mug press, embroidery and more, unlocking as your shop levels up.
+- **Products:** decals, stickers, transfers, tees, hoodies, totes, mugs, hats, banners and signs.
+- **Customers:** star reviews, regulars who tip, and weekly seasons.
+- **Your own merch line:** an online store, weekly trends and a weekend craft market.
+- **Staff:** hires with their own personalities, capped to fit the size of your shop.
+- **Competition:** a rival shop across town.
+- **Progress:** shop levels, goals, 26 awards and an ending.
+- Cute music you can turn on or off.
+
+Saves from every earlier version carry over.
+
+# v0.13.0 — looks pass
+
+- Status labels over workers and machines now size themselves to fit their text, so steps like "Print CMYK + white (desktop)" and "Load vinyl on cutting mat" are no longer cut off.
+
+# v0.12.0 — balancing
+
+- **Two new awards.** Merch Maker (sell 100 items of your own merch) and Top Shop in Town (beat Quick Ink Co. for 5 days in a row).
+- The weekend craft market now doubles a day's merch sales instead of tripling them, so a booth no longer empties your stock in a single day.
+- The hiring cash check now plans for the highest possible wage ($52, a Speedy hire), so a new hire can't leave you short on the next day's bills.
+
+# v0.11.0 — staff personalities and a rival shop
+
+- **Staff personalities.** Every new hire has a personality that sets their speed and daily wage: Speedy (15% faster, $52), Steady ($45), Thrifty (6% slower, $38) or Natural (8% faster, $45). A banner introduces each hire, and Team Tasks lists their personality.
+- **Rival shop.** On day 8, Quick Ink Co. opens across town with a ★ 3.6 rating that climbs a little each day (up to ★ 4.6). While your rating is lower, or you have fewer than 5 reviews, they win one of your daily inquiries. Beat their rating and you keep every customer. Stay ahead for 5 days in a row to become the top shop in town, and they stop competing.
+- The Reviews tab shows the rival's rating, how many customers you've lost to them and your progress toward winning the town.
+- Both apply to careers started from v0.5.1 on. The demo and older shops are unchanged.
+
+# v0.10.0 — your own merch line
+
+- **Merch + Store.** A new MERCH button on the Customer Desk (from shop level 2 on new careers) opens your own merch line. Pick a product your machines can make (tees, sticker packs, decals, mugs or hats) and one of eight themes, then pay $25 for the design.
+- **Print batches.** Each design prints as a batch on your own machines: 12 tees, 48 stickers, 24 decals, 12 mugs or 8 hats. Batches are planned and produced like any job, use supplies, and go into store stock when finished. No customer walks in for them.
+- **Online store.** Open it for $10 a day. Stock sells at the close of each day. Sales depend on your star rating, the season and your price; use + and − to set each design's price.
+- **Weekly trend.** One theme trends each week. Designs in that theme sell twice as fast and show "★ TRENDING".
+- **Weekend craft market.** On weekends, book a booth for $40 and your stock sells about three times faster that day.
+- Merch sales count toward daily sales in the end-of-day report. Design fees count as artwork costs; store fees and booths count as marketing.
+
+# v0.9.0 — reviews, regulars and seasons
+
+- **Star reviews.** Every paid job leaves a 1–5 star review with a short comment, based on quality and lateness. The Customer Desk shows your average rating, receipts show each job's stars, and the customer's stars float over them as they leave. Customers + Receipts has a new Reviews tab.
+- **Regulars.** A customer's fourth paid job makes them a regular: a "★ REGULAR" badge, a 10% tip on good work, and half again as long to decide on an inquiry. The Reviews tab lists your regulars.
+- **Seasons.** The calendar runs a week per season: Spring (decals, stickers, transfers), Summer (tees, banners, decals), Fall (shirts, hoodies, hats) and Winter (mugs, hats, hoodies). In-season work pays 15% more and shows up more often. The top bar shows the season, and a banner announces each new one.
+- New award: Loved Locally (an average of 4.5+ stars from 20 or more reviews).
+- These rules apply to careers started from v0.5.1 on; the demo and older shops are unchanged.
+
+# v0.8.1 — the truck parks outside
+
+- **Loading yard.** The warehouse and factory maps now extend past the building's right wall into an outdoor loading yard: asphalt with parking stripes, a concrete apron, a fence and a strip of grass. The camera frames the yard with the shop.
+- **Open roll-up door.** The shipping dock is now a loading bay inside the outside wall: a hatched floor with pallets of boxed orders, beside an open roll-up door with a "LOADING" sign. The delivery truck parks outside in its marked bay, backed up to the door with its cab facing out. It is no longer drawn inside the building.
+- The dock always sits against the outside wall. When placing or moving it, it slides along that wall; it does not turn. Adding the production annex moves it to the factory's new outside wall, and older saves with a dock elsewhere have it moved to the wall when they load.
+- The building's front-right wall is drawn cut away to knee height so the shop floor stays visible, with a gap at the loading door.
+
+# v0.8.0 — mugs, hats, hoodies and tote bags
+
+- **Mug + tumbler press ($380, shop level 3).** A sublimation printer and a clamp mug press on one bench. Mug orders print the wrap, tape it on and press each mug; they use blank mugs and sublimation paper. It ships with a starter case.
+- **Embroidery machine ($1,100, shop level 5).** A single-head machine with a cap frame and a rack of thread. Hat orders need their artwork prepared first, then each cap is hooped, stitched and trimmed; they use blank caps and thread.
+- **Hoodies and tote bags.** Shirt-style jobs now come as tees, hoodies (from level 3) or tote bags (from level 2). They are made like shirts, with vinyl or DTF and the heat press, but use their own blanks: hoodies pay more and cost more, totes are quick and cheap. Supplies has buttons for tees, hoodies and totes.
+- New order icons, route descriptions, machine panels, sounds and work animations for mugs and hats. Marketing, daily requests, promotions and the Apparel and Stickers client focus all include the new products when the machines are installed.
+- Three new awards: Cozy Season (60 hoodies), Mug Shot (200 mugs) and Hat Trick (100 hats).
+- ADD EQUIPMENT lists the garage-to-storefront machines first: cutter, heat press, desktop DTF, mug press, then the rest.
+- Fixed: shirt requests always came as the same blank because of how the day number lined up.
+
+# v0.7.0 — four maps, from garage to factory
+
+- **Home garage.** New careers now start in a small 10 x 9 garage with a concrete floor, a pegboard of tools and a roll-up door standing open onto the driveway; customers walk in through it. It costs $60 a day to run and fits you plus one helper.
+- **Neighborhood storefront.** At shop level 4, Shop Growth offers a storefront lease for $600. Every machine stays exactly where it stands: the storefront is the same floor grown wider and deeper. Overhead becomes $125 a day and the team limit rises to three.
+- **Warehouse.** The existing larger-premises move ($900, with its trust, quality and savings requirements) is now the third step and needs the storefront first. Teams of four, or six after the industrial fit-out.
+- **Print factory.** The production annex turns the warehouse into the factory: the full 22 x 16 floor, loading-dock doors on the back wall and a team of nine.
+- Each map has its own walls, floor, lighting and name on the top bar. The camera fits each room, so the garage feels close and the factory feels big.
+- Goals now follow the ladder: "Move out of the garage", "Move into the warehouse" and "Open the print factory" join the list (fifteen goals in all).
+- Older saves and the demo stay in the neighborhood shop or warehouse they already had; nothing moves.
+
+# v0.6.0 — shop levels, goals, awards and an ending
+
+- **Shop level.** Paid jobs earn XP (more for on-time delivery and full quality), and finished goals earn more. The top bar shows your level and XP bar; click it for Goals + Awards. Ten levels run from Garage Crafter to Print Shop Tycoon, each with a level-up card.
+- **Levels unlock equipment in new careers.** Sticker print / cut at level 2, the desktop DTF kit at level 3, the full DTF line at level 5, the banner printer at level 6, CNC and the shipping dock at level 7. This replaces the paid-job counts from v0.5.1; careers already past those counts keep their unlocks. The demo and older shops are not gated.
+- **Thirteen goals** give the game its path: first sale, five jobs, first helper, upgrade to DTF, savings, larger premises, the full DTF line, 80% trust, the industrial fit-out, a team of four, fifty jobs and $15,000 saved. The left card always shows the next one.
+- **An ending.** Finishing every goal shows the "You built a Print Shop Tycoon" summary with your shop's numbers. The shop stays open afterwards.
+- **Eighteen awards** for things like ten on-time deliveries in a row, 100 vinyl shirts, a full team of nine and a $1,500 day. Each is worth a little XP.
+- Goal and award banners appear over the shop floor with their own sounds. Older saves are credited quietly for what they have already done, with no pop-ups.
+- The top bar's order count moved to the Active Orders heading to make room for the level.
+
+# v0.5.2 — music, sounds and a mint cutter
+
+- **Real music.** Four original tunes replace the placeholder notes: three for the shop (a bouncy ukulele tune, a lazy whistled swing and an upbeat one for busy days) on shuffle, and a gentle music-box tune on the title screen. The Music button still turns it on and off. Settings adds volume controls for music and sound in ten-percent steps, saved with your audio preferences.
+- **Real sounds.** A sale rings up, the door chimes for a visitor, a finished job plays a short tune, faults give a soft warning, the cutter, printers, heat press and packing bench each have their own sound, placing equipment thumps, and the first sale gets a fanfare. All music and sounds are synthesized from code in `art/audio-v1`; nothing was downloaded or sampled.
+- **Mint cutter.** The gifted vinyl cutter is now the all-mint home cutter most crafters know, with the lid open, tool cup, dial and a light-blue mat.
+- **Fixed: staff and customers stuck in a sidestep.** When Sam and a customer met head-on they could both step aside the same way forever, stalling the shop until closing. Customers now pause to let staff pass; anyone still blocked after a few seconds slips past. Leaving customers again have right of way through doors and aisles.
+- Vinyl shirt orders take longer the more shirts there are to weed, so DTF is the faster upgrade.
+- The DTF shaker's saved status now follows its printer instead of reading "Idle" during a cure.
+- Test upkeep: the DTF art test follows the illustrated sprites, and the 14-day balance test plays the cutter-and-heat-press start instead of buying a DTF line on day one.
+
+# v0.5.1 — start like a real print shop
+
+- **New-career walkthrough.** A new shop opens with a gift: your first vinyl cutter, free. The guide card walks you through placing it, buying a $250 heat press, placing the free artwork, inspection and packing benches, opening the shop, and making your first order of six vinyl T-shirts. It ends with a first-sale card. Skip it any time; the gifted cutter stays free.
+- **Vinyl T-shirts.** Without DTF equipment, shirt orders are made with heat-transfer vinyl: load it shiny side down, cut it mirrored, weed it, then press it at the heat press. Heat-transfer vinyl is a new supply. Shirt orders, campaigns and inquiries now come to shops with a cutter and a heat press.
+- **Grow into DTF.** In new careers, the desktop DTF kit unlocks after 5 paid jobs and the full DTF line after 12. The demo and existing shops are unchanged.
+- **Team size grows with the shop.** In new careers a garage fits you plus one helper, larger premises 4 people, the industrial fit-out 6, and the production annex the full 9. Existing staff are never removed. The demo and older-economy shops keep their previous limit.
+- The vinyl cutter is redrawn as the classic white home cutter with lime green trim, a lime lid panel, a tool cup and a dial, with heat-transfer vinyl on the mat and folded shirts on the bench.
+
+# v0.5.0 — garage starters and livelier people
+
+- **Vinyl cutter bench ($180).** A new starter station for vinyl decals: load the mat, cut, weed and apply transfer tape. It ships with a starter pack of vinyl and transfer tape. Decal work appears in daily inquiries, marketing, promotions and events only for shops that own a cutter. A cutter-only beginner's first customer asks for decals. Print / cut operators can run it.
+- **Desktop DTF kit ($420).** One-bench DTF printer, powder tray and small curing oven. It makes the same transfers and (with a heat press) shirts as the full DTF line, more slowly. When both are installed, the full line is preferred and the desktop kit takes overflow work. DTF operators can run it.
+- New supplies: vinyl and transfer tape (Supplies panel and the default restock bundle when a cutter is owned). Older saves load with these at zero.
+- ADD EQUIPMENT now has three pages and lists the two starters first. Toolbar shortcuts show the desktop kit or cutter when the full line or sticker station is absent.
+- Staff and customers each get their own stable look: skin tone, hair, cap, shirt and (for customers) overall colour, plus small height differences. Some customers carry tote bags. Sam is unchanged. The colours are tinted layers cut from the original character art, so faces and walk frames are untouched.
+- Working staff turn toward their station, move with the task and hold a station tool: weeding hook, transfer sheet, tape gun, stylus, magnifier or printed film. Waiting customers shift gently. Reduce Motion stills these motions.
+- The new machine art is a Blender cartoon render made to sit beside the illustrated equipment. The owner approved it on 2026-11-20.
+
 # v0.4.2 — safer shop interactions
 
 - Closing the gang-sheet builder during a drag now restores the original design position and clears the drag state.

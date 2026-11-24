@@ -10,6 +10,8 @@ func check(ok:bool,label:String):
 func run():
  var s=S.new();s.save_enabled=false
  for kind in C.EQUIPMENT_PRICES:
+  # The shipping dock is a fixed loading bay on the outside wall (premises_check).
+  if kind=="dock": continue
   for facing in 16:
    s.state=C.empty_shop();s.state["location"]=2;s.state["cash"]=100000
    check(s.install_equipment(kind,Vector2i(7,5),facing/4,facing),"Install "+kind+" facing "+str(facing))

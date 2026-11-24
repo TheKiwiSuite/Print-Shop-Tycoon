@@ -1,7 +1,14 @@
 extends RefCounted
 # Authored game systems. No real-world equipment economics or credit advice.
 const C=preload("res://scripts/catalog.gd")
-const SERVICE={"dtf":"Nozzle check / capping / feed cleanup","shaker":"Powder cleanup / cure check","sticker":"Roller clean / registration calibration","heat":"Platen and pad inspection","banner":"Feed and printhead check","cnc":"Bed and tool inspection"}
+const SERVICE={"dtf":"Nozzle check / capping / feed cleanup","shaker":"Powder cleanup / cure check","sticker":"Roller clean / registration calibration","heat":"Platen and pad inspection","banner":"Feed and printhead check","cnc":"Bed and tool inspection","cutter":"Blade change / mat clean","dtfmini":"Printhead clean / oven check","mug":"Heating wrap and pressure check","embroidery":"Needle change / tension check"}
+# Small promotional and event jobs go to the simplest owned print route.
+const SMALL_JOB={"sticker":{"quantity":24,"unit":4.2,"reward":200},"transfer":{"quantity":8,"unit":20.0,"reward":600},"decal":{"quantity":24,"unit":4.0,"reward":180}}
+static func small_job_kind(s) -> String:
+ if s.state["machines"].has("sticker"):return "sticker"
+ if s.can_produce("transfer"):return "transfer"
+ if s.state["machines"].has("cutter"):return "decal"
+ return ""
 const Art=preload("res://scripts/artwork_negotiation.gd")
 const CONFIG_VERSION=1
 static func ensure(s) -> void:
@@ -16,6 +23,7 @@ static func daily_debt(s) -> int:
  for debt in s.state.get("operations",{}).get("debts",[]):total+=mini(int(debt["daily"]),int(debt["remaining"]))
  return total
 static func equipment_cost(s,id:String) -> int:
+ if id in s.state.get("gifts",[]): return 0
  return ceili(C.EQUIPMENT_PRICES[id]*.2) if s.state.get("operations",{}).get("finance_intent","")==id else int(C.EQUIPMENT_PRICES[id])
 static func finance(s,id:String) -> bool:
  ensure(s)
@@ -48,10 +56,10 @@ static func promo(s) -> bool:
  ensure(s)
  var ops=s.state["operations"]
  if ops["promo_day"]==s.state["day"] or s.state["cash"]<25 or s.active_orders().size()>=6:return false
- var kind="sticker" if s.state["machines"].has("sticker") else "transfer"
- if not s.state["machines"].has("sticker" if kind=="sticker" else "dtf"):s.notice("Install suitable printing equipment before promoting a sale.");return false
- var quantity=24 if kind=="sticker" else 8
- var o=C.make_order("PROMO-%d" % s.state["day"],kind,quantity,"Community print promotion",s.now()+6,roundi(quantity*(4.2 if kind=="sticker" else 20)*.85))
+ var kind=small_job_kind(s)
+ if kind=="":s.notice("Install suitable printing equipment before promoting a sale.");return false
+ var quantity=int(SMALL_JOB[kind]["quantity"])
+ var o=C.make_order("PROMO-%d" % s.state["day"],kind,quantity,"Community print promotion",s.now()+6,roundi(quantity*float(SMALL_JOB[kind]["unit"])*.85))
  o["promotion"]=true;o["art_ready"]=true
  s.state["orders"].append(o);s._ensure_visit(o)
  s.state["cash"]-=25;s.state["stats"]["marketing"]+=25;ops["promo_day"]=s.state["day"]
@@ -134,11 +142,11 @@ static func resolve_event(s,choice:String) -> bool:
   for d in s.state["deliveries"]:d["eta"]+=.25
  elif choice=="opportunity":
   if s.active_orders().size()>=6:return false
-  var type="sticker" if s.state["machines"].has("sticker") else "transfer"
+  var type=small_job_kind(s)
   if int(s.state["location"])==2 and s.state.get("fit_out",false):type="banner" if not s.state["machines"].has("banner") else "cnc"
-  if type in ["sticker","transfer"] and not s.state["machines"].has("sticker" if type=="sticker" else "dtf"):return false
+  if type=="":return false
   var quantity=2 if type in ["banner","cnc"] else 20
-  var reward={"sticker":200,"transfer":600,"banner":1400,"cnc":1800}[type]
+  var reward={"banner":1400,"cnc":1800}[type] if type in ["banner","cnc"] else int(SMALL_JOB[type]["reward"])
   var o=C.make_order("OPP-"+event["id"],type,quantity,"Rare local event commission",s.now()+7,reward);o["art_ready"]=true;o["opportunity"]=true
   s.state["orders"].append(o);s._ensure_visit(o)
  elif choice=="artwork":
@@ -151,8 +159,8 @@ static func resolve_event(s,choice:String) -> bool:
    ops["artwork_order"]=index
   else:
    if s.active_orders().size()>=6:return false
-   var kind="sticker" if s.state["machines"].has("sticker") else "transfer"
-   if not s.state["machines"].has("sticker" if kind=="sticker" else "dtf"):return false
+   var kind=small_job_kind(s)
+   if kind=="":return false
    var o=C.make_order("ART-"+event["id"],kind,12,"Artwork and print client",s.now()+7,320)
    o["art_ready"]=false;s.state["orders"].append(o);s._ensure_visit(o);ops["artwork_order"]=-1
  elif choice=="cover":
@@ -228,6 +236,7 @@ static func annex(s) -> bool:
  if int(s.state["location"])!=2 or not s.state.get("fit_out",false) or s.state.get("production_annex",false):return false
  if int(s.state["completed"])<10 or int(s.state["reputation"])<80 or float(s.state["cash"])<2200+s.daily_obligations()+75:s.notice("Annex requires fit-out, 10 paid jobs, 80 trust and $2,200 plus the next daily bills including $75 extra rent.");return false
  s.state["production_annex"]=true;s.state["cash"]-=2200;s.state["stats"]["capex"]=s.state["stats"].get("capex",0)+2200
+ s.rehome_dock()
  s.notice("Production annex added: 22 x 16 floor, retained equipment, $75 extra daily overhead. Arrange separate production and display zones.");s.save_game();return true
 
 static func begin_jam(s,id:String) -> bool:

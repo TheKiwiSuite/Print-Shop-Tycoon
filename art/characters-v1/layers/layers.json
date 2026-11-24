@@ -1,0 +1,29 @@
+{
+  "sheet": "F:\\Print Shop Tycoon\\outputs\\PrintShopTycoon-Native\\source\\assets\\owner-walk.png",
+  "size": [
+    1254,
+    1254
+  ],
+  "regions": {
+    "hat": {
+      "pixels": 92774,
+      "reference_value": 0.4745098352432251
+    },
+    "hair": {
+      "pixels": 73993,
+      "reference_value": 0.35686275362968445
+    },
+    "skin": {
+      "pixels": 56651,
+      "reference_value": 0.9921569228172302
+    },
+    "shirt": {
+      "pixels": 24411,
+      "reference_value": 0.9803922176361084
+    },
+    "pants": {
+      "pixels": 93361,
+      "reference_value": 0.5411764979362488
+    }
+  }
+}
