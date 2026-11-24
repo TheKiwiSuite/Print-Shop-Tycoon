@@ -2649,12 +2649,12 @@ func _growth_advice() -> Array:
   if o["stage"] in ["intake","scheduled","completed"]: continue
   var m=sim.machine_for(o);queues[m]=int(queues.get(m,0))+1
   if queues[m]>most: most=queues[m];busiest=m
- var why="Bottleneck: %d jobs wait for %s." % [most,str(sim.state["machines"].get(busiest,{}).get("title",busiest))] if most>=2 else "No queues yet, so extra capacity mostly adds daily cost."
+ var why="Bottleneck: %d jobs wait for %s." % [most,str(sim.state["machines"].get(busiest,{}).get("title",busiest))] if most>=2 else "No queues yet; more capacity mainly adds cost."
  if sim.premises()=="garage":
   var need=[]
   if level<sim.STOREFRONT_LEVEL: need.append("level %d (now %d, %d/%d XP)" % [sim.STOREFRONT_LEVEL,level,int(lv["xp"]),int(lv["next"])])
   if cash<sim.STOREFRONT_COST: need.append("$%d cash (have $%d)" % [sim.STOREFRONT_COST,cash])
-  if need.is_empty(): return ["NEXT STEP: Lease the storefront now ($%d)." % sim.STOREFRONT_COST,"Same layout, bigger floor, team of three; rent $60 to $125/day. "+why]
+  if need.is_empty(): return ["NEXT STEP: Lease the storefront now ($%d)." % sim.STOREFRONT_COST,"Same layout, bigger floor, team of 3; rent $60 to $125/day. "+why]
   if not unlocked.is_empty():
    var id=unlocked[0]
    return ["NEXT STEP: %s ($%d) is unlocked at your level." % [Progress.UNLOCK_NAMES[id],int(C.EQUIPMENT_PRICES[id])],"New products bring new inquiries. "+why]
