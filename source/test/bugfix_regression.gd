@@ -113,4 +113,6 @@ func run() -> void:
 	print("BUGFIX REGRESSION: ", checks, " checks, ", failures, " failures")
 	game.free()
 	await process_frame
-	quit(failures)
+	# Mixer playbacks retire asynchronously after the game node releases its streams.
+	await create_timer(.5).timeout
+	call_deferred("quit",failures)
