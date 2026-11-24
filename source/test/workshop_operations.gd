@@ -139,7 +139,7 @@ func run() -> void:
  # Stop streamed audio before destroying the fixture so the mixer releases its
  # resources before the test process exits (also required on Linux CI).
  game.music.stop()
- game.queue_free();await process_frame
+ await preload("res://test/qa_audio_cleanup.gd").stop(game,self);game.queue_free();await process_frame
  await process_frame
  await create_timer(.2).timeout
  print("WORKSHOP OPERATIONS: %d checks, %d failures" % [checks,failures])

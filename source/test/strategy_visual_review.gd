@@ -107,5 +107,5 @@ func run() -> void:
  var file=FileAccess.open(folder+"/matrix.json",FileAccess.WRITE)
  file.store_string(JSON.stringify({"renderer":"Godot viewport","scope":"Linux render and input-rectangle checks; not Windows scaling or screen-reader certification","failures":failures,"matrix":matrix},"  "))
  print("STRATEGY VISUAL REVIEW: ",matrix.size()," screens, ",failures," failures")
- game.free();await process_frame
+ await preload("res://test/qa_audio_cleanup.gd").stop(game,self);game.free();await process_frame
  quit(failures)

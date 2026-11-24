@@ -83,7 +83,7 @@ func run() -> void:
  check("6-" in game._tutorial_hint(C.make_order("QA","transfer",6,"QA",5,100)),"Tutorial uses live order quantity")
  var pref=game.sim.save_path+".preferences.cfg"
  if FileAccess.file_exists(pref): DirAccess.remove_absolute(pref)
- game.free()
+ await preload("res://test/qa_audio_cleanup.gd").stop(game,self);game.free()
  await process_frame
  # Mixer playbacks retire asynchronously after the UI fixture releases streams.
  await create_timer(.2).timeout

@@ -134,7 +134,7 @@ func run() -> void:
  game.audio.stop();game.music.stop()
  for player in game.sfx_players: player.stop()
  await create_timer(.25).timeout
- game.free();await process_frame
+ await preload("res://test/qa_audio_cleanup.gd").stop(game,self);game.free();await process_frame
  # Mixer playbacks retire asynchronously after the game node releases its streams.
  await create_timer(.2).timeout
  print("STRATEGY GROWTH: ",checks," checks, ",failures," failures")

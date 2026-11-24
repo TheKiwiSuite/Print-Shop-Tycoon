@@ -46,7 +46,7 @@ func run():
  game.get_viewport().get_texture().get_image().save_png("res://../captures/illustrated-dtf-placement.png")
  print("ILLUSTRATED_UI: ",checks," checks, ",failures," failures")
  if "--hold" in OS.get_cmdline_user_args():game.set_process(true);return
- game.free()
+ await preload("res://test/qa_audio_cleanup.gd").stop(game,self);game.free()
  await process_frame
  # Mixer playbacks retire asynchronously after the game node releases its streams.
  await create_timer(.2).timeout

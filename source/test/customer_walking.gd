@@ -89,7 +89,7 @@ func run() -> void:
  for suffix in ["",".bak",".tmp"]:
   if FileAccess.file_exists(s.save_path+suffix): DirAccess.remove_absolute(s.save_path+suffix)
  print("CUSTOMER WALKING / PLACEMENT: ",checks," checks, ",failures," failures")
- game.free()
+ await preload("res://test/qa_audio_cleanup.gd").stop(game,self);game.free()
  await process_frame
  # Mixer playbacks retire asynchronously after the game node releases its streams.
  await create_timer(.2).timeout

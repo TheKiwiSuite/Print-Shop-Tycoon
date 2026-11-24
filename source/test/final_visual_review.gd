@@ -263,7 +263,7 @@ func run() -> void:
 		game.modal=""
 	game.sim.save_enabled=false
 	game.music.stop()
-	game.queue_free()
+	await preload("res://test/qa_audio_cleanup.gd").stop(game,self);game.queue_free()
 	await process_frame
 	await create_timer(.2).timeout
 	print("FINAL VISUAL REVIEW: %d checks, %d failures, %d captures" % [checks,failures,captured])

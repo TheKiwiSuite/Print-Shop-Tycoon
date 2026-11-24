@@ -63,5 +63,5 @@ func run() -> void:
    DirAccess.copy_absolute(path,folder.path_join("photo-%dx%d.png" % [Photo.SIZES[i].x,Photo.SIZES[i].y]))
  check(game.sim.state==before,"Photo rendering never mutates real economy or simulation state")
  game._action("photo_close");game.sim.end_day();game.modal="cash_bridge";await capture("cash-bridge")
- game.queue_free();await process_frame
+ await preload("res://test/qa_audio_cleanup.gd").stop(game,self);game.queue_free();await process_frame
  print("WORKSHOP VISUAL REVIEW: %d checks, %d failures" % [checks,failures]);quit(failures)

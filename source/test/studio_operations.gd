@@ -83,7 +83,7 @@ func run() -> void:
  game._action("photo_mode");game._action("photo_logo");game._action("photo_watermark");game._action("photo_corner");game._action("photo_opacity")
  check(game.sim.state["style"]["photo"]["logo"] and game.sim.state["style"]["photo"]["watermark"],"Photo logo and watermark controls are connected")
  game._action("photo_close");check(not game.photo_active,"Branded photo mode returns to the shop")
- game.queue_free();await process_frame
+ await preload("res://test/qa_audio_cleanup.gd").stop(game,self);game.queue_free();await process_frame
  # The audio mixer retires Ogg playbacks asynchronously, not by render frame.
  await create_timer(.2).timeout
  print("STUDIO OPERATIONS: %d checks, %d failures" % [checks,failures])

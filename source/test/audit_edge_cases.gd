@@ -228,7 +228,7 @@ func run() -> void:
 	file.store_string(JSON.stringify(findings,"  ")); file.close()
 	print("AUDIT COMPLETE: ", findings.size(), " probes; ", findings.filter(func(f):return f["reproduced"]).size(), " defects reproduced")
 	game.sim.save_enabled = false
-	game.free()
+	await preload("res://test/qa_audio_cleanup.gd").stop(game,self);game.free()
 	await process_frame
 	# Mixer playbacks retire asynchronously after the game node releases its streams.
 	await create_timer(.2).timeout
