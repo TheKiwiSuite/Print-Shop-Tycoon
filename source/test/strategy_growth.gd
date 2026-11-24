@@ -131,5 +131,7 @@ func run() -> void:
  var preferences=game.sim.save_path+".preferences.cfg"
  if FileAccess.file_exists(preferences): DirAccess.remove_absolute(preferences)
  game.free();await process_frame
+ # Mixer playbacks retire asynchronously after the game node releases its streams.
+ await create_timer(.2).timeout
  print("STRATEGY GROWTH: ",checks," checks, ",failures," failures")
- quit(failures)
+ call_deferred("quit",failures)

@@ -470,10 +470,24 @@ func _update_visits() -> void:
   for o in state["orders"]:
    if o["stage"] in ["intake","scheduled"] and o.has("visit"):o["visit"]["patience_until"]=now()+2.0;o["visit"]["arrival_at"]=now()+1.0
  Strategy.ensure(self)
+ # Teaching hold: during the guided first job (not on Expert), other customers wait
+ # instead of arriving or running out of patience unseen. Accepted terms are untouched.
+ var teaching=walkthrough_step()=="job" and String(state["rules"].get("preset",""))!="Expert"
+ var tutorial_id=String(state.get("tutorial_order",""))
  for i in state["orders"].size():
   var o=order(i)
   if not state.get("customer_flow",false) and not o.has("campaign"): continue
   _ensure_visit(o)
+  if o["visit"].has("held_remaining") and not (teaching and o["stage"]=="intake"):
+   o["visit"]["patience_until"]=now()+float(o["visit"]["held_remaining"]);o["visit"].erase("held_remaining")
+  if teaching and o["id"]!=tutorial_id:
+   if o["stage"]=="scheduled":
+    if now()>=float(o["visit"]["arrival_at"]) and not state.get("teaching_hold_noticed",false):
+     state["teaching_hold_noticed"]=true;notice("Other customers will wait until your first job is delivered.")
+    o["visit"]["arrival_at"]=maxf(float(o["visit"]["arrival_at"]),now()+0.25);continue
+   if o["stage"]=="intake" and float(o["visit"].get("patience_until",-1.0))>=0:
+    if not o["visit"].has("held_remaining"):o["visit"]["held_remaining"]=maxf(0.5,float(o["visit"]["patience_until"])-now())
+    o["visit"]["patience_until"]=now()+float(o["visit"]["held_remaining"]);continue
   if o["stage"]=="scheduled" and now()>=float(o["visit"]["arrival_at"]):
    # Let a sticker-only beginner receive achievable first work.
    var no_dtf=not state["machines"].has("dtf") and not state["machines"].has("dtfmini")

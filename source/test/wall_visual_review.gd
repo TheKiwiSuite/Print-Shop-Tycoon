@@ -18,4 +18,8 @@ func run():
  game.sim.state["location"]=1;game.reset_camera();await capture("walls-neighborhood")
  print("WALL_VISUAL_REVIEW: rendered both shop sizes and minimum zoom")
  if "--hold" in OS.get_cmdline_user_args():game.set_process(true);return
- quit()
+ game.free()
+ await process_frame
+ # Mixer playbacks retire asynchronously after the game node releases its streams.
+ await create_timer(.2).timeout
+ call_deferred("quit")

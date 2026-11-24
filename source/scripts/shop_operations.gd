@@ -255,3 +255,16 @@ static func begin_jam(s,id:String) -> bool:
  var key="jam-"+id+"-"+str(s.state["day"])
  if ops["qte_count"]>=2 or ops["qtes"].has(key):return false
  ops["active_qte"]={"id":key,"order":-1,"machine":id,"kind":"jam","elapsed":0.0,"step":0,"practice":ops["qtes"].is_empty(),"resume_paused":s.state["paused"]};return true
+
+# Plain-language preview of what an Away shift can actually progress.
+static func away_readiness(s) -> Dictionary:
+ var ready=0;var needs=[];var waiting=[]
+ for i in s.state["orders"].size():
+  var o=s.state["orders"][i];var stage=str(o["stage"])
+  if stage in ["completed","declined","abandoned","scheduled","intake"]:continue
+  var label="%d %s" % [int(o["quantity"]),str(o["product"])]
+  if stage in ["preflight","plan","fault"] or not o.get("artwork_offer",{}).is_empty():needs.append(label+" ("+{"preflight":"approve artwork","plan":"approve plan","fault":"fix fault"}.get(stage,"artwork offer")+")")
+  elif stage=="waiting_stock" and not s.materials_available(s.dispatch_recipe(o)):waiting.append(label+" (supplies)")
+  elif stage=="revision":waiting.append(label+" (customer revision)")
+  else:ready+=1
+ return {"ready":ready,"needs":needs,"waiting":waiting}
