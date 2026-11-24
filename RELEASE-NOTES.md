@@ -1,3 +1,19 @@
+# v1.2.0 — plan the day, choose a niche, win regular clients
+
+Three new ways to run the business, built on the same production, pickup and accounts. Saves from every earlier version carry over; existing shops start on Balanced, keep their client focus, and have no contracts until a client offers one.
+
+- **Plan tomorrow.** The day report has a **Plan Tomorrow** button (also File > Plan the day). It shows the bills charged when the next day starts (actual) and at its close (estimate), every committed job with its deadline and risk, supplies you are short for that work and roughly what they cost, stations due for service, the station jobs are queuing for, and your next growth step. Contract deliveries arriving tomorrow are listed too.
+- **Daily focus.** Pick one focus for the next day and see its effect and trade-off before you start:
+  - *Balanced*: no change.
+  - *Volume*: production 10% faster and one extra inquiry, but each print run wears its station 2% more.
+  - *Premium quality*: no random alignment defects and +5 customer satisfaction, but production is 10% slower.
+  - *Customer growth*: one extra inquiry and customers wait 25% longer, for $40 of outreach charged when the day starts.
+  - *Recovery*: every station gains 10% condition, but no more than two open inquiries that day.
+  The next plan shows what the focus actually did (deliveries, on-time, quality, inquiries, profit). A focus never changes the price or deadline of work you have already accepted.
+- **Business specialization.** Shop Growth > Review Specializations compares Generalist, Sticker studio, Apparel house and Sign works side by side: which inquiries come first, which stations run faster, how new quotes change, what it costs, how much of your floor and team already fit it, and whether your equipment qualifies. Choosing from Generalist is free; switching between two specializations costs a $120 retool fee, shown on the button. Returning to Generalist is always free.
+- **Named clients and contracts.** Five businesses (Maple Street Cafe, Riverside Art Collective, Lakeside High Boosters, Hartley Events & Signage, Northside Rec League) send some of your daily inquiries. Each cares about one thing (on-time delivery, flawless quality, or volume), and their relationship moves only with the work you deliver for them. At 25, 55 and 85 a client offers a contract: two or three scheduled deliveries, a deposit paid on acceptance, a payment per delivery and a bonus if you meet their preference. The offer shows the quantities, deadlines, materials, capacity risk and every payment before you accept. Declining is free and the client asks again later. There are no streaks and nothing to check in on daily.
+- Day report and cash bridge show contract deposits with sales. Specialization overhead appears in the daily overhead line and in every forecast.
+
 # v1.1.0 — clearer shop, smoother first day
 
 A polish update built from a hands-on playtest of 1.0. Saves from every earlier version carry over.

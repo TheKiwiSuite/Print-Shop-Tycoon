@@ -2,11 +2,11 @@
 
 A native Windows isometric tycoon game about running a print shop. Start in your home garage with a gifted vinyl cutter, press your first shirts, and grow through a storefront and warehouse into a print factory with a loading yard. Built with Godot 4.5.1 (GL Compatibility).
 
-**Current version: 1.1.0.** See [RELEASE-NOTES.md](RELEASE-NOTES.md) for what changed, [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for open items, and [README.txt](README.txt) for controls and how to play.
+**Current version: 1.2.0.** See [RELEASE-NOTES.md](RELEASE-NOTES.md) for what changed, [KNOWN-ISSUES.md](KNOWN-ISSUES.md) for open items, and [README.txt](README.txt) for controls and how to play.
 
 ## Download and play
 
-Download `PrintShopTycoon-Windows-v1.1.0.zip` (or the standalone `Print.Shop.Tycoon.exe`) from the [releases page](https://github.com/TheKiwiSuite/Print-Shop-Tycoon/releases). Extract it and run `windows/Print Shop Tycoon.exe`. No installer, account or internet connection is needed. Saves live in `%APPDATA%/PrintShopTycoonNative` and carry over between versions. To update, use **Settings → Game updates + save backups**. [UPDATING.md](UPDATING.md) covers manual updates and recovery.
+Download `PrintShopTycoon-Windows-v1.2.0.zip` (or the standalone `Print.Shop.Tycoon.exe`) from the [releases page](https://github.com/TheKiwiSuite/Print-Shop-Tycoon/releases). Extract it and run `windows/Print Shop Tycoon.exe`. No installer, account or internet connection is needed. Saves live in `%APPDATA%/PrintShopTycoonNative` and carry over between versions. To update, use **Settings → Game updates + save backups**. [UPDATING.md](UPDATING.md) covers manual updates and recovery.
 
 The build is unsigned, so Windows SmartScreen may ask for confirmation the first time you run it.
 
