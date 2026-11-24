@@ -111,10 +111,11 @@ static func draw_clients(g) -> void:
  elif not offers.is_empty():
   g.client_offer_page=clampi(g.client_offer_page,0,offers.size()-1)
   var o=offers[g.client_offer_page]
-  if offers.size()>1: g._button(Rect2(1043,220,160,28),"OFFER %d / %d  >" % [g.client_offer_page+1,offers.size()],"offer_next",g.CREAM,true,13)
   var t=Contracts.TRAITS[o["trait"]]
   var a=g.contract_assessment(o)
   g._panel(Rect2(385,212,826,256),Color("fff8e1"),g.YELLOW,10)
+  # Drawn after the card so the paging control sits on top of it.
+  if offers.size()>1: g._button(Rect2(1043,220,160,28),"OFFER %d / %d  >" % [g.client_offer_page+1,offers.size()],"offer_next",g.CREAM,true,13)
   g._line(Vector2(401,240),"%s / %s client / tier %d contract" % [o["client_name"],t["title"],int(o["tier"])],17,g.BLUE,632,true)
   var days=[]
   for d in o["deliveries"]: days.append("Day %d" % int(d["day"]))

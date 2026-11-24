@@ -172,6 +172,18 @@ func run() -> void:
 		await layout(tag+"-clients-offer-1")
 		no_truncation(tag+" offer 1")
 		check(text_has("deposit today") and text_has("Inputs per delivery") and text_has("Capacity (estimate)"),"Offer shows payments, inputs and capacity before acceptance "+tag)
+		check(game.semantic_buttons.any(func(b):return str(b["action"])=="offer_next"),"Offer paging control is drawn "+tag)
+		var page_image=root.get_texture().get_image()
+		var page_rect:Rect2=Rect2()
+		for b in game.semantic_buttons:
+			if str(b["action"])=="offer_next": page_rect=b["rect"]
+		# The control is visible: its pixels differ from the card's fill colour.
+		var visible_pixels=0
+		if page_rect.size.x>0:
+			for x in range(int(page_rect.position.x)+4,int(page_rect.end.x)-4,6):
+				var px=page_image.get_pixel(x,int(page_rect.get_center().y))
+				if px.is_equal_approx(Color("fff8e1"))==false: visible_pixels+=1
+		check(visible_pixels>4,"Offer paging control is not hidden under the card "+tag)
 		game._action("offer_next")
 		await layout(tag+"-clients-offer-2")
 		game._action("offer_next")
