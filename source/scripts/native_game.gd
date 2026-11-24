@@ -808,7 +808,7 @@ func _set_ui_offset(value:Vector2) -> void:
 func _version_badge() -> void:
  # A reserved footer keeps the release visible without covering any controls.
  draw_rect(Rect2(0,_screen_size().y-22,_screen_size().x,22),NAVY)
- var label="v%s  |  WINDOWS PLAYTEST" % ProjectSettings.get_setting("application/config/version")
+ var label="v%s  |  WINDOWS" % ProjectSettings.get_setting("application/config/version")
  if sim.state.get("demo",false): label+="  |  DEMO / SEPARATE SAVE"
  if qa_ui: label+="  |  TEST PROFILE"
  _text(Vector2(18,_screen_size().y-6),label,16,CREAM)
