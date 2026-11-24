@@ -12,6 +12,12 @@ const People=preload("res://scripts/shop_people.gd")
 const Workshop=preload("res://scripts/workshop_ui.gd")
 const Photo=preload("res://scripts/workshop_photo.gd")
 const Banner=preload("res://scripts/partner_banner.gd")
+const PlanUI=preload("res://scripts/planning_ui.gd")
+const Planning=preload("res://scripts/shop_planning.gd")
+const Contracts=preload("res://scripts/shop_contracts.gd")
+var client_offer_page=0
+var modal_return=""
+var assessment_cache={}
 var partner_banners=[]
 var world_labels=[]
 var workshop_page=0
@@ -659,7 +665,7 @@ func _desktop_items(menu:String) -> Array:
  var editable=shop and modal=="" and sim.state["report"].is_empty()
  var selected=editable and sim.state["machines"].has(selected_machine)
  match menu:
-  "File":return [["Workshop: operations + style","workshop",shop],["Photo mode","photo_mode",shop],["Selected job intervention","intervene",shop and selected_order>=0],["Shop growth + fit-out","move",shop],["New game","new",modal!="save_error"],["Continue saved shop","continue",screen=="title" and sim.has_save()],["Save shop    F5","save",shop],["Save and return to title","title",shop],["Settings","settings",true],["Save and quit    Alt+F4","quit",true]]
+  "File":return [["Workshop: operations + style","workshop",shop],["Photo mode","photo_mode",shop],["Selected job intervention","intervene",shop and selected_order>=0],["Shop growth + fit-out","move",shop],["Plan the day","plan",shop],["Business specialization","specialize",shop],["Clients + contracts","clients",shop],["New game","new",modal!="save_error"],["Continue saved shop","continue",screen=="title" and sim.has_save()],["Save shop    F5","save",shop],["Save and return to title","title",shop],["Settings","settings",true],["Save and quit    Alt+F4","quit",true]]
   "Edit":return [["Arrange equipment    B","build",editable],["Move selected equipment","move_equipment",selected],["Rotate selected equipment    R","rotate_equipment",selected and build],["Cancel placement    Esc","cancel_placement",editable and (pending_equipment!="" or _relocating())]]
   "View":return [["Fit whole shop    Home","camera",shop],["Music: "+("On" if sim.state["settings"]["music"] else "Off"),"music",true],["Toggle fullscreen    F11","fullscreen",true]]
   "Window":return [["Minimize","window_minimize",true],["Windowed / restore","window_restore",true],["Maximize","window_maximize",true],["Fullscreen    F11","window_fullscreen",true]]
@@ -2085,8 +2091,9 @@ func _reviews_panel() -> void:
   elif People.ahead(sim): rival_text+="You are ahead (%d / %d days to win the town)." % [int(rival["streak"]),People.BEAT_DAYS]
   else: rival_text+="They win one inquiry a day until your rating (5+ reviews) beats theirs. Lost so far: %d." % int(rival["lost"])
   _line(Vector2(389,665),rival_text,14,Color("b03a2e") if not People.ahead(sim) else BLUE,818,true)
- _button(Rect2(389,703,397,48),"BACK TO SHOP","close",NAVY)
- _button(Rect2(801,703,406,48),"PAGE %d / %d  >" % [customer_page+1,pages],"more_customers",CREAM,pages>1)
+ _button(Rect2(389,703,260,48),"BACK TO SHOP","close",NAVY,true,16)
+ _button(Rect2(659,703,270,48),"CLIENTS + CONTRACTS","clients",CYAN,true,15)
+ _button(Rect2(939,703,268,48),"PAGE %d / %d  >" % [customer_page+1,pages],"more_customers",CREAM,pages>1,16)
 
 func _customers_panel() -> void:
  if reviews_view and Customers.active(sim): _reviews_panel();return
@@ -2178,6 +2185,9 @@ func _modal() -> void:
   "stock": _stock_panel()
   "move": _move_panel()
   "report": _report_panel()
+  "plan": PlanUI.draw_plan(self)
+  "specialize": PlanUI.draw_specialize(self)
+  "clients": PlanUI.draw_clients(self)
   "settings": _settings_panel()
   "help": _help_panel()
   "goals": _goals_panel()
@@ -2512,11 +2522,21 @@ func _move_panel() -> void:
  _button(Rect2(389,659,818,49),"MOVE TO INDUSTRIAL SHOP  $900","move_garage",YELLOW,p["ready"] and sim.state["location"]==1)
  _button(Rect2(389,723,818,37),"BACK TO SHOP","close",NAVY)
 
+# Contract offers are assessed on the live board once per offer, then cached
+# for a second so drawing never rebuilds the forecast every frame.
+func contract_assessment(offer:Dictionary) -> Dictionary:
+ var key=String(offer["id"])
+ var now_ms=Time.get_ticks_msec()
+ if assessment_cache.get("key","")==key and now_ms-int(assessment_cache.get("at",0))<1000: return assessment_cache["value"]
+ var value=Contracts.assess(sim,offer)
+ assessment_cache={"key":key,"at":now_ms,"value":value}
+ return value
+
 func _report_panel() -> void:
  var report=sim.end_day()
  var s=report["stats"]
  _header("DAY %d • SHOP ACCOUNTS" % report["day"],"Inventory costs reflect actual use; reprint waste is included in material cost.")
- var rows=[["Sales collected",s["sales"]],["Materials used",-s["materials"]],["Artwork fees",-s["art_fees"]],["Marketing campaigns",-s.get("marketing",0)],["Staff wages",-s["wages"]],["Rent / utilities",-s["overhead"]],["NET PROFIT",report["net"]]]
+ var rows=[["Sales + contract deposits" if s.get("deposits",0)>0 else "Sales collected",s["sales"]+s.get("deposits",0)],["Materials used",-s["materials"]],["Artwork fees",-s["art_fees"]],["Marketing campaigns",-s.get("marketing",0)],["Staff wages",-s["wages"]],["Rent / utilities",-s["overhead"]],["NET PROFIT",report["net"]]]
  for i in rows.size():
   var y=239+i*48
   _text(Vector2(389,y),rows[i][0],24,BLUE if i==6 else INK,-1,i==6)
@@ -2524,11 +2544,12 @@ func _report_panel() -> void:
  var ontime=100.0 if s["delivered"]==0 else s["on_time"]*100.0/s["delivered"]
  var quality=100.0 if s["delivered"]==0 else float(s["quality"])/s["delivered"]
  _button(Rect2(389,548,818,28),"CASH BRIDGE / PURCHASES / DEBT PAYMENTS","cash_bridge",CREAM,true,13)
- _text(Vector2(389,597),"Delivered %d • On time %.0f%% • Quality %.0f%% • Open jobs %d" % [s["delivered"],ontime,quality,report["open"]],19,INK)
+ _text(Vector2(389,597),"Delivered %d • On time %.0f%% • Quality %.0f%% • Open jobs %d • Focus: %s" % [s["delivered"],ontime,quality,report["open"],Planning.FOCUS[String(s.get("focus","balanced"))]["title"] if Planning.FOCUS.has(String(s.get("focus","balanced"))) else "Balanced"],17,INK,818)
  _text(Vector2(389,633),"Waste $%.0f / recovery $%d / loan $%d / equipment payment $%d" % [s["waste"],s.get("recovery",0),s.get("loan_payment",0),s.get("equipment_finance",0)],17,MUTED,810)
  _text(Vector2(389,668),"Cash now $%.0f / after daily bills $%.0f. Inventory use is not charged twice." % [report.get("cash_before_bills",sim.state["cash"]),report.get("cash_after_bills",sim.state["cash"])],17,BLUE,810)
- _button(Rect2(389,703,397,48),"SAVE + HOME","title",NAVY)
- _button(Rect2(801,703,406,48),"START NEXT DAY","next_day",YELLOW)
+ _button(Rect2(389,703,260,48),"SAVE + HOME","title",NAVY,true,16)
+ _button(Rect2(659,703,270,48),"PLAN TOMORROW","plan",CYAN,true,16)
+ _button(Rect2(939,703,268,48),"START NEXT DAY","next_day",YELLOW,true,16)
 
 func _settings_panel() -> void:
  _header("SETTINGS + LOCAL SAVE","Mouse and keyboard • Windows executable • No account or connection required")
@@ -2557,7 +2578,7 @@ func _settings_panel() -> void:
 
 func _help_panel() -> void:
  _header("HOW TO PLAY","Hands-on workshop play with a growing tycoon business")
- var lines=["1. Place your gifted vinyl cutter, a heat press and the free benches.","2. Open the shop. Marketing campaigns bring more inquiries.","3. Open the shop clock. Accept customer inquiries before they leave.","4. Walk with WASD / arrows, click floor, or use owner Auto Assist.","5. Check artwork. Vinyl shirts are cut mirrored, weeded, then pressed.","6. Queue the job and choose Work as Sam or enable Auto Assist.","7. Print, inspect and pack. Correct faults or accept reduced payment.","8. Shirts need garment blanks, vinyl or transfers, and the heat press.","9. Complete pickup to get paid. Find receipts in the Customer Desk.","10. Marketing costs appear in the daily profit report.","11. Paid jobs and goals earn XP. New shop levels unlock DTF and more.","12. Restock supplies, hire help and grow into bigger premises."]
+ var lines=["1. Place your gifted vinyl cutter, a heat press and the free benches.","2. Open the shop. Marketing campaigns bring more inquiries.","3. Open the shop clock. Accept customer inquiries before they leave.","4. Walk with WASD / arrows, click floor, or use owner Auto Assist.","5. Check artwork. Vinyl shirts are cut mirrored, weeded, then pressed.","6. Queue the job and choose Work as Sam or enable Auto Assist.","7. Print, inspect and pack. Correct faults or accept reduced payment.","8. Shirts need garment blanks, vinyl or transfers, and the heat press.","9. Complete pickup to get paid. Find receipts in the Customer Desk.","10. At day end, Plan Tomorrow: bills, jobs, stock, service and a daily focus.","11. Named clients offer contracts as you deliver for them (Customer Desk).","12. Specialize, restock, hire and grow into bigger premises."]
  for i in lines.size(): _text(Vector2(389,222+i*33),lines[i],16,INK,810)
  _text(Vector2(389,635),"Tab / Shift+Tab: select. Enter: activate / confirm placement.\nArrow keys: place equipment. Q: capacity. Space: pause.",16,BLUE,810)
  _text(Vector2(389,689),"Every saved shop stays on this Windows computer. Closing the game autosaves.",15,MUTED)
@@ -2630,10 +2651,11 @@ func _growth_panel() -> void:
  _button(Rect2(389,380,397,49),"INDUSTRIAL FIT-OUT  $350","fit_out",CYAN,sim.state["location"]==2 and not sim.state["fit_out"] and sim.state["cash"]>=350,17)
  _button(Rect2(801,380,406,49),"PURCHASE EQUIPMENT","equipment",CREAM,true,17)
  _button(Rect2(389,439,818,32),"SECOND DTF LINE  $900 / PLACE IN A CLEAR AISLE","second_line",CREAM,sim.state["fit_out"] and not sim.state["machines"].has("dtf2") and sim.state["cash"]>=900,14)
- _text(Vector2(389,499),"CLIENT FOCUS: "+sim.state["specialty"],23,BLUE,-1,true)
- var names=["General","Stickers","Apparel","Signs"]
- for i in names.size(): _button(Rect2(389+i*207,526,197,47),names[i],"specialty:"+names[i],CYAN if names[i]==sim.state["specialty"] else CREAM,true,17)
- _text(Vector2(389,610),"Your focus favors the next day's first inquiry when its equipment is installed. Diversify whenever useful. No accepted order changes.",19,INK,810)
+ var spec=Strategy.SPECIALIZATION.get(String(sim.state["specialty"]),Strategy.SPECIALIZATION["General"])
+ _text(Vector2(389,499),"SPECIALIZATION: "+spec["title"].to_upper(),21,BLUE,-1,true)
+ _button(Rect2(389,516,818,44),"REVIEW SPECIALIZATIONS AND TRADE-OFFS","specialize",CYAN,true,16)
+ _text(Vector2(389,590),spec["pitch"],15,INK,818)
+ _text(Vector2(389,634),spec["cost"],14,MUTED,818)
  _button(Rect2(389,661,818,34),"PRINT FACTORY: PRODUCTION ANNEX  $2,200 / +$75 DAILY","annex",CREAM,sim.state["location"]==2 and sim.state["fit_out"] and not sim.state.get("production_annex",false),15)
  _button(Rect2(389,710,818,43),"BACK TO SHOP","close",NAVY)
 
@@ -2730,6 +2752,10 @@ func _action_inner(action:String) -> void:
     if Strategy.FACTORS.has(key): draft_rules[key]=clampf(float(draft_rules[key])+int(parts[2])*.05,.5,2.0);draft_rules["preset"]="Custom"
    "board_filter": board_filter=parts[1];board_page=0
    "specialty": sim.select_specialty(parts[1])
+   "spec_pick": sim.select_specialty(parts[1])
+   "focus": Planning.choose(sim,parts[1])
+   "contract_accept": Contracts.accept(sim,parts[1]);assessment_cache={}
+   "contract_decline": Contracts.decline(sim,parts[1]);assessment_cache={}
    "order": selected_order=int(parts[1]); modal="order"
    "next_work":
     selected_order=int(parts[1])
@@ -2939,6 +2965,12 @@ func _action_inner(action:String) -> void:
   "move_garage":
    if sim.move_garage(): modal=""; reset_camera(); order_page=0
   "end_day": sim.end_day(); modal="report"
+  "plan": modal="plan";assessment_cache={}
+  "specialize": modal_return=modal if modal in ["plan","move"] else "move";modal="specialize"
+  "spec_back": modal=modal_return if modal_return!="" else "move"
+  "clients": modal_return=modal if modal in ["plan","customers"] else "customers";modal="clients";client_offer_page=0;assessment_cache={}
+  "clients_back": modal=modal_return if modal_return!="" else "customers"
+  "offer_next": client_offer_page=(client_offer_page+1)%maxi(1,sim.state.get("contract_offers",[]).size());assessment_cache={}
   "next_day": sim.next_day(); modal=""
   "sound":
    sim.state["settings"]["sound"]=not sim.state["settings"]["sound"]
@@ -3435,7 +3467,7 @@ func _draw_world_labels() -> void:
 func _cash_bridge_panel() -> void:
  var report=sim.end_day();var stats=report["stats"];var bridge=report.get("cash_bridge",{})
  _header("DAILY CASH BRIDGE","Operating profit and cash balance differ when you buy stock, equipment or premises, or repay debt.")
- var rows=[["Opening cash",bridge.get("opening",0)],["Sales collected + recovery + loan receipts",stats["sales"]+stats.get("recovery",0)+stats.get("loan_in",0)],["Supply purchases (not stock consumed)",-stats.get("supply_purchases",0)],["Premises / equipment / decor",-stats.get("capex",0)],["Hiring / upgrades",-stats.get("hiring",0)-stats.get("upgrades",0)],["Artwork / marketing / event costs",-stats["art_fees"]-stats.get("marketing",0)-stats.get("hurdles",0)],["Current cash before closing bills",report.get("cash_before_bills",sim.state["cash"])],["Daily wages / overhead",-stats["wages"]-stats["overhead"]],["Loan / equipment repayments",-stats.get("loan_payment",0)-stats.get("equipment_finance",0)],["Cash after closing bills",report.get("cash_after_bills",sim.state["cash"])]]
+ var rows=[["Opening cash",bridge.get("opening",0)],["Sales + contract deposits + recovery + loan receipts",stats["sales"]+stats.get("deposits",0)+stats.get("recovery",0)+stats.get("loan_in",0)],["Supply purchases (not stock consumed)",-stats.get("supply_purchases",0)],["Premises / equipment / decor",-stats.get("capex",0)],["Hiring / upgrades / retooling",-stats.get("hiring",0)-stats.get("upgrades",0)],["Artwork / marketing / event costs",-stats["art_fees"]-stats.get("marketing",0)-stats.get("hurdles",0)],["Current cash before closing bills",report.get("cash_before_bills",sim.state["cash"])],["Daily wages / overhead",-stats["wages"]-stats["overhead"]],["Loan / equipment repayments",-stats.get("loan_payment",0)-stats.get("equipment_finance",0)],["Cash after closing bills",report.get("cash_after_bills",sim.state["cash"])]]
  for i in rows.size():
   var y=238+i*40
   _text(Vector2(389,y),rows[i][0],18,BLUE if i in [0,6,9] else INK)

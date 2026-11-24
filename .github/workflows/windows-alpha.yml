@@ -22,7 +22,7 @@ jobs:
         run: ./updater/Test-Updater.ps1
   windows:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     permissions:
       contents: write
     outputs:
@@ -55,12 +55,14 @@ jobs:
           engine="$RUNNER_TEMP/godot/Godot_v4.5.1-stable_linux.x86_64"
           "$engine" --headless --path source --editor --import
           mkdir -p "$(realpath -m source/../../../work)"
-          for test in studio_operations studio_visual_review workshop_operations workshop_visual_review demo_shop strategy_visual_review updater_security update_release_formats strategy_growth native_release_walkthrough handoff_recovery acceptance customer_loop sales_growth customer_walking session_reliability illustrated_equipment rotation_stability illustrated_ui ui_dtf_placement wall_visual_review shop_workspace window_controls final_visual_review bugfix_regression starter_equipment premises_check progress_check products_check customers_check people_check merch_check audio_check audit_edge_cases starter_visual_review; do
+          for test in studio_operations studio_visual_review workshop_operations workshop_visual_review demo_shop strategy_visual_review updater_security update_release_formats strategy_growth native_release_walkthrough handoff_recovery acceptance customer_loop sales_growth customer_walking session_reliability illustrated_equipment rotation_stability illustrated_ui ui_dtf_placement wall_visual_review shop_workspace window_controls final_visual_review bugfix_regression starter_equipment premises_check progress_check products_check customers_check people_check merch_check audio_check audit_edge_cases starter_visual_review planning_contracts planning_visual_review; do
             timeout 300 xvfb-run -a "$engine" --verbose --path source --rendering-method gl_compatibility --audio-driver Dummy --script "res://test/$test.gd" 2>&1 | tee "$RUNNER_TEMP/$test.log"
             if grep -E 'SCRIPT ERROR:|ERROR:|FAIL:' "$RUNNER_TEMP/$test.log"; then exit 1; fi
           done
           timeout 240 "$engine" --headless --path source --script res://test/strategy_balance.gd 2>&1 | tee "$RUNNER_TEMP/strategy_balance.log"
           if grep -E 'SCRIPT ERROR:|ERROR:|FAIL:' "$RUNNER_TEMP/strategy_balance.log"; then exit 1; fi
+          timeout 900 "$engine" --headless --path source --script res://test/specialization_balance.gd 2>&1 | tee "$RUNNER_TEMP/specialization_balance.log"
+          if grep -E 'SCRIPT ERROR:|ERROR:|FAIL:' "$RUNNER_TEMP/specialization_balance.log"; then exit 1; fi
       - name: Record task-linked motion at 1x, 4x and pause
         shell: bash
         run: |
@@ -110,6 +112,7 @@ jobs:
             release/*.sha256
             captures/strategy-review/**
             captures/final-review/**
+            captures/planning-review/**
             verification/strategy-balance.json
           if-no-files-found: error
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

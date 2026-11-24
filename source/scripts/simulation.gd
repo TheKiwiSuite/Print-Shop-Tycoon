@@ -8,6 +8,8 @@ const Progress=preload("res://scripts/shop_progress.gd")
 const Customers=preload("res://scripts/shop_customers.gd")
 const Merch=preload("res://scripts/shop_merch.gd")
 const People=preload("res://scripts/shop_people.gd")
+const Planning=preload("res://scripts/shop_planning.gd")
+const Contracts=preload("res://scripts/shop_contracts.gd")
 const SHOP_HOURS_PER_SECOND=0.009
 const SAVE = "user://native-shop-v3.json"
 var save_path=SAVE
@@ -24,6 +26,8 @@ func start_shop(preset:String="Standard",custom:Dictionary={}) -> void:
  state["day_open_cash"]=state["cash"]
  Strategy.ensure(self)
  Ops.ensure(self)
+ Planning.ensure(self)
+ Contracts.ensure(self)
  # Most shops start with one small vinyl cutter: gift it, walk the player
  # through their first heat-transfer vinyl shirts, then unlock DTF with sales.
  state["gifts"]=["cutter"]
@@ -82,6 +86,8 @@ func start_demo() -> void:
  accept(0);preflight(0,"repair");auto_pack(0);queue_order(0)
  state["cash"]=5000;state["stats"]=C.day_stats()
  Ops.ensure(self)
+ Planning.ensure(self)
+ Contracts.ensure(self)
  notice("Demo shop: equipment, team and $5,000 supplied. First job is queued. This demo has its own save.")
 
 func change_rules(preset:String,custom:Dictionary={}) -> bool:
@@ -159,8 +165,17 @@ func quote(i:int,rush:bool=false,board_snapshot:Dictionary={}) -> Dictionary:
 func select_specialty(name:String) -> bool:
  if not Strategy.SPECIALTIES.has(name): return false
  Strategy.ensure(self)
+ if name==String(state["specialty"]): return true
+ var ready=Strategy.spec_ready(self,name)
+ if not ready["ok"]: notice(ready["reason"]+" to specialize as "+Strategy.SPECIALIZATION[name]["title"]+".");return false
+ var fee=Strategy.retool_fee(self,name)
+ if fee>0:
+  if state["cash"]<fee: notice("Retooling costs $%d." % fee);return false
+  state["cash"]-=fee
+  state["stats"]["upgrades"]=int(state["stats"].get("upgrades",0))+fee
+  state["stats"]["retool"]=int(state["stats"].get("retool",0))+fee
  state["specialty"]=name
- notice(name+" focus selected. Future daily inquiries favor its installed routes; prices on accepted work stay fixed.")
+ notice("%s selected%s. New inquiries and production follow it from now; accepted orders keep their prices and deadlines." % [Strategy.SPECIALIZATION[name]["title"]," (retool $%d)" % fee if fee>0 else ""])
  return true
 
 func repeat_order(i:int) -> bool:
@@ -319,6 +334,12 @@ func premises() -> String:
 
 func premises_title() -> String:
  return PREMISES_TITLES[premises()]
+
+# Day-close overhead: premises rent scaled by difficulty, annex, and a
+# specialization's floor cost. Used by the day report and every forecast.
+func daily_overhead() -> int:
+ Strategy.ensure(self)
+ return roundi(base_overhead()*float(state["rules"]["overhead"]))+(75 if state.get("production_annex",false) else 0)+roundi(Strategy.spec_overhead(self)*float(state["rules"]["overhead"]))
 
 func base_overhead() -> int:
  return {"garage":60,"storefront":125}.get(premises(),200)
@@ -521,7 +542,7 @@ func _update_visits() -> void:
    o["due"]=now()+6.5
    o["visit"]["status"]="inquiry"
    o["visit"]["arrived_at"]=now()
-   o["visit"]["patience_until"]=now()+3.0*float(state["rules"]["patience"])*Customers.patience_scale(self,String(o["customer"]))
+   o["visit"]["patience_until"]=now()+3.0*float(state["rules"]["patience"])*Customers.patience_scale(self,String(o["customer"]))*Planning.patience(self)
    notice("%s arrived: %d %s. Respond within %d shop minutes." % [o["customer"],o["quantity"],o["product"],roundi(180*float(state["rules"]["patience"]))])
   elif o["stage"]=="intake" and float(o["visit"].get("patience_until",-1.0))>=0 and now()>=float(o["visit"]["patience_until"]):
    o["stage"]="abandoned"
@@ -1378,6 +1399,7 @@ func task_duration(w:Dictionary) -> float:
   duration*=maxf(1.0,float(quantity)/maxf(1,float(o["quantity"])))
  if state.has("operations") and state["machines"][w["task"]["machine"]]["condition"]<65:duration*=1.15
  if o.get("intervention_bonus",false):duration*=.95
+ duration*=Strategy.speed_factor(self,kind)
  return duration / (float(w["skill"])*People.speed(w))
 
 func machine_progress(id:String) -> float:
@@ -1434,7 +1456,7 @@ func _finish_task(w:Dictionary) -> void:
    notice("Artist checked dimensions and repaired the artwork. Plan production next.")
   "queued":
    m["service_uses"]=int(m.get("service_uses",0))+1
-   m["condition"]=maxi(20,m["condition"]-3)
+   m["condition"]=maxi(20,m["condition"]-3-Planning.extra_wear(self))
    if m["kind"]=="dtf": state["machines"]["shaker2" if t["machine"]=="dtf2" else "shaker"]["condition"]-=2
    for j in o.get("batch_members",[t["order"]]):
     var member=order(int(j))
@@ -1476,7 +1498,7 @@ func _quality_issue(o:Dictionary, m:Dictionary) -> String:
   var roll=float(o.get("fault_roll",1))
   if int(o["reprints"])>0: roll=float(absi((o["id"]+":retry:"+str(int(o["reprints"]))).hash())%10000)/10000.0
   var risk=.02*float(o["rules_at_accept"]["faults"])/maxf(.5,float(o.get("production_skill",1)))
-  if roll<risk: return "Recoverable alignment defect: inspect, recalibrate and reprint"
+  if roll<risk and not Planning.defect_guard(self): return "Recoverable alignment defect: inspect, recalibrate and reprint"
  return ""
 
 func recover(i:int, reprint:bool) -> bool:
@@ -1519,7 +1541,7 @@ func _fulfill(o:Dictionary) -> void:
  var reward=roundi(o["reward"]*(0.76 if o["quality_accepted"] else 1.0))
  # Original print-shop design: quality and lateness determine satisfaction.
  var lateness=maxf(0.0,now()-float(o["due"]))
- var satisfaction=clampi(roundi(float(o["quality"])-minf(40.0,lateness*10.0)),0,100)
+ var satisfaction=clampi(roundi(float(o["quality"])-minf(40.0,lateness*10.0))+Planning.satisfaction_bonus(self),0,100)
  # Regulars tip on good work; every paid job leaves a star review (new careers).
  var tip=Customers.tip(self,o,reward,satisfaction)
  reward+=tip
@@ -1543,6 +1565,7 @@ func _fulfill(o:Dictionary) -> void:
  o["finished_at"]=now()
  state["customers"][o["customer"]]=state["customers"].get(o["customer"],0)+1
  Progress.paid(self,o,punctual)
+ Contracts.on_paid(self,o,punctual,satisfaction)
  notice("Delivered %d %s%s. +$%d / Satisfaction %d%%" % [o["quantity"],o["product"]," on time" if punctual else " late",reward,satisfaction])
  save_game()
 
@@ -1808,16 +1831,17 @@ func end_day() -> Dictionary:
  var s=state["stats"].duplicate(true)
  for w in state["workers"]: s["wages"]+=w["wage"]
  Strategy.ensure(self)
- s["overhead"]=roundi(base_overhead()*float(state["rules"]["overhead"]))+(75 if state.get("production_annex",false) else 0)
+ s["overhead"]=daily_overhead()
  s["loan_payment"]=mini(50,int(state.get("loan_remaining",0)))
  s["equipment_finance"]=Ops.daily_debt(self)
- var net=s["sales"]+s.get("recovery",0)-s["materials"]-s["art_fees"]-s.get("marketing",0)-s["wages"]-s["overhead"]-s.get("hurdles",0)
+ var net=s["sales"]+s.get("deposits",0)+s.get("recovery",0)-s["materials"]-s["art_fees"]-s.get("marketing",0)-s["wages"]-s["overhead"]-s.get("hurdles",0)
  state["report"]={"stats":s,"net":net,"day":state["day"],"open":active_orders().size()}
  state["report"]["cash_before_bills"]=state["cash"]
  state["report"]["cash_after_bills"]=state["cash"]-s["wages"]-s["overhead"]-s["loan_payment"]-s["equipment_finance"]
  if state.has("day_open_cash"):
-  state["report"]["cash_bridge"]={"opening":state["day_open_cash"],"receipts":s["sales"],"recovery":s.get("recovery",0),"loan_in":s.get("loan_in",0),"supplies":s.get("supply_purchases",0),"capital":s.get("capex",0),"hiring":s.get("hiring",0),"upgrades":s.get("upgrades",0),"art":s["art_fees"],"marketing":s.get("marketing",0)}
+  state["report"]["cash_bridge"]={"opening":state["day_open_cash"],"receipts":s["sales"],"deposits":s.get("deposits",0),"recovery":s.get("recovery",0),"loan_in":s.get("loan_in",0),"supplies":s.get("supply_purchases",0),"capital":s.get("capex",0),"hiring":s.get("hiring",0),"upgrades":s.get("upgrades",0),"art":s["art_fees"],"marketing":s.get("marketing",0)}
  state["best_profit"]=maxf(state["best_profit"],net)
+ Planning.close_day(self,state["report"])
  save_game()
  return state["report"]
 
@@ -1836,6 +1860,10 @@ func next_day() -> void:
  state["stats"]=C.day_stats()
  state["day_open_cash"]=state["cash"]
  for w in state["workers"]: w["shift_seconds"]=0.0;w["work_seconds"]=0.0
+ # Today's focus (chosen in the plan) and contract deliveries due today come
+ # before inquiries, so the inquiry cap sees real committed work.
+ Planning.begin_day(self)
+ Contracts.begin_day(self)
  var types=["transfer","sticker","apparel"] if state["location"]==1 else ["transfer","sticker","apparel","banner","cnc"]
  # Vinyl decal work is offered only to shops that own a cutter, so existing
  # shops keep their previous inquiry rotation.
@@ -1851,24 +1879,31 @@ func next_day() -> void:
  var stolen=People.steals(self)
  var first_today=state["orders"].size()
  var count=_lead_count(types)
- for n in types.size():
-  if count>=6: break
+ var limit=mini(6,Planning.inquiry_limit(self))
+ var slots=types.size()+Planning.extra_inquiries(self)
+ for n in slots:
+  if count>=limit or types.is_empty(): break
   var type=types[(n+int(state["day"]))%types.size()]
-  if int(state["rules"]["version"])>0 and state["specialty"]!="General" and n==0:
-   for favorite in Strategy.SPECIALTIES[state["specialty"]]:
+  if int(state["rules"]["version"])>0 and state["specialty"]!="General" and (n==0 or (n==2 and Strategy.spec_active(self))):
+   var favorites=Strategy.SPECIALTIES[state["specialty"]]
+   for k in favorites.size():
+    var favorite=favorites[(k+(1 if n==2 else 0))%favorites.size()]
     if types.has(favorite): type=favorite;break
   # Seasonal demand: the second inquiry of the day favors what is in season.
   if Customers.active(self) and n==1:
    for seasonal in Customers.season(self)["boost"]:
     if types.has(seasonal): type=seasonal;break
-  var q={"transfer":12,"sticker":60,"apparel":12,"banner":2,"cnc":6,"decal":24,"mug":12,"hat":8}[type]
+  var q=int(C.BASE_QTY[type])
   q+=(int(state["day"])%3)*({"transfer":6,"sticker":20,"apparel":0,"banner":0,"cnc":1,"decal":12,"mug":6,"hat":4}[type])
   if int(state["rules"]["version"])>0:
    # Partial sheets create a real material-saving / waiting tradeoff for batches.
    if type=="transfer": q=10+(int(state["day"])%4)*3
    if type=="apparel": q=9+(int(state["day"])%3)*2
   var customer=C.CUSTOMERS[(n+int(state["day"]))%C.CUSTOMERS.size()]
-  var reward=roundi(q*{"transfer":20.0,"sticker":4.2,"apparel":50.0,"banner":380.0,"cnc":118.0,"decal":4.0,"mug":9.0,"hat":16.0}[type])
+  # Specialization terms apply to NEW inquiries only (quantity and per-piece price).
+  var terms=Strategy.inquiry_terms(self,type)
+  q=maxi(1,roundi(q*float(terms[0])))
+  var reward=roundi(q*float(C.UNIT_PRICE[type])*float(terms[1]))
   reward=Customers.seasonal_reward(self,type,reward)
   var o=C.make_order("DAY%d-%d" % [state["day"],n],type,q,customer,now()+5.5+n*0.5,reward)
   # New careers also get hoodie and tote-bag versions of shirt work as they grow.
@@ -1886,6 +1921,21 @@ func next_day() -> void:
   count+=1
  if stolen>0 and state["orders"].size()-first_today>=2: state["orders"].pop_back();People.note_lost(self,1)
  elif People.active(self): People.note_lost(self,0)
+ # One named client may ask today: an existing new inquiry of a type they buy
+ # becomes theirs (same count, their price preference applied).
+ var generated=[]
+ for k in range(first_today,state["orders"].size()):
+  if not state["orders"][k].has("contract"): generated.append(state["orders"][k]["type"])
+ var ask=Contracts.client_inquiry(self,int(state["day"]),generated)
+ if not ask.is_empty():
+  for k in range(state["orders"].size()-1,first_today-1,-1):
+   var o=state["orders"][k]
+   if o["type"]==ask["type"] and not o.has("contract") and not o.has("client") and not o.get("wholesale",false):
+    if o.get("returning",false): o["reward"]-=35;o.erase("returning")
+    Contracts.tag_inquiry(self,o,ask["client"]);break
+ state["stats"]["inquiries"]=0
+ for k in range(first_today,state["orders"].size()):
+  if not state["orders"][k].has("contract"): state["stats"]["inquiries"]+=1
  notice("Day %d begins. Paid wages / overhead; unfinished jobs retain their deadlines." % state["day"])
  save_game()
 
@@ -2005,6 +2055,8 @@ func load_game() -> bool:
   _ensure_marketing()
   Strategy.ensure(self)
   Ops.ensure(self)
+  Planning.ensure(self)
+  Contracts.ensure(self)
   state["operations"]["finance_intent"]=""
   var intervention=state["operations"]["active_qte"]
   if not intervention.is_empty():

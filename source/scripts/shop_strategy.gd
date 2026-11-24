@@ -145,6 +145,7 @@ static func board(s,include_inquiries:bool=false) -> Dictionary:
      if m["kind"]=="dtf" and s.state["upgrades"]["auto_feeder"]: duration*=0.7
      if s.state.has("operations") and m["condition"]<65:duration*=1.15
      if o.get("intervention_bonus",false):duration*=.95
+     duration*=speed_factor(s,"handoff" if requested=="handoff" else m["kind"])
      duration/=maxf(.1,float(w["skill"]))
      if m["kind"]=="dtf" and o.has("batch_members"):
       var count=0
@@ -172,11 +173,80 @@ static func board(s,include_inquiries:bool=false) -> Dictionary:
   rows.append({"index":i,"id":o["id"],"required":required,"missing":missing,"reasons":reasons,"finish":-1.0 if blocked else finish,"risk":"BLOCKED" if blocked else ("OVERDUE" if clock>float(o["due"]) else ("AT RISK" if finish>float(o["due"]) else "ON TRACK")),"operator":operator_name,"station":station_name,"remaining_cost":cost,"payout":payout,"margin":payout-float(o["material_cost"])-cost,"assumptions":"Estimate assumes prompt approvals, uninterrupted operators and normal quality; customer return can add time."})
  var wages=0.0
  for w in s.state["workers"]: wages+=float(w["wage"])
- var overhead=roundi(s.base_overhead()*float(s.state["rules"]["overhead"]))
+ var overhead=s.daily_overhead()
  var loan=mini(50,int(s.state.get("loan_remaining",0)))
  var receipts=0
  for row in rows:
   if row["finish"]>=0 and row["finish"]<=clock+17-float(s.state["clock"]): receipts+=row["payout"]
  loan+=preload("res://scripts/shop_operations.gd").daily_debt(s)
- overhead+=75 if s.state.get("production_annex",false) else 0
  return {"rows":rows,"required":reserved,"on_hand":original,"wages":wages,"overhead":overhead,"loan_payment":loan,"obligations":wages+overhead+loan,"receipts":receipts,"cash_after_bills":float(s.state["cash"])-wages-overhead-loan,"cash_if_collected":float(s.state["cash"])-wages-overhead-loan+receipts}
+
+# --- Business specializations (1.2.0) -------------------------------------
+# A specialization extends the existing client focus. It changes which inquiries
+# arrive first, how fast the matching stations run, prices quoted on NEW
+# inquiries, and daily overhead. Accepted orders keep their terms. Older-economy
+# shops (rules version 0) keep the previous behavior: no speed, price or cost
+# effects. Switching between two specializations costs a disclosed retool fee;
+# picking one from General, or returning to General, is free.
+const RETOOL_FEE=120
+const STATION_NAMES={"sticker":"sticker printer","cutter":"vinyl cutter","heat":"heat press","banner":"banner printer","cnc":"CNC router","mug":"mug press","embroidery":"embroidery machine","dtf":"DTF line","dtfmini":"desktop DTF"}
+const SPECIALIZATION={
+ "General":{"title":"Generalist shop","stations":[],"types":[],"speed":1.0,"off_speed":1.0,"price":1.0,"quantity":1.0,"overhead":0,"needs":[],
+  "pitch":"Takes every kind of job your machines can make. No bonus, no penalty.",
+  "cost":"No extra cost."},
+ "Stickers":{"title":"Sticker studio","stations":["sticker","cutter","mug"],"types":["sticker","decal","mug"],"speed":0.88,"off_speed":1.08,"price":0.97,"quantity":1.25,"overhead":0,"needs":["sticker","cutter"],
+  "pitch":"Sticker, decal and mug inquiries come first and arrive 25% bigger. Sticker, cutter and mug stations run 12% faster.",
+  "cost":"Bulk pricing: 3% less per piece on new sticker-studio quotes. Other work runs 8% slower."},
+ "Apparel":{"title":"Apparel house","stations":["heat","dtf","dtf2","dtfmini","embroidery"],"types":["apparel","transfer","hat"],"speed":0.88,"off_speed":1.08,"price":1.06,"quantity":1.0,"overhead":0,"needs":["heat"],
+  "pitch":"Shirt, transfer and hat inquiries come first and quote 6% higher. Heat press, DTF and embroidery run 12% faster.",
+  "cost":"Other work runs 8% slower. Blank garments are still bought per job."},
+ "Signs":{"title":"Sign works","stations":["banner","cnc","cutter"],"types":["banner","cnc","decal"],"speed":0.9,"off_speed":1.1,"price":1.08,"quantity":1.0,"overhead":30,"needs":["banner","cnc"],
+  "pitch":"Banner, CNC and decal inquiries come first and quote 8% higher. Banner, CNC and cutter stations run 10% faster.",
+  "cost":"Large-format floor: +$30 daily overhead (scaled by difficulty). Other work runs 10% slower."}}
+
+static func spec(s) -> Dictionary:
+ return SPECIALIZATION.get(String(s.state.get("specialty","General")),SPECIALIZATION["General"])
+
+static func spec_active(s) -> bool:
+ return s.state.get("rules") is Dictionary and int(s.state["rules"].get("version",0))>0 and String(s.state.get("specialty","General"))!="General"
+
+# Is a specialization usable with the equipment installed right now?
+static func spec_ready(s,name:String) -> Dictionary:
+ var data=SPECIALIZATION.get(name,{})
+ if data.is_empty(): return {"ok":false,"reason":"Unknown specialization"}
+ if data["needs"].is_empty(): return {"ok":true,"reason":""}
+ for id in data["needs"]:
+  if s.state["machines"].has(id): return {"ok":true,"reason":""}
+ var names=[]
+ for id in data["needs"]: names.append(STATION_NAMES.get(id,id))
+ return {"ok":false,"reason":"Install a "+" or ".join(names)+" first"}
+
+static func retool_fee(s,name:String) -> int:
+ var current=String(s.state.get("specialty","General"))
+ if current==name or current=="General" or name=="General": return 0
+ return RETOOL_FEE if int(s.state["rules"].get("version",0))>0 else 0
+
+# Production-time multiplier for a station kind (specialization x daily focus).
+static func speed_factor(s,kind:String) -> float:
+ var factor=1.0
+ if spec_active(s):
+  var data=spec(s)
+  factor*=float(data["speed"]) if kind in data["stations"] else (1.0 if kind in ["art","finish","pack","dock","storage","handoff"] else float(data["off_speed"]))
+ return factor*preload("res://scripts/shop_planning.gd").focus_speed(s)
+
+# Quote adjustments for a NEW inquiry of this type. Returns [quantity_scale, price_scale].
+static func inquiry_terms(s,type:String) -> Array:
+ if not spec_active(s): return [1.0,1.0]
+ var data=spec(s)
+ if type in data["types"]: return [float(data["quantity"]),float(data["price"])]
+ return [1.0,1.0]
+
+static func spec_overhead(s) -> int:
+ return int(spec(s)["overhead"]) if spec_active(s) else 0
+
+# Cells of floor taken by a specialization's own stations (truthful footprint).
+static func spec_floor(s,name:String) -> int:
+ var cells=0
+ for id in SPECIALIZATION[name]["stations"]:
+  if s.state["machines"].has(id): cells+=s.footprint(id).size()
+ return cells
