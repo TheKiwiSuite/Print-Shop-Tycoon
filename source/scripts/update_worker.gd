@@ -15,7 +15,7 @@ func run() -> void:
  if not parsed is Dictionary:quit(1);return
  plan=parsed
  var target=str(plan.get("target",""))
- if plan.get("nonce","")!=args[0] or not target.is_absolute_path() or target.simplify_path()!=target or target.get_file()!="Print Shop Tycoon.exe" or int(plan.get("pid",0))<=0:quit(1);return
+ if plan.get("nonce","")!=args[0] or not target.is_absolute_path() or target.simplify_path()!=target or not Updates.supported_filename(target) or int(plan.get("pid",0))<=0:quit(1);return
  if not Updates.newer(str(plan.get("version","")),str(plan.get("old_version",""))):quit(1);return
  # Never replace an executable while the original game process is alive.
  for tick in 120:
@@ -28,11 +28,12 @@ func run() -> void:
  var verified=Updates.metadata(release,plan["old_version"])
  for key in ["version","digest","size","release_id","asset_id","name"]:
   if verified.get(key,null)!=plan.get(key,null):finish("Update revalidation failed. The previous game is retained.");return
+ if verified.get("format","zip")!=plan.get("format","zip"):finish("Update format revalidation failed. The previous game is retained.");return
  var archive=OS.get_user_data_dir().path_join("updates").path_join(plan["name"])
  if plan.get("archive","")!=archive or not Updates.verify_archive(archive,verified):finish("Update digest mismatch. The previous game is retained.");return
  var next=target.get_base_dir().path_join("Print Shop Tycoon.next-"+args[0]+".exe")
  var backup=target.get_base_dir().path_join("Print Shop Tycoon.rollback-"+args[0]+".exe")
- if not Updates.extract_executable(archive,next):finish("Could not stage the verified game executable.");return
+ if not Updates.stage_package(archive,next,verified):finish("Could not stage the verified game executable.");return
  var candidate_hash=FileAccess.get_sha256(next)
  if not Updates.atomic_replace(target,next,backup,plan["old_hash"]):finish("Windows could not replace the game. Check folder permissions or antivirus; the previous build is retained.");return
  var pid=OS.create_process(target,["--","--update-health",args[0]])

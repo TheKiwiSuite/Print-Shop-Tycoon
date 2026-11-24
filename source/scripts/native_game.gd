@@ -2987,7 +2987,7 @@ func _save_window_preference() -> void:
  if preferences.save(_preference_save_path()+".preferences.cfg")!=OK: sim.notice("Display changed; preference could not be saved.")
 
 func _updates_panel() -> void:
- _header("GAME UPDATES + SAVE BACKUPS","Installed v"+str(ProjectSettings.get_setting("application/config/version"))+" / Official Windows alpha channel")
+ _header("GAME UPDATES + SAVE BACKUPS","Installed v"+str(ProjectSettings.get_setting("application/config/version"))+" / Official Windows releases")
  _text(Vector2(389,243),update_service.status,20,BLUE,810)
  if update_service.request!=null:
   _text(Vector2(389,312),"Downloaded %.1f MB" % (float(update_service.request.get_downloaded_bytes())/1000000),18,INK)
