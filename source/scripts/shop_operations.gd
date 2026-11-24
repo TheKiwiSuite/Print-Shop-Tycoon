@@ -173,16 +173,24 @@ static func resolve_event(s,choice:String) -> bool:
  elif choice!="keep":return false
  event["resolved"]=true;event["choice"]=choice;ops["event_history"].append(event.duplicate(true));ops["event"]={}
  s.save_game();s.notice("Shop decision recorded. Existing accepted terms remain fixed.");return true
-static func begin_qte(s,index:int,kind:String) -> bool:
+static func qte_unavailable(s,index:int,kind:String) -> String:
  ensure(s)
  var ops=s.state["operations"];var o=s.order(index)
- if o.is_empty() or not ops["qte_enabled"] or ops["away"] or not ops["active_qte"].is_empty():return false
- if kind not in ["registration","press","jam"]:return false
- if kind=="registration" and (o["type"]!="sticker" or o["stage"] not in ["plan","queued"]):return false
- if kind=="press" and (o["type"]!="apparel" or o["stage"]!="press"):return false
- if kind=="jam" and not s.state["machines"].get(s.machine_for(o),{}).get("broken",false):return false
+ if o.is_empty():return "Select a current job"
+ if not ops["qte_enabled"]:return "Timing is off in Workshop"
+ if ops["away"]:return "End Away shift first"
+ if not ops["active_qte"].is_empty():return "Finish the active timing event"
+ if kind not in ["registration","press","jam"]:return "No timing event for this task"
+ if kind=="registration" and (o["type"]!="sticker" or o["stage"] not in ["plan","queued"]):return "Available before sticker printing"
+ if kind=="press" and (o["type"]!="apparel" or o["stage"]!="press"):return "Available when ready to press"
+ if kind=="jam" and not s.state["machines"].get(s.machine_for(o),{}).get("broken",false):return "Station has no jam to clear"
  var id=o["id"]+":"+kind
- if ops["qtes"].has(id):return false
+ if ops["qtes"].has(id):return "Already attempted for this job"
+ if ops["qte_day"]==s.state["day"] and ops["qte_count"]>=2:return "Today's two attempts are used"
+ return ""
+static func begin_qte(s,index:int,kind:String) -> bool:
+ if qte_unavailable(s,index,kind)!="":return false
+ var ops=s.state["operations"];var o=s.order(index);var id=o["id"]+":"+kind
  if ops["qte_day"]!=s.state["day"]:ops["qte_day"]=s.state["day"];ops["qte_count"]=0
  if ops["qte_count"]>=2:return false
  ops["active_qte"]={"id":id,"order":index,"kind":kind,"elapsed":0.0,"step":0,"practice":ops["qtes"].is_empty(),"resume_paused":s.state["paused"]};return true

@@ -15,6 +15,7 @@ const Banner=preload("res://scripts/partner_banner.gd")
 var partner_banners=[]
 var world_labels=[]
 var workshop_page=0
+var workshop_service_page=0
 var style_worker="owner"
 var pending_decor=""
 var moving_decor=""
@@ -2174,7 +2175,10 @@ func _order_panel() -> void:
  var routes={"mug":"ART CHECK > PRINT TRANSFERS > WRAP MUGS > MUG PRESS > QC > PACK","hat":"DIGITIZE ART > HOOP CAPS > STITCH > TRIM THREADS > QC > PACK","decal":"ART CHECK > VINYL CUT > WEED > TRANSFER TAPE > QC > PACK","transfer":"ART > GANG SHEET > CMYK + WHITE > POWDER > CURE > TAKE-UP > QC > PACK","apparel":"ART > DTF TRANSFER > GARMENT BLANKS > HEAT PRESS / PEEL > QC > PACK","sticker":"BLEED / CUT PATH > PRINT > LAMINATE > REGISTRATION > CONTOUR CUT > QC","banner":"MEDIA WIDTH > WIDE PRINT > TRIM / GROMMETS > INSPECT > PACK > SHIP","cnc":"TOOLPATH > PANEL / TOOL PRESET > LOAD > GANTRY CUT > UNLOAD > QC"}
  _panel(Rect2(385,287,823,53),Color("edf5ff"),Color("d0e1f6"),6)
  _text(Vector2(400,309),"ART CHECK > MIRRORED VINYL CUT > WEED > HEAT PRESS / PEEL > QC > PACK" if C.is_htv(o) else routes[o["type"]],15,INK,790)
- if o["type"] in ["sticker","apparel"] and o["stage"] in ["plan","queued","press"]:_button(Rect2(1015,348,192,29),"OPTIONAL TIMING","intervene",CYAN,true,12)
+ if o["type"] in ["sticker","apparel"] and o["stage"] in ["plan","queued","press"]:
+  var timing_reason=Ops.qte_unavailable(sim,selected_order,"registration" if o["type"]=="sticker" else "press")
+  _button(Rect2(1015,348,192,29),"OPTIONAL TIMING","intervene",CYAN,timing_reason=="",12)
+  if timing_reason!="":_line(Vector2(1015,393),timing_reason,11,MUTED,192)
  _text(Vector2(389,375),"Artwork: %s  •  Physical design: %.1f x %.1f in" % ["ready" if o["art_ready"] else "needs a fix",o["art_w"],o["art_h"]],18,INK)
  var recipe=C.recipe(o)
  var used=[]
@@ -2202,10 +2206,11 @@ func _order_panel() -> void:
   "revision": _text(pos,"Corrected artwork arrives in %d shop minutes." % maxi(0,ceili((o["revision_eta"]-sim.now())*60)),19,BLUE)
   "plan":
    var feedback=sim.preset_feedback(o)
-   _line(Vector2(389,654 if o["type"]=="sticker" else 606),feedback["text"],15,RED if feedback["warning"] else BLUE,810)
+   var mixed_route=o["type"] in ["transfer","apparel"] and o.get("method",sim.shirt_method(o))!="htv"
+   _line(Vector2(389,638 if o["type"]=="sticker" else (590 if mixed_route else 606)),feedback["text"],15,RED if feedback["warning"] else BLUE,810)
    if o["type"] in ["transfer","apparel"] and o.get("method",sim.shirt_method(o))!="htv":
     var batch=sim.batch_preview(selected_order)
-    _button(Rect2(389,633,818,40),"MIXED BATCH: SAVE %d FT FILM" % batch.get("saved",0) if batch["valid"] else "BATCH: "+batch.get("reason","No match"),"batch",CREAM,batch["valid"],14)
+    _button(Rect2(389,610,818,34),"MIXED BATCH: SAVE %d FT FILM" % batch.get("saved",0) if batch["valid"] else "BATCH: "+batch.get("reason","No match"),"batch",CREAM,batch["valid"],14)
    if o["type"] in ["transfer","apparel"] and o.get("method",sim.shirt_method(o))!="htv":
     _button(Rect2(389,511,396,54),"OPEN GANG SHEET","gang",CYAN)
     _button(Rect2(801,511,406,54),"WHITE: "+o["settings"]["white"].to_upper(),"white",CREAM)
@@ -2251,7 +2256,7 @@ func _order_panel() -> void:
   "scheduled": _text(pos,_customer_detail(o)+".\nFinish setup, then resume the shop clock.",19,INK,800)
   "abandoned": _text(pos,"The customer left before a quote was accepted. No payment was taken.",19,MUTED,800)
   "declined": _text(pos,"This order was declined.",21,MUTED)
- if Art.eligible(sim,selected_order) or not o.get("artwork_offer",{}).is_empty():_button(Rect2(389,650,818,35),"REVIEW CUSTOMER ARTWORK CHANGE","artwork_offer",CREAM,true,15)
+ if Art.eligible(sim,selected_order) or not o.get("artwork_offer",{}).is_empty():_button(Rect2(389,665,818,29),"REVIEW CUSTOMER ARTWORK CHANGE","artwork_offer",CREAM,true,14)
  _button(Rect2(389,703,397,48),"BACK TO SHOP","close",NAVY)
  _button(Rect2(801,703,406,48),"VIEW MATERIAL STOCK","stock",CREAM)
 
@@ -3194,7 +3199,9 @@ func _workshop_action(action:String) -> bool:
    if Art.resolve(sim,selected_order,p[1]):modal="order"
   "back_order":modal="order"
   "workshop":_cancel_world_drag();workshop_page=0;modal="workshop"
-  "worktab":workshop_page=int(p[1]);modal="workshop"
+  "worktab":
+   workshop_page=int(p[1]);modal="workshop"
+   if p.size()>2:workshop_service_page=int(p[2])
   "promotion":Ops.promo(sim)
   "service":Ops.start_service(sim,p[1]);modal="";sim.state["paused"]=false
   "finance":

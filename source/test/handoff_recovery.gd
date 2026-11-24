@@ -85,5 +85,7 @@ func run() -> void:
  if FileAccess.file_exists(pref): DirAccess.remove_absolute(pref)
  game.free()
  await process_frame
+ # Mixer playbacks retire asynchronously after the UI fixture releases streams.
+ await create_timer(.2).timeout
  print("HANDOFF RECOVERY: ",checks," checks, ",failures," failures")
- quit(failures)
+ call_deferred("quit",failures)

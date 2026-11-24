@@ -19,14 +19,23 @@ static func draw(g) -> void:
    g._text(Vector2(389,568),"Too much work creates queues, stock shortages and late-delivery trust losses.\nReview the Capacity board before accepting a rush or an opportunity.\nDecline an inquiry when its proposed deadline is unrealistic.",18,g.INK,810)
   1:
    g._text(Vector2(389,274),"One kit per service. A qualified worker walks over and locks the station.",18,g.INK,810)
-   var row=0
+   var service_ids=[]
    for id in s.state["machines"]:
     var m=s.state["machines"][id]
     if not Ops.SERVICE.has(m["kind"]) or m["kind"]=="shaker":continue
-    var y=315+row*58;row+=1
+    service_ids.append(id)
+   var pages=maxi(1,ceili(service_ids.size()/5.0))
+   g.workshop_service_page=posmod(g.workshop_service_page,pages)
+   for row in mini(5,service_ids.size()-g.workshop_service_page*5):
+    var id=service_ids[g.workshop_service_page*5+row];var m=s.state["machines"][id]
+    var y=315+row*58
     g._line(Vector2(389,y),m["title"]+" / "+Ops.service_status(s,id),16,g.INK,622)
     g._button(Rect2(1025,y-22,182,36),"SERVICE  1 KIT","service:"+id,g.CYAN,not m.has("service_work") and m["active"]<0,14)
     if m.get("broken",false):g._button(Rect2(850,y+13,357,22),"OPTIONAL 3-STEP JAM RECOVERY / 1 KIT","jam:"+id,g.YELLOW,true,11)
+   if pages>1:
+    g._button(Rect2(389,615,255,33),"< PREVIOUS","worktab:1:"+str(g.workshop_service_page-1),g.CREAM,true,14)
+    g._line(Vector2(665,638),"PAGE %d / %d" % [g.workshop_service_page+1,pages],15,g.BLUE,260)
+    g._button(Rect2(950,615,257,33),"NEXT >","worktab:1:"+str(g.workshop_service_page+1),g.CREAM,true,14)
    g._text(Vector2(389,675),"4 uses: routine due. Under 65%: 15% slower. Severe sustained neglect can stop a station.\nService continues during an open shift; paused shops do not advance service.",16,g.MUTED,810)
   2:
    g._text(Vector2(389,279),"AWAY SHIFT / ACCEPTED JOBS ONLY",23,g.BLUE,-1,true)
@@ -36,7 +45,13 @@ static func draw(g) -> void:
    g._button(Rect2(389,469,397,43),"AUTO SERVICE: "+("ON" if o["auto_service"] else "OFF"),"auto_service",g.CREAM,true,16)
    g._button(Rect2(801,469,406,43),"OFFLINE SETTLES ON CONTINUE","worktab:2",g.CREAM,false,15)
    g._text(Vector2(389,550),"Service budget: $24 within $100 total / no automatic supply purchases.\nOffline runs at 1x once per saved interval. Enable it before leaving an Away shift.\nIt saves the result before showing it; save failure restores the prior state.",17,g.INK,810)
-   g._text(Vector2(389,636),JSON.stringify(o["return_report"]),14,g.BLUE,810)
+   var report=o["return_report"];var summary="No away shift completed yet."
+   if not report.is_empty():
+    summary=str(report.get("reason","Away shift report"))
+    if report.has("seconds"):summary+="\nOffline time: %.1f minutes / Jobs completed: %d / Cash change: $%+.0f" % [float(report["seconds"])/60.0,int(report.get("jobs",0)),float(report.get("cash_change",0))]
+    elif report.has("cash"):summary+="\nCash on return: $%.0f" % float(report["cash"])
+    summary+="\nAway budget used: $%.0f" % float(report.get("spent",0))
+   g._text(Vector2(389,636),summary,14,g.BLUE,810)
   3:
    g._text(Vector2(389,275),"OPTIONAL EQUIPMENT AGREEMENTS",23,g.BLUE,-1,true)
    g._text(Vector2(389,313),"20% deposit + 10% fixed price fee, repaid over up to ten daily bills.\nA next-bill cash buffer is required. Maximum two active agreements.\nNo charge until placement succeeds. Accepted jobs never guarantee profit.",17,g.INK,810)
