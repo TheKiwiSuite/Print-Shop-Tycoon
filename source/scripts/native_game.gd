@@ -2668,7 +2668,7 @@ func _growth_advice() -> Array:
   if p["on_time"]<75: gaps.append("75%% on time (%.0f%%)" % p["on_time"])
   if p["quality"]<85: gaps.append("85%% quality (%.0f%%)" % p["quality"])
   if gaps.is_empty(): return ["NEXT STEP: Move to the warehouse ($900).","Room for banners, CNC and a second DTF line. "+why]
-  return ["NEXT STEP: Warehouse needs "+", ".join(gaps)+".",why]
+  return ["NEXT STEP: Warehouse needs "+", ".join(gaps.slice(0,3))+(" and more." if gaps.size()>3 else "."),why]
  if not sim.state["fit_out"]: return ["NEXT STEP: Industrial fit-out ($350) opens heavy equipment and a bigger team.",why]
  if not unlocked.is_empty():
   var id2=unlocked[0]
