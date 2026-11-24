@@ -217,7 +217,7 @@ jobs:
             fi
           done
           # Player notes come from the top section of RELEASE-NOTES.md in this commit.
-          gh api "repos/$GH_REPO/contents/RELEASE-NOTES.md?ref=$GITHUB_SHA" --jq .content | base64 -d | awk 'NR==1{print;next} /^# v/{exit} {print}' > notes.md
+          gh api "repos/$GH_REPO/contents/RELEASE-NOTES.md?ref=$GITHUB_SHA" --jq .content | base64 -d | awk 'NR==1{print;next} /^# v/{older=1} !older{print}' > notes.md
           [[ -s notes.md ]]
           printf '\nExtract the Windows ZIP and open windows/Print Shop Tycoon.exe, or use the in-game verified updater. Saves in %%APPDATA%%/PrintShopTycoonNative are kept. This build is unsigned.\n' >> notes.md
           # Legacy ZIP channel: the only format the v1.0.0-and-older in-game updater accepts.
