@@ -136,5 +136,9 @@ func run() -> void:
     check(review.load_game() and review.state["location"]==2 and not review.state["fit_out"],"Load supplied reproduction: "+name)
     game.sim=review;game._action("move");game._action("fit_out")
     check(game.sim.state["fit_out"] and FileAccess.get_sha256(path)==original,"Supplied profile buys fit-out without altering evidence: "+name)
+ # Stop streamed audio before destroying the fixture so the mixer releases its
+ # resources before the test process exits (also required on Linux CI).
+ game.music.stop()
  game.queue_free();await process_frame
+ await process_frame
  print("WORKSHOP OPERATIONS: %d checks, %d failures" % [checks,failures]);quit(failures)
