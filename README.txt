@@ -1,4 +1,4 @@
-PRINT SHOP TYCOON 1.1.0 — WINDOWS
+PRINT SHOP TYCOON 1.2.0 — WINDOWS
 
 PLAY
 Extract the whole ZIP and open windows/Print Shop Tycoon.exe. No installer,
@@ -26,6 +26,13 @@ Levels unlock machines: vinyl cutter, heat press, sticker print/cut, desktop
 DTF, mug press, full DTF line, embroidery, banner printer, CNC and shipping
 dock. Shop Growth names your next step, from garage to storefront to warehouse
 (with its industrial fit-out) to the print factory. Your layout moves with you.
+
+At the end of each day, PLAN TOMORROW shows bills, committed jobs, supplies,
+service and the next investment, and lets you pick a daily focus (Balanced,
+Volume, Premium quality, Customer growth or Recovery) with its trade-off shown.
+Shop Growth > Review Specializations lets you become a Sticker studio, Apparel
+house or Sign works shop. Named clients offer contracts with deposits and
+bonuses in Customer Desk > Clients + Contracts; declining is always free.
 
 Also in the shop: regulars, seasons, a rival across town, staff personalities,
 your own merch line with an online store and weekend craft market, marketing,

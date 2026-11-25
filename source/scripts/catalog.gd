@@ -35,6 +35,10 @@ static func layout(level:int) -> Dictionary:
   m["dock"] = station("dock",[16,0],[2,3],[-1,1],"Shipping dock",11)
  return m
 
+# Inquiry sizes and per-piece prices (authored balance, shared by daily inquiries and contracts).
+const BASE_QTY={"transfer":12,"sticker":60,"apparel":12,"banner":2,"cnc":6,"decal":24,"mug":12,"hat":8}
+const UNIT_PRICE={"transfer":20.0,"sticker":4.2,"apparel":50.0,"banner":380.0,"cnc":118.0,"decal":4.0,"mug":9.0,"hat":16.0}
+
 static func make_order(id:String, type:String, quantity:int, customer:String, due:float, reward:int) -> Dictionary:
  var products = {"transfer":"DTF transfers","sticker":"Die-cut stickers","apparel":"Club shirts","banner":"Event banners","cnc":"Routed signs","decal":"Vinyl decals","mug":"Printed mugs","hat":"Embroidered hats"}
  var dim={"transfer":[11,14],"apparel":[11,14],"sticker":[3,3],"banner":[36,84],"cnc":[24,36],"decal":[4,4],"mug":[8,3.5],"hat":[4,2.25]}[type]
